@@ -12,6 +12,7 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
+	"google.golang.org/grpc/status"
 
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/process"
@@ -160,6 +161,7 @@ func makePGConnection() *pg.DB {
 
 type DbTx interface {
 	QueryOne(interface{}, interface{}, ...interface{}) (orm.Result, error)
+	Exec(interface{}, ...interface{}) (orm.Result, error)
 }
 
 func saveNode(db DbTx, node *pb.Node) (bool, error) {
@@ -180,6 +182,18 @@ func saveNode(db DbTx, node *pb.Node) (bool, error) {
 	return xmax == "0", nil
 }
 
+func incWrongCounter(db DbTx, nodeStrID string) error {
+	id, err := storj.NodeIDFromString(nodeStrID)
+	if err != nil {
+		return err
+	}
+	_, err = db.Exec(`
+		INSERT INTO storj3_wrong_ids (id, counter) VALUES (?, 1)
+		ON CONFLICT (id) DO UPDATE SET counter = storj3_wrong_ids.counter + 1`,
+		id)
+	return err
+}
+
 func saveNodes(db *pg.DB, nodes []*pb.Node) (int, error) {
 	createdCount := 0
 	err := db.RunInTransaction(func (tx *pg.Tx) error {
@@ -198,6 +212,44 @@ func saveNodes(db *pg.DB, nodes []*pb.Node) (int, error) {
 		return createdCount, err
 	}
 	return createdCount, nil
+}
+
+func fetchAndSaveNodes(db DbTx, ins *Inspector, nodeIDs []string) ([]*pb.Node, int, error) {
+	createdCount := 0
+	nodes := make([]*pb.Node, 0, len(nodeIDs))
+	for i, id := range nodeIDs {
+		resp, err := ins.kadclient.LookupNode(context.Background(), &pb.LookupNodeRequest{
+			Id: id,
+		})
+		if err != nil {
+			if st, ok := status.FromError(err); ok {
+				if st.Message() == "node not found" {
+					fmt.Printf("skipping %s: not found\n", id)
+					if err := incWrongCounter(db, id);  err != nil {
+						return nil, createdCount, err
+					}
+				} else {
+					fmt.Printf("skipping %s: strange message: %s\n", id, st.Message())
+				}
+			} else {
+				fmt.Printf("skipping %s: strange reason: %s\n", id, ErrRequest.Wrap(err))
+			}
+			continue
+		}
+		node := resp.GetNode()
+		nodes = append(nodes, node)
+		created, err := saveNode(db, node)
+		if err != nil {
+			return nodes, createdCount, err
+		}
+		cChar := '.'
+		if created {
+			createdCount++
+			cChar = '+'
+		}
+		fmt.Printf("added %d/%d %c %s\n", i+1, len(nodeIDs), cChar, node.Id)
+	}
+	return nodes, createdCount, nil
 }
 
 func StartRecording(cmd *cobra.Command, args []string) (err error) {
@@ -234,29 +286,11 @@ func AddNodeById(cmd *cobra.Command, args []string) (err error) {
 	db := makePGConnection()
 
 	fmt.Printf("adding %d node(s)\n", len(args))
-	foundCount := 0
-	createdCount := 0
-	for iter, id := range args {
-		resp, err := i.kadclient.LookupNode(context.Background(), &pb.LookupNodeRequest{
-			Id: id,
-		})
-		if err != nil {
-			fmt.Printf("skipping %s: %s\n", id, ErrRequest.Wrap(err))
-			continue
-		}
-		foundCount++
-		created, err := saveNode(db, resp.GetNode())
-		if err != nil {
-			return err
-		}
-		cChar := '.'
-		if created {
-			createdCount++
-			cChar = '+'
-		}
-		fmt.Printf("added %d/%d %c %s\n", iter+1, len(args), cChar, resp.GetNode().Id)
+	nodes, createdCount, err := fetchAndSaveNodes(db, i, args)
+	if err != nil {
+		return err
 	}
-	fmt.Printf("nodes: %d total, %d found, %d new\n", len(args), foundCount, createdCount)
+	fmt.Printf("nodes: %d total, %d found, %d new\n", len(args), len(nodes), createdCount)
 	return nil
 }
 

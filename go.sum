@@ -330,3 +330,4 @@ mellium.im/sasl v0.2.1 h1:nspKSRg7/SyO0cRGY71OkfHab8tf9kCts6a6oTDut0w=
 mellium.im/sasl v0.2.1/go.mod h1:ROaEDLQNuf9vjKqE1SrAfnsobm2YKXT1gnN1uDp1PjQ=
 storj.io/storj v0.0.0-20190328200923-be06fdfd6c61 h1://5AlBrWYNjrHV1o3mh4gRHh3iFWEqHe116C4qe1iCc=
 storj.io/storj v0.0.0-20190328200923-be06fdfd6c61/go.mod h1:hMj7H4uIymVT2EmSsY0DVwt2jWmVzOfmYf8TWEHUGGY=
+storj.io/storj v0.0.0-20190329210707-3b12b5e85cc4 h1:Ky2kvWaQuoP7h6aTxY5/fUdYXa2noJ+ubQLqvkswyJA=
