@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"sync"
 
 	"github.com/go-pg/pg"
 	"github.com/go-pg/pg/orm"
@@ -58,17 +59,17 @@ var (
 		Short: "",
 		RunE:  StartRecording,
 	}
-	addNodeByIdCmd = &cobra.Command{
-		Use:   "add-node-by-id",
+	addNodesByIdCmd = &cobra.Command{
+		Use:   "add-nodes-by-id",
 		Short: "",
 		Args:  cobra.MinimumNArgs(1),
-		RunE:  AddNodeById,
+		RunE:  AddNodesById,
 	}
 )
 
 // Inspector gives access to kademlia, overlay cache
 type Inspector struct {
-	kadclient     pb.KadInspectorClient
+	kadclient pb.KadInspectorClient
 }
 
 // NewInspector creates a new gRPC inspector client for access to kad,
@@ -162,6 +163,7 @@ func makePGConnection() *pg.DB {
 type DbTx interface {
 	QueryOne(interface{}, interface{}, ...interface{}) (orm.Result, error)
 	Exec(interface{}, ...interface{}) (orm.Result, error)
+	RunInTransaction(func(*pg.Tx) error) error
 }
 
 func saveNode(db DbTx, node *pb.Node) (bool, error) {
@@ -194,9 +196,9 @@ func incWrongCounter(db DbTx, nodeStrID string) error {
 	return err
 }
 
-func saveNodes(db *pg.DB, nodes []*pb.Node) (int, error) {
+func saveNodes(db DbTx, nodes []*pb.Node) (int, error) {
 	createdCount := 0
-	err := db.RunInTransaction(func (tx *pg.Tx) error {
+	err := db.RunInTransaction(func(tx *pg.Tx) error {
 		for _, node := range nodes {
 			created, err := saveNode(tx, node)
 			if err != nil {
@@ -214,42 +216,87 @@ func saveNodes(db *pg.DB, nodes []*pb.Node) (int, error) {
 	return createdCount, nil
 }
 
-func fetchAndSaveNodes(db DbTx, ins *Inspector, nodeIDs []string) ([]*pb.Node, int, error) {
-	createdCount := 0
-	nodes := make([]*pb.Node, 0, len(nodeIDs))
-	for i, id := range nodeIDs {
-		resp, err := ins.kadclient.LookupNode(context.Background(), &pb.LookupNodeRequest{
-			Id: id,
-		})
-		if err != nil {
-			if st, ok := status.FromError(err); ok {
-				if st.Message() == "node not found" {
-					fmt.Printf("skipping %s: not found\n", id)
-					if err := incWrongCounter(db, id);  err != nil {
-						return nil, createdCount, err
-					}
-				} else {
-					fmt.Printf("skipping %s: strange message: %s\n", id, st.Message())
+func fetchNode(db DbTx, ins *Inspector, nodeID string) (*pb.Node, error) {
+	resp, err := ins.kadclient.LookupNode(context.Background(), &pb.LookupNodeRequest{
+		Id: nodeID,
+	})
+	if err != nil {
+		if st, ok := status.FromError(err); ok {
+			if st.Message() == "node not found" {
+				fmt.Printf("skipping %s: not found\n", nodeID)
+				if err := incWrongCounter(db, nodeID); err != nil {
+					return nil, err
 				}
 			} else {
-				fmt.Printf("skipping %s: strange reason: %s\n", id, ErrRequest.Wrap(err))
+				fmt.Printf("skipping %s: strange message: %s\n", nodeID, st.Message())
 			}
-			continue
+		} else {
+			fmt.Printf("skipping %s: strange reason: %s\n", nodeID, ErrRequest.Wrap(err))
 		}
-		node := resp.GetNode()
-		nodes = append(nodes, node)
-		created, err := saveNode(db, node)
-		if err != nil {
-			return nodes, createdCount, err
-		}
-		cChar := '.'
-		if created {
-			createdCount++
-			cChar = '+'
-		}
-		fmt.Printf("added %d/%d %c %s\n", i+1, len(nodeIDs), cChar, node.Id)
+		return nil, err
 	}
-	return nodes, createdCount, nil
+	return resp.GetNode(), nil
+}
+
+func fetchNodes(db DbTx, ins *Inspector, nodeIDs []string) ([]*pb.Node, error) {
+	nodeStrIDsChan := make(chan string)
+	nodesChan := make(chan *pb.Node)
+	nodes := make([]*pb.Node, 0, len(nodeIDs))
+	n := 8
+
+	wg := sync.WaitGroup{}
+	for i := 0; i < n; i++ {
+		go func() {
+			wg.Add(1)
+			for strID := range nodeStrIDsChan {
+				node, err := fetchNode(db, ins, strID)
+				if err == nil {
+					nodesChan <- node
+				}
+			}
+			wg.Done()
+		}()
+	}
+	go func() {
+		for _, id := range nodeIDs {
+			nodeStrIDsChan <- id
+		}
+		close(nodeStrIDsChan)
+		wg.Wait()
+		close(nodesChan)
+	}()
+	for node := range nodesChan {
+		nodes = append(nodes, node)
+	}
+	return nodes, nil
+}
+
+func fetchAndSaveNodes(db DbTx, ins *Inspector, nodeIDs []string) (int, int, error) {
+	savedCount := 0
+	createdCount := 0
+	n := 16
+	nodeIDsChunk := make([]string, 0, n)
+
+	for i := 0; i < len(nodeIDs); i += n {
+		nodeIDsChunk = nodeIDsChunk[:0]
+		for j := i; j < i+n && j < len(nodeIDs); j++ {
+			nodeIDsChunk = append(nodeIDsChunk, nodeIDs[j])
+		}
+		nodes, err := fetchNodes(db, ins, nodeIDsChunk)
+		if err != nil {
+			return 0, 0, err
+		}
+		cc, err := saveNodes(db, nodes)
+		if err != nil {
+			return 0, 0, err
+		}
+
+		savedCount += len(nodes)
+		createdCount += cc
+		fmt.Printf("chunk: %d/%d, saved: %d/%d, new: %d\n",
+			i/n+1, (len(nodeIDs)+n-1)/n, len(nodes), len(nodeIDsChunk), cc)
+	}
+	return savedCount, createdCount, nil
 }
 
 func StartRecording(cmd *cobra.Command, args []string) (err error) {
@@ -277,7 +324,7 @@ func StartRecording(cmd *cobra.Command, args []string) (err error) {
 	return nil
 }
 
-func AddNodeById(cmd *cobra.Command, args []string) (err error) {
+func AddNodesById(cmd *cobra.Command, args []string) (err error) {
 	i, err := NewInspector(*Addr)
 	if err != nil {
 		return ErrInspectorDial.Wrap(err)
@@ -286,18 +333,18 @@ func AddNodeById(cmd *cobra.Command, args []string) (err error) {
 	db := makePGConnection()
 
 	fmt.Printf("adding %d node(s)\n", len(args))
-	nodes, createdCount, err := fetchAndSaveNodes(db, i, args)
+	savedCount, createdCount, err := fetchAndSaveNodes(db, i, args)
 	if err != nil {
 		return err
 	}
-	fmt.Printf("nodes: %d total, %d found, %d new\n", len(args), len(nodes), createdCount)
+	fmt.Printf("nodes: %d total, %d saved, %d new\n", len(args), savedCount, createdCount)
 	return nil
 }
 
 func init() {
 	rootCmd.AddCommand(kadCmd)
 	rootCmd.AddCommand(startRecordingCmd)
-	rootCmd.AddCommand(addNodeByIdCmd)
+	rootCmd.AddCommand(addNodesByIdCmd)
 
 	kadCmd.AddCommand(nodeInfoCmd)
 	kadCmd.AddCommand(dumpNodesCmd)
