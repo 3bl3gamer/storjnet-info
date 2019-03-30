@@ -1,11 +1,14 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"sync"
+	"time"
 
 	"github.com/go-pg/pg"
 	"github.com/go-pg/pg/orm"
@@ -59,11 +62,17 @@ var (
 		Short: "",
 		RunE:  StartRecording,
 	}
-	addNodesByIdCmd = &cobra.Command{
+	addNodesByIDCmd = &cobra.Command{
 		Use:   "add-nodes-by-id",
 		Short: "",
 		Args:  cobra.MinimumNArgs(1),
 		RunE:  AddNodesById,
+	}
+	addNodesFromFile = &cobra.Command{
+		Use:   "add-nodes-from-file",
+		Short: "",
+		Args:  cobra.MinimumNArgs(1),
+		RunE:  AddNodesFromFile,
 	}
 )
 
@@ -341,10 +350,50 @@ func AddNodesById(cmd *cobra.Command, args []string) (err error) {
 	return nil
 }
 
+func AddNodesFromFile(cmd *cobra.Command, args []string) (err error) {
+	i, err := NewInspector(*Addr)
+	if err != nil {
+		return ErrInspectorDial.Wrap(err)
+	}
+
+	db := makePGConnection()
+
+	fpath := args[0]
+	var f *os.File
+
+	if fpath == "-" {
+		f = os.Stdin
+	} else {
+		f, err = os.Open("-")
+		if err != nil {
+			return err
+		}
+	}
+	lineF := bufio.NewReader(f)
+	f.SetReadDeadline(time.Now().Add(time.Second))
+	for {
+		line, err := lineF.ReadString('\n')
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return err
+		}
+		nodeID := line[:len(line)-1]
+		savedCount, createdCount, err := fetchAndSaveNodes(db, i, []string{nodeID})
+		if err != nil {
+			return err
+		}
+		fmt.Printf("nodes: %d total, %d saved, %d new\n", 1, savedCount, createdCount)
+	}
+	return nil
+}
+
 func init() {
 	rootCmd.AddCommand(kadCmd)
 	rootCmd.AddCommand(startRecordingCmd)
-	rootCmd.AddCommand(addNodesByIdCmd)
+	rootCmd.AddCommand(addNodesByIDCmd)
+	rootCmd.AddCommand(addNodesFromFile)
 
 	kadCmd.AddCommand(nodeInfoCmd)
 	kadCmd.AddCommand(dumpNodesCmd)
