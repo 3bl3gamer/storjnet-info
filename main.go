@@ -234,7 +234,7 @@ func fetchNode(db DbTx, ins *Inspector, nodeID string) (*pb.Node, error) {
 			if st.Message() == "node not found" {
 				fmt.Printf("skipping %s: not found\n", nodeID)
 				if err := incWrongCounter(db, nodeID); err != nil {
-					return nil, err
+					panic(err)
 				}
 			} else {
 				fmt.Printf("skipping %s: strange message: %s\n", nodeID, st.Message())
@@ -247,10 +247,8 @@ func fetchNode(db DbTx, ins *Inspector, nodeID string) (*pb.Node, error) {
 	return resp.GetNode(), nil
 }
 
-func fetchNodes(db DbTx, ins *Inspector, nodeIDs []string) ([]*pb.Node, error) {
-	nodeStrIDsChan := make(chan string)
+func startNodesFetching(db DbTx, ins *Inspector, nodeStrIDsChan chan string) chan *pb.Node {
 	nodesChan := make(chan *pb.Node)
-	nodes := make([]*pb.Node, 0, len(nodeIDs))
 	n := 8
 
 	wg := sync.WaitGroup{}
@@ -261,50 +259,90 @@ func fetchNodes(db DbTx, ins *Inspector, nodeIDs []string) ([]*pb.Node, error) {
 				node, err := fetchNode(db, ins, strID)
 				if err == nil {
 					nodesChan <- node
+				} else {
+					nodesChan <- nil
 				}
 			}
 			wg.Done()
 		}()
 	}
 	go func() {
+		wg.Wait()
+		close(nodesChan)
+	}()
+	return nodesChan
+}
+
+type NodesSaveResult struct {
+	nodes        []*pb.Node
+	totalCount   int
+	createdCount int
+	err          error
+}
+
+func startNodesSaving(db DbTx, nodesChan chan *pb.Node) chan NodesSaveResult {
+	resultsChan := make(chan NodesSaveResult)
+	groupSize := 16
+	go func() {
+		totalCount := 0
+		nodes := make([]*pb.Node, 0)
+	loop:
+		for {
+			select {
+			case node, ok := <-nodesChan:
+				if !ok {
+					break loop
+				}
+				totalCount++
+				if node != nil {
+					nodes = append(nodes, node)
+				}
+				if totalCount < groupSize {
+					continue loop
+				}
+			case <-time.After(5 * time.Second):
+			}
+
+			if len(nodes) > 0 {
+				cc, err := saveNodes(db, nodes)
+				resultsChan <- NodesSaveResult{append(nodes[:0:0], nodes...), totalCount, cc, err}
+				if err != nil {
+					break
+				}
+				nodes = nodes[:0]
+				totalCount = 0
+			}
+		}
+		close(resultsChan)
+	}()
+	return resultsChan
+}
+
+func fetchAndSaveNodes(db DbTx, ins *Inspector, nodeIDs []string) (int, int, error) {
+	totalCount := 0
+	savedCount := 0
+	createdCount := 0
+
+	nodeStrIDsChan := make(chan string)
+	go func() {
 		for _, id := range nodeIDs {
 			nodeStrIDsChan <- id
 		}
 		close(nodeStrIDsChan)
-		wg.Wait()
-		close(nodesChan)
 	}()
-	for node := range nodesChan {
-		nodes = append(nodes, node)
+	nodesChan := startNodesFetching(db, ins, nodeStrIDsChan)
+	resultsChan := startNodesSaving(db, nodesChan)
+	for res := range resultsChan {
+		if res.err != nil {
+			return 0, 0, res.err
+		}
+		totalCount += res.totalCount
+		savedCount += len(res.nodes)
+		createdCount += res.createdCount
+		fmt.Printf("total: %d/%d, chunk: %d/%d, new: %d\n",
+			totalCount, len(nodeIDs), len(res.nodes), res.totalCount, res.createdCount)
 	}
-	return nodes, nil
-}
 
-func fetchAndSaveNodes(db DbTx, ins *Inspector, nodeIDs []string) (int, int, error) {
-	savedCount := 0
-	createdCount := 0
-	n := 16
-	nodeIDsChunk := make([]string, 0, n)
-
-	for i := 0; i < len(nodeIDs); i += n {
-		nodeIDsChunk = nodeIDsChunk[:0]
-		for j := i; j < i+n && j < len(nodeIDs); j++ {
-			nodeIDsChunk = append(nodeIDsChunk, nodeIDs[j])
-		}
-		nodes, err := fetchNodes(db, ins, nodeIDsChunk)
-		if err != nil {
-			return 0, 0, err
-		}
-		cc, err := saveNodes(db, nodes)
-		if err != nil {
-			return 0, 0, err
-		}
-
-		savedCount += len(nodes)
-		createdCount += cc
-		fmt.Printf("chunk: %d/%d, saved: %d/%d, new: %d\n",
-			i/n+1, (len(nodeIDs)+n-1)/n, len(nodes), len(nodeIDsChunk), cc)
-	}
 	return savedCount, createdCount, nil
 }
 
@@ -351,7 +389,7 @@ func AddNodesById(cmd *cobra.Command, args []string) (err error) {
 }
 
 func AddNodesFromFile(cmd *cobra.Command, args []string) (err error) {
-	i, err := NewInspector(*Addr)
+	ins, err := NewInspector(*Addr)
 	if err != nil {
 		return ErrInspectorDial.Wrap(err)
 	}
@@ -370,21 +408,63 @@ func AddNodesFromFile(cmd *cobra.Command, args []string) (err error) {
 		}
 	}
 	lineF := bufio.NewReader(f)
-	f.SetReadDeadline(time.Now().Add(time.Second))
-	for {
-		line, err := lineF.ReadString('\n')
-		if err == io.EOF {
-			break
+
+	nodeStrIDsChan := make(chan string, 64)
+	go func() {
+		lastIDs := make([]string, 0)
+		for i := 0; ; i++ {
+			line, err := lineF.ReadString('\n')
+			if err == io.EOF {
+				break
+			}
+			if err != nil {
+				panic(err)
+			}
+			nodeID := line[:len(line)-1]
+			if f == os.Stdin && len(nodeStrIDsChan) == cap(nodeStrIDsChan) {
+				println("buffer is full, skipping")
+				continue
+			}
+
+			found := false
+			for _, lastID := range lastIDs {
+				if lastID == nodeID {
+					println("node ID is recent, skipping")
+					found = true
+					break
+				}
+			}
+			if !found {
+				nodeStrIDsChan <- nodeID
+				if len(lastIDs) < 256 {
+					lastIDs = append(lastIDs, nodeID)
+				} else {
+					for i := 0; i < len(lastIDs)-1; i++ {
+						lastIDs[i] = lastIDs[i+1]
+					}
+					lastIDs[len(lastIDs)-1] = nodeID
+				}
+			}
+			if i%50 == 0 {
+				fmt.Printf("file buf fill: %d/%d\n", len(nodeStrIDsChan), cap(nodeStrIDsChan))
+			}
 		}
-		if err != nil {
-			return err
+		close(nodeStrIDsChan)
+	}()
+	nodesChan := startNodesFetching(db, ins, nodeStrIDsChan)
+	resultsChan := startNodesSaving(db, nodesChan)
+	totalCount := 0
+	createdCount := 0
+	startStamp := time.Now().Unix()
+	for res := range resultsChan {
+		if res.err != nil {
+			return res.err
 		}
-		nodeID := line[:len(line)-1]
-		savedCount, createdCount, err := fetchAndSaveNodes(db, i, []string{nodeID})
-		if err != nil {
-			return err
-		}
-		fmt.Printf("nodes: %d total, %d saved, %d new\n", 1, savedCount, createdCount)
+		totalCount += res.totalCount
+		createdCount += res.createdCount
+		speed := float64(totalCount) / float64(time.Now().Unix()-startStamp)
+		fmt.Printf("total: %d, new: %d, speed: %.2f n/s | chunk: %d/%d, new: %d\n",
+			totalCount, createdCount, speed, len(res.nodes), res.totalCount, res.createdCount)
 	}
 	return nil
 }
