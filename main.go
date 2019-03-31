@@ -322,6 +322,7 @@ func fetchAndSaveNodes(db DbTx, ins *Inspector, nodeIDs []string) (int, int, err
 	totalCount := 0
 	savedCount := 0
 	createdCount := 0
+	startStamp := time.Now().Unix()
 
 	nodeStrIDsChan := make(chan string)
 	go func() {
@@ -339,8 +340,9 @@ func fetchAndSaveNodes(db DbTx, ins *Inspector, nodeIDs []string) (int, int, err
 		totalCount += res.totalCount
 		savedCount += len(res.nodes)
 		createdCount += res.createdCount
-		fmt.Printf("total: %d/%d, chunk: %d/%d, new: %d\n",
-			totalCount, len(nodeIDs), len(res.nodes), res.totalCount, res.createdCount)
+		speed := float64(totalCount) / float64(time.Now().Unix()-startStamp)
+		fmt.Printf("total: %d/%d, speed: %0.2f n/s, chunk: %d/%d, new: %d\n",
+			totalCount, len(nodeIDs), speed, len(res.nodes), res.totalCount, res.createdCount)
 	}
 
 	return savedCount, createdCount, nil
