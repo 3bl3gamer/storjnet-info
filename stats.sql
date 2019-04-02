@@ -11,7 +11,7 @@ FROM (SELECT length(substring(('x'||encode(id, 'hex'))::bit(256)::text FROM '0*$
 GROUP BY dif
 ORDER BY dif;
 
-SELECT delta AS hours, count(*), repeat('*', (count(*)/4+1)::int) AS count_chart
+SELECT delta AS hours, count(*), repeat('*', (count(*)/4+1)::int) AS count_chart, CASE WHEN delta<24 THEN '<<<' END AS today
 FROM (SELECT (extract(epoch FROM now() - updated_at)/3600)::int AS delta, *
       FROM storj3_nodes) AS t
 GROUP BY delta

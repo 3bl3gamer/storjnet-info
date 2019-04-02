@@ -438,7 +438,7 @@ func AddNodesFromFile(cmd *cobra.Command, args []string) (err error) {
 			}
 			if !found {
 				nodeStrIDsChan <- nodeID
-				if len(lastIDs) < 256 {
+				if len(lastIDs) < 128 {
 					lastIDs = append(lastIDs, nodeID)
 				} else {
 					for i := 0; i < len(lastIDs)-1; i++ {
