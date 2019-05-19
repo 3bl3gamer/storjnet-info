@@ -2,159 +2,55 @@ package main
 
 import (
 	"bufio"
-	"context"
-	"flag"
-	"fmt"
 	"io"
+	"log"
 	"os"
-	"sync"
-	"time"
+	"strings"
 
+	"github.com/ansel1/merry"
 	"github.com/go-pg/pg"
-	"github.com/go-pg/pg/orm"
 	"github.com/gogo/protobuf/jsonpb"
-	"github.com/gogo/protobuf/proto"
 	"github.com/spf13/cobra"
-	"github.com/zeebo/errs"
-	"google.golang.org/grpc/status"
-
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/storj"
-	"storj.io/storj/pkg/transport"
 )
 
 var (
-	// Addr is the address of peer from command flags
-	Addr = flag.String("address", "127.0.0.1:7778", "address of peer to inspect")
-
-	// ErrInspectorDial throws when there are errors dialing the inspector server
-	ErrInspectorDial = errs.Class("error dialing inspector server:")
-
-	// ErrRequest is for gRPC request errors after dialing
-	ErrRequest = errs.Class("error processing request:")
-
-	// ErrArgs throws when there are errors with CLI args
-	ErrArgs = errs.Class("error with CLI args:")
-
-	// Commander CLI
 	rootCmd = &cobra.Command{
-		Use:   "inspector",
-		Short: "CLI for interacting with Storj Kademlia network",
+		Use:   "storj3stat",
+		Short: "Tool for gathering storj network stats",
 	}
-	kadCmd = &cobra.Command{
+	importCmd = &cobra.Command{
+		Use:   "import",
+		Short: "import nodes data",
+	}
+	importIDsCmd = &cobra.Command{
+		Use:   "ids",
+		Short: "import raw node IDs",
+		Args:  cobra.MinimumNArgs(1),
+		RunE:  ImportNodeIDs,
+	}
+	importKadDataCmd = &cobra.Command{
 		Use:   "kad",
-		Short: "commands for kademlia/overlay cache",
-	}
-	nodeInfoCmd = &cobra.Command{
-		Use:   "node-info <node_id>",
-		Short: "get node info directly from node",
+		Short: "import nodes kad data",
 		Args:  cobra.MinimumNArgs(1),
-		RunE:  NodeInfo,
-	}
-	dumpNodesCmd = &cobra.Command{
-		Use:   "dump-nodes",
-		Short: "dump all nodes in the routing table",
-		RunE:  DumpNodes,
-	}
-	startRecordingCmd = &cobra.Command{
-		Use:   "start-recording",
-		Short: "",
-		RunE:  StartRecording,
-	}
-	addNodesByIDCmd = &cobra.Command{
-		Use:   "add-nodes-by-id",
-		Short: "",
-		Args:  cobra.MinimumNArgs(1),
-		RunE:  AddNodesById,
-	}
-	addNodesFromFile = &cobra.Command{
-		Use:   "add-nodes-from-file",
-		Short: "",
-		Args:  cobra.MinimumNArgs(1),
-		RunE:  AddNodesFromFile,
+		RunE:  ImportNodesKadData,
 	}
 )
 
-// Inspector gives access to kademlia, overlay cache
-type Inspector struct {
-	kadclient pb.KadInspectorClient
+func init() {
+	rootCmd.AddCommand(importCmd)
+	importCmd.AddCommand(importIDsCmd)
+	importCmd.AddCommand(importKadDataCmd)
 }
 
-// NewInspector creates a new gRPC inspector client for access to kad,
-// overlay cache
-func NewInspector(address string) (*Inspector, error) {
-	ctx := context.Background()
-
-	conn, err := transport.DialAddressInsecure(ctx, address)
-	if err != nil {
-		return &Inspector{}, ErrInspectorDial.Wrap(err)
+func openFileOrStdin(fpath string) (*os.File, error) {
+	if fpath == "-" {
+		return os.Stdin, nil
+	} else {
+		f, err := os.Open(fpath)
+		return f, merry.Wrap(err)
 	}
-
-	return &Inspector{
-		kadclient: pb.NewKadInspectorClient(conn),
-	}, nil
-}
-
-// NodeInfo get node info directly from the node with provided Node ID
-func NodeInfo(cmd *cobra.Command, args []string) (err error) {
-	i, err := NewInspector(*Addr)
-	if err != nil {
-		return ErrInspectorDial.Wrap(err)
-	}
-
-	// first lookup the node to get its address
-	n, err := i.kadclient.LookupNode(context.Background(), &pb.LookupNodeRequest{
-		Id: args[0],
-	})
-	if err != nil {
-		return ErrRequest.Wrap(err)
-	}
-
-	fmt.Println(prettyPrint(n))
-
-	// now ask the node directly for its node info
-	info, err := i.kadclient.NodeInfo(context.Background(), &pb.NodeInfoRequest{
-		Id:      n.GetNode().Id,
-		Address: n.GetNode().GetAddress(),
-	})
-	if err != nil {
-		return ErrRequest.Wrap(err)
-	}
-
-	fmt.Println(prettyPrint(info))
-
-	return nil
-}
-
-// DumpNodes outputs a json list of every node in every bucket in the satellite
-func DumpNodes(cmd *cobra.Command, args []string) (err error) {
-	i, err := NewInspector(*Addr)
-	if err != nil {
-		return ErrInspectorDial.Wrap(err)
-	}
-
-	nodes, err := i.kadclient.FindNear(context.Background(), &pb.FindNearRequest{
-		Start: storj.NodeID{},
-		Limit: 100000,
-	})
-	if err != nil {
-		return err
-	}
-
-	fmt.Println(prettyPrint(nodes))
-
-	return nil
-}
-
-func prettyPrint(unformatted proto.Message) string {
-	m := jsonpb.Marshaler{Indent: "  ", EmitDefaults: true}
-	formatted, err := m.MarshalToString(unformatted)
-	if err != nil {
-		fmt.Println("Error", err)
-		os.Exit(1)
-	}
-	return formatted
 }
 
 func makePGConnection() *pg.DB {
@@ -169,320 +65,165 @@ func makePGConnection() *pg.DB {
 	return db
 }
 
-type DbTx interface {
-	QueryOne(interface{}, interface{}, ...interface{}) (orm.Result, error)
-	Exec(interface{}, ...interface{}) (orm.Result, error)
-	RunInTransaction(func(*pg.Tx) error) error
-}
-
-func saveNode(db DbTx, node *pb.Node) (bool, error) {
-	m := jsonpb.Marshaler{Indent: "", EmitDefaults: true}
-	str, err := m.MarshalToString(node)
-	if err != nil {
-		return false, err
-	}
-	var xmax string
-	_, err = db.QueryOne(&xmax, `
-		INSERT INTO storj3_nodes (id, params, updated_at) VALUES (?, ?::jsonb, NOW())
-		ON CONFLICT (id) DO UPDATE SET params = EXCLUDED.params, updated_at = NOW()
-		RETURNING xmax`,
-		node.Id, str)
-	if err != nil {
-		return false, err
-	}
-	return xmax == "0", nil
-}
-
-func incWrongCounter(db DbTx, nodeStrID string) error {
-	id, err := storj.NodeIDFromString(nodeStrID)
-	if err != nil {
-		return err
-	}
-	_, err = db.Exec(`
-		INSERT INTO storj3_wrong_ids (id, counter) VALUES (?, 1)
-		ON CONFLICT (id) DO UPDATE SET counter = storj3_wrong_ids.counter + 1`,
-		id)
-	return err
-}
-
-func saveNodes(db DbTx, nodes []*pb.Node) (int, error) {
-	createdCount := 0
-	err := db.RunInTransaction(func(tx *pg.Tx) error {
-		for _, node := range nodes {
-			created, err := saveNode(tx, node)
+func saveChunked(db *pg.DB, chunkSize int, channel chan interface{}, handler func(tx *pg.Tx, items []interface{}) error) error {
+	var err error
+	items := make([]interface{}, 0, chunkSize)
+	for item := range channel {
+		items = append(items, item)
+		if len(items) >= chunkSize {
+			err = db.RunInTransaction(func(tx *pg.Tx) error {
+				return merry.Wrap(handler(tx, items))
+			})
 			if err != nil {
-				return err
+				return merry.Wrap(err)
 			}
-			if created {
-				createdCount++
+			items = items[:0]
+		}
+	}
+	if len(items) > 0 {
+		err = db.RunInTransaction(func(tx *pg.Tx) error {
+			return merry.Wrap(handler(tx, items))
+		})
+	}
+	return merry.Wrap(err)
+}
+
+func ImportNodeIDs(cmd *cobra.Command, args []string) (err error) {
+	f, err := openFileOrStdin(args[0])
+	if err != nil {
+		return merry.Wrap(err)
+	}
+	defer f.Close()
+
+	db := makePGConnection()
+	nodeIDsChan := make(chan interface{}, 16)
+	errChan := make(chan error, 1)
+
+	go func() {
+		lineF := bufio.NewReader(f)
+		for {
+			line, err := lineF.ReadString('\n')
+			if err == io.EOF {
+				if line == "" {
+					break
+				}
+			} else if err != nil {
+				errChan <- merry.Wrap(err)
+				break
+			}
+			if line[len(line)-1] == '\n' {
+				line = line[:len(line)-1]
+			}
+			id, err := storj.NodeIDFromString(line)
+			if err != nil {
+				errChan <- merry.Wrap(err)
+				break
+			}
+			nodeIDsChan <- id
+		}
+		close(nodeIDsChan)
+	}()
+
+	count := 0
+	countNew := 0
+	err = saveChunked(db, 100, nodeIDsChan, func(tx *pg.Tx, items []interface{}) error {
+		for _, id := range items {
+			res, err := db.Exec(`INSERT INTO storj3_nodes (id) VALUES (?) ON CONFLICT (id) DO NOTHING RETURNING xmax`, id)
+			if err != nil {
+				return merry.Wrap(err)
+			}
+			count++
+			if res.RowsAffected() > 0 {
+				countNew++
 			}
 		}
+		log.Printf("imported %d IDs, %d new", count, countNew)
 		return nil
 	})
 	if err != nil {
-		return createdCount, err
+		return merry.Wrap(err)
 	}
-	return createdCount, nil
+
+	select {
+	case err := <-errChan:
+		return merry.Wrap(err)
+	default:
+	}
+
+	log.Printf("done")
+	return nil
 }
 
-func fetchNode(db DbTx, ins *Inspector, nodeID string) (*pb.Node, error) {
-	resp, err := ins.kadclient.LookupNode(context.Background(), &pb.LookupNodeRequest{
-		Id: nodeID,
-	})
+func ImportNodesKadData(cmd *cobra.Command, args []string) (err error) {
+	f, err := openFileOrStdin(args[0])
 	if err != nil {
-		if st, ok := status.FromError(err); ok {
-			if st.Message() == "node not found" {
-				fmt.Printf("skipping %s: not found\n", nodeID)
-				if err := incWrongCounter(db, nodeID); err != nil {
-					panic(err)
-				}
-			} else {
-				fmt.Printf("skipping %s: strange message: %s\n", nodeID, st.Message())
-			}
-		} else {
-			fmt.Printf("skipping %s: strange reason: %s\n", nodeID, ErrRequest.Wrap(err))
-		}
-		return nil, err
+		return merry.Wrap(err)
 	}
-	return resp.GetNode(), nil
-}
+	defer f.Close()
 
-func startNodesFetching(db DbTx, ins *Inspector, nodeStrIDsChan chan string) chan *pb.Node {
-	nodesChan := make(chan *pb.Node)
-	n := 8
+	db := makePGConnection()
+	kadDataChan := make(chan interface{}, 16)
+	errChan := make(chan error, 1)
 
-	wg := sync.WaitGroup{}
-	for i := 0; i < n; i++ {
-		go func() {
-			wg.Add(1)
-			for strID := range nodeStrIDsChan {
-				node, err := fetchNode(db, ins, strID)
-				if err == nil {
-					nodesChan <- node
-				} else {
-					nodesChan <- nil
-				}
-			}
-			wg.Done()
-		}()
-	}
 	go func() {
-		wg.Wait()
-		close(nodesChan)
-	}()
-	return nodesChan
-}
-
-type NodesSaveResult struct {
-	nodes        []*pb.Node
-	totalCount   int
-	createdCount int
-	err          error
-}
-
-func startNodesSaving(db DbTx, nodesChan chan *pb.Node) chan NodesSaveResult {
-	resultsChan := make(chan NodesSaveResult)
-	groupSize := 16
-	go func() {
-		totalCount := 0
-		nodes := make([]*pb.Node, 0)
-	loop:
+		lineF := bufio.NewReader(f)
 		for {
-			select {
-			case node, ok := <-nodesChan:
-				if !ok {
-					break loop
-				}
-				totalCount++
-				if node != nil {
-					nodes = append(nodes, node)
-				}
-				if totalCount < groupSize {
-					continue loop
-				}
-			case <-time.After(5 * time.Second):
-			}
-
-			if len(nodes) > 0 {
-				cc, err := saveNodes(db, nodes)
-				resultsChan <- NodesSaveResult{append(nodes[:0:0], nodes...), totalCount, cc, err}
-				if err != nil {
-					break
-				}
-				nodes = nodes[:0]
-				totalCount = 0
-			}
-		}
-		close(resultsChan)
-	}()
-	return resultsChan
-}
-
-func fetchAndSaveNodes(db DbTx, ins *Inspector, nodeIDs []string) (int, int, error) {
-	totalCount := 0
-	savedCount := 0
-	createdCount := 0
-	startStamp := time.Now().Unix()
-
-	nodeStrIDsChan := make(chan string)
-	go func() {
-		for _, id := range nodeIDs {
-			nodeStrIDsChan <- id
-		}
-		close(nodeStrIDsChan)
-	}()
-	nodesChan := startNodesFetching(db, ins, nodeStrIDsChan)
-	resultsChan := startNodesSaving(db, nodesChan)
-	for res := range resultsChan {
-		if res.err != nil {
-			return 0, 0, res.err
-		}
-		totalCount += res.totalCount
-		savedCount += len(res.nodes)
-		createdCount += res.createdCount
-		speed := float64(totalCount) / float64(time.Now().Unix()-startStamp)
-		fmt.Printf("total: %d/%d, speed: %0.2f n/s, chunk: %d/%d, new: %d\n",
-			totalCount, len(nodeIDs), speed, len(res.nodes), res.totalCount, res.createdCount)
-	}
-
-	return savedCount, createdCount, nil
-}
-
-func StartRecording(cmd *cobra.Command, args []string) (err error) {
-	i, err := NewInspector(*Addr)
-	if err != nil {
-		return ErrInspectorDial.Wrap(err)
-	}
-
-	db := makePGConnection()
-
-	nodes, err := i.kadclient.FindNear(context.Background(), &pb.FindNearRequest{
-		Start: storj.NodeID{},
-		Limit: 100000,
-	})
-	if err != nil {
-		return err
-	}
-
-	createdCount, err := saveNodes(db, nodes.GetNodes())
-	if err != nil {
-		return err
-	}
-	fmt.Printf("nodes: %d total, %d new\n", len(nodes.GetNodes()), createdCount)
-
-	return nil
-}
-
-func AddNodesById(cmd *cobra.Command, args []string) (err error) {
-	i, err := NewInspector(*Addr)
-	if err != nil {
-		return ErrInspectorDial.Wrap(err)
-	}
-
-	db := makePGConnection()
-
-	fmt.Printf("adding %d node(s)\n", len(args))
-	savedCount, createdCount, err := fetchAndSaveNodes(db, i, args)
-	if err != nil {
-		return err
-	}
-	fmt.Printf("nodes: %d total, %d saved, %d new\n", len(args), savedCount, createdCount)
-	return nil
-}
-
-func AddNodesFromFile(cmd *cobra.Command, args []string) (err error) {
-	ins, err := NewInspector(*Addr)
-	if err != nil {
-		return ErrInspectorDial.Wrap(err)
-	}
-
-	db := makePGConnection()
-
-	fpath := args[0]
-	var f *os.File
-
-	if fpath == "-" {
-		f = os.Stdin
-	} else {
-		f, err = os.Open("-")
-		if err != nil {
-			return err
-		}
-	}
-	lineF := bufio.NewReader(f)
-
-	nodeStrIDsChan := make(chan string, 64)
-	go func() {
-		lastIDs := make([]string, 0)
-		for i := 0; ; i++ {
 			line, err := lineF.ReadString('\n')
 			if err == io.EOF {
-				break
-			}
-			if err != nil {
-				panic(err)
-			}
-			nodeID := line[:len(line)-1]
-			if f == os.Stdin && len(nodeStrIDsChan) == cap(nodeStrIDsChan) {
-				println("buffer is full, skipping")
-				continue
-			}
-
-			found := false
-			for _, lastID := range lastIDs {
-				if lastID == nodeID {
-					println("node ID is recent, skipping")
-					found = true
+				if line == "" {
 					break
 				}
+			} else if err != nil {
+				errChan <- merry.Wrap(err)
+				break
 			}
-			if !found {
-				nodeStrIDsChan <- nodeID
-				if len(lastIDs) < 128 {
-					lastIDs = append(lastIDs, nodeID)
-				} else {
-					for i := 0; i < len(lastIDs)-1; i++ {
-						lastIDs[i] = lastIDs[i+1]
-					}
-					lastIDs[len(lastIDs)-1] = nodeID
-				}
+			node := &pb.Node{}
+			if err := jsonpb.Unmarshal(strings.NewReader(line), node); err != nil {
+				errChan <- merry.Wrap(err)
+				break
 			}
-			if i%50 == 0 {
-				fmt.Printf("file buf fill: %d/%d\n", len(nodeStrIDsChan), cap(nodeStrIDsChan))
-			}
+			kadDataChan <- node
 		}
-		close(nodeStrIDsChan)
+		close(kadDataChan)
 	}()
-	nodesChan := startNodesFetching(db, ins, nodeStrIDsChan)
-	resultsChan := startNodesSaving(db, nodesChan)
-	totalCount := 0
-	createdCount := 0
-	startStamp := time.Now().Unix()
-	for res := range resultsChan {
-		if res.err != nil {
-			return res.err
+
+	count := 0
+	countNew := 0
+	err = saveChunked(db, 100, kadDataChan, func(tx *pg.Tx, items []interface{}) error {
+		for _, node := range items {
+			var xmax string
+			_, err := db.QueryOne(&xmax, `
+				INSERT INTO storj3_nodes (id, kad_params, kad_updated_at)
+				VALUES (?, ?, NOW())
+				ON CONFLICT (id) DO UPDATE SET kad_params = EXCLUDED.kad_params, kad_updated_at = NOW()
+				RETURNING xmax`, node.(*pb.Node).Id, node)
+			if err != nil {
+				return merry.Wrap(err)
+			}
+			count++
+			if xmax == "0" {
+				countNew++
+			}
 		}
-		totalCount += res.totalCount
-		createdCount += res.createdCount
-		speed := float64(totalCount) / float64(time.Now().Unix()-startStamp)
-		fmt.Printf("total: %d, new: %d, speed: %.2f n/s | chunk: %d/%d, new: %d\n",
-			totalCount, createdCount, speed, len(res.nodes), res.totalCount, res.createdCount)
+		log.Printf("imported %d kad nodes, %d new", count, countNew)
+		return nil
+	})
+	if err != nil {
+		return merry.Wrap(err)
 	}
+
+	select {
+	case err := <-errChan:
+		return merry.Wrap(err)
+	default:
+	}
+
+	log.Printf("done, imported %d kad nodes, %d new", count, countNew)
 	return nil
-}
-
-func init() {
-	rootCmd.AddCommand(kadCmd)
-	rootCmd.AddCommand(startRecordingCmd)
-	rootCmd.AddCommand(addNodesByIDCmd)
-	rootCmd.AddCommand(addNodesFromFile)
-
-	kadCmd.AddCommand(nodeInfoCmd)
-	kadCmd.AddCommand(dumpNodesCmd)
-
-	flag.Parse()
 }
 
 func main() {
-	process.Exec(rootCmd)
+	if err := rootCmd.Execute(); err != nil {
+		log.Print(merry.Details(err))
+	}
 }
