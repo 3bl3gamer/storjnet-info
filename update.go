@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"sync"
 	"time"
 
-	"github.com/ansel1/merry"
 	"github.com/go-pg/pg"
 	"google.golang.org/grpc/status"
 	"storj.io/storj/pkg/pb"
@@ -23,30 +23,18 @@ func NewInspector() (pb.KadInspectorClient, error) {
 	return pb.NewKadInspectorClient(conn), nil
 }
 
-type KadDataFetcher struct {
-	nodeIDsChan chan storj.NodeID
-	errChan     chan error
-}
-
-func (u KadDataFetcher) Add(id storj.NodeID) {
-	u.nodeIDsChan <- id
-}
-
-func StartNodesKadDataFetcher(saver *KadDataSaver) *KadDataFetcher {
-	fetcher := &KadDataFetcher{
-		nodeIDsChan: make(chan storj.NodeID, 16),
-		errChan:     make(chan error, 1),
-	}
+func StartNodesKadDataFetcher(wg *sync.WaitGroup, nodeIDsChan chan storj.NodeID, kadDataChan chan *pb.Node) Worker {
+	worker := NewSimpleWorker()
 
 	inspector, err := NewInspector()
 	if err != nil {
-		fetcher.errChan <- merry.Wrap(err)
-		return fetcher
+		worker.AddError(err)
+		return worker
 	}
 
 	go func() {
-		defer close(fetcher.errChan)
-		for nodeID := range fetcher.nodeIDsChan {
+		defer worker.Done()
+		for nodeID := range nodeIDsChan {
 			resp, err := inspector.LookupNode(context.Background(), &pb.LookupNodeRequest{
 				Id: nodeID.String(),
 			})
@@ -62,30 +50,25 @@ func StartNodesKadDataFetcher(saver *KadDataSaver) *KadDataFetcher {
 				}
 				continue
 			}
-			saver.Add(resp.GetNode())
+			kadDataChan <- resp.GetNode()
 		}
 	}()
-	return fetcher
+	return worker
 }
 
-type NeighborsKadDataFetcher struct {
-	errChan chan error
-}
-
-func StartNeighborsKadDataFetcher(saver *KadDataSaver) *NeighborsKadDataFetcher {
-	fetcher := &NeighborsKadDataFetcher{
-		errChan: make(chan error, 1),
-	}
+func StartNeighborsKadDataFetcher(kadDataChan chan *pb.Node) Worker {
+	worker := NewSimpleWorker()
 
 	inspector, err := NewInspector()
 	if err != nil {
-		fetcher.errChan <- merry.Wrap(err)
-		return fetcher
+		worker.AddError(err)
+		return worker
 	}
 
 	go func() {
+		defer worker.Done()
 		for {
-			nodes, err := inspector.FindNear(context.Background(), &pb.FindNearRequest{
+			resp, err := inspector.FindNear(context.Background(), &pb.FindNearRequest{
 				Start: storj.NodeID{},
 				Limit: 100000,
 			})
@@ -94,28 +77,33 @@ func StartNeighborsKadDataFetcher(saver *KadDataSaver) *NeighborsKadDataFetcher 
 				log.Printf("WARN: NEI: %s", err)
 				continue
 			}
-			for _, node := range nodes.GetNodes() {
-				saver.Add(node)
+			nodes := resp.GetNodes()
+			log.Printf("INFO: NEI: got %d neighbor(s)", len(nodes))
+			for _, node := range nodes {
+				kadDataChan <- node
 			}
-			time.Sleep(30 * time.Second)
+			time.Sleep(3 * time.Second)
 		}
 	}()
-	return fetcher
+	return worker
 }
 
-type OldKadDataLoader struct {
-	errChan chan error
-}
-
-func StartOldKadDataLoader(db *pg.DB) *OldKadDataLoader {
-	loader := &OldKadDataLoader{
-		errChan: make(chan error, 1),
-	}
+func StartOldKadDataLoader(db *pg.DB, nodeIDsChan chan storj.NodeID) Worker {
+	worker := NewSimpleWorker()
 
 	go func() {
+		defer worker.Done()
+		ids := make([]storj.NodeID, 10)
 		for {
-			//
+			_, err := db.Query(&ids, "SELECT id FROM storj3_nodes ORDER BY kad_updated_at ASC NULLS FIRST LIMIT 10")
+			if err != nil {
+				worker.AddError(err)
+				return
+			}
+			for _, id := range ids {
+				nodeIDsChan <- id
+			}
 		}
 	}()
-	return loader
+	return worker
 }

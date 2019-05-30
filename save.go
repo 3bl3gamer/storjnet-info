@@ -8,51 +8,22 @@ import (
 	"storj.io/storj/pkg/pb"
 )
 
-type KadDataSaver struct {
-	kadDataChan chan interface{}
-	errChan     chan error
-	doneChan    chan struct{}
-	hasStopped  bool
-	Count       int64
-	CountNew    int64
-}
-
-func (s KadDataSaver) Add(node *pb.Node) {
-	s.kadDataChan <- node
-}
-
-func (s *KadDataSaver) Stop() {
-	if !s.hasStopped {
-		s.hasStopped = true
-		close(s.kadDataChan)
-	}
-}
-
-func (s *KadDataSaver) StopAndWait() error {
-	s.Stop()
-	<-s.doneChan
-	select {
-	case err := <-s.errChan:
-		return merry.Wrap(err)
-	default:
-		return nil
-	}
-}
-
-func StartNodesKadDataSaver(db *pg.DB) *KadDataSaver {
-	saver := &KadDataSaver{
-		kadDataChan: make(chan interface{}, 16),
-		errChan:     make(chan error, 1),
-		doneChan:    make(chan struct{}, 1),
-	}
+func StartNodesKadDataSaver(db *pg.DB, kadDataChan chan *pb.Node) Worker {
+	worker := NewSimpleWorker()
+	kadDataChanI := make(chan interface{}, 16)
 
 	go func() {
-		defer func() {
-			saver.doneChan <- struct{}{}
-			close(saver.doneChan)
-			close(saver.errChan)
-		}()
-		err := saveChunked(db, 10, saver.kadDataChan, func(tx *pg.Tx, items []interface{}) error {
+		for node := range kadDataChan {
+			kadDataChanI <- node
+		}
+		close(kadDataChanI)
+	}()
+
+	count := 0
+	countNew := 0
+	go func() {
+		defer worker.Done()
+		err := saveChunked(db, 10, kadDataChanI, func(tx *pg.Tx, items []interface{}) error {
 			for _, node := range items {
 				var xmax string
 				_, err := db.QueryOne(&xmax, `
@@ -63,19 +34,19 @@ func StartNodesKadDataSaver(db *pg.DB) *KadDataSaver {
 				if err != nil {
 					return merry.Wrap(err)
 				}
-				saver.Count++
+				count++
 				if xmax == "0" {
-					saver.CountNew++
+					countNew++
 				}
 			}
-			log.Printf("imported %d kad nodes, %d new", saver.Count, saver.CountNew)
+			log.Printf("imported %d kad nodes, %d new", count, countNew)
 			return nil
 		})
-		log.Printf("done, imported %d kad nodes, %d new", saver.Count, saver.CountNew)
+		log.Printf("done, imported %d kad nodes, %d new", count, countNew)
 		if err != nil {
-			saver.errChan <- err
+			worker.AddError(err)
 		}
 	}()
 
-	return saver
+	return worker
 }

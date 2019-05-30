@@ -2,9 +2,11 @@ package main
 
 import (
 	"log"
+	"time"
 
 	"github.com/ansel1/merry"
 	"github.com/spf13/cobra"
+	"storj.io/storj/pkg/pb"
 )
 
 var (
@@ -44,8 +46,29 @@ func CMDImportNodesKadData(cmd *cobra.Command, args []string) (err error) {
 	return merry.Wrap(ImportNodesKadData(args[0]))
 }
 
+func start() error {
+	db := makePGConnection()
+	kadDataChan := make(chan *pb.Node, 16)
+	workers := []Worker{
+		StartNodesKadDataSaver(db, kadDataChan),
+		StartNeighborsKadDataFetcher(kadDataChan),
+	}
+	for {
+		for _, worker := range workers {
+			if err := worker.PopError(); err != nil {
+				return err
+			}
+		}
+		time.Sleep(time.Second)
+	}
+	return nil
+}
+
 func main() {
-	if err := rootCmd.Execute(); err != nil {
+	if err := start(); err != nil {
 		log.Print(merry.Details(err))
 	}
+	// if err := rootCmd.Execute(); err != nil {
+	// 	log.Print(merry.Details(err))
+	// }
 }

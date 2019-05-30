@@ -87,8 +87,8 @@ func ImportNodesKadData(fpath string) (err error) {
 	defer f.Close()
 
 	db := makePGConnection()
-	saver := StartNodesKadDataSaver(db)
-	defer saver.Stop()
+	kadDataChan := make(chan *pb.Node, 16)
+	saver := StartNodesKadDataSaver(db, kadDataChan)
 
 	lineF := bufio.NewReader(f)
 	for {
@@ -104,10 +104,11 @@ func ImportNodesKadData(fpath string) (err error) {
 		if err := jsonpb.Unmarshal(strings.NewReader(line), node); err != nil {
 			return merry.Wrap(err)
 		}
-		saver.Add(node)
+		kadDataChan <- node
 	}
+	close(kadDataChan)
 
-	if err := saver.StopAndWait(); err != nil {
+	if err := saver.CloseAndWait(); err != nil {
 		return merry.Wrap(err)
 	}
 	return nil
