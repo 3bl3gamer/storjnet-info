@@ -39,7 +39,7 @@ func (s *KadDataSaver) StopAndWait() error {
 	}
 }
 
-func StartNodesKadDataSaving(db *pg.DB) *KadDataSaver {
+func StartNodesKadDataSaver(db *pg.DB) *KadDataSaver {
 	saver := &KadDataSaver{
 		kadDataChan: make(chan interface{}, 16),
 		errChan:     make(chan error, 1),

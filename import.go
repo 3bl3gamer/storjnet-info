@@ -87,7 +87,7 @@ func ImportNodesKadData(fpath string) (err error) {
 	defer f.Close()
 
 	db := makePGConnection()
-	saver := StartNodesKadDataSaving(db)
+	saver := StartNodesKadDataSaver(db)
 	defer saver.Stop()
 
 	lineF := bufio.NewReader(f)
