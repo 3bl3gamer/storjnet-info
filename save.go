@@ -9,7 +9,7 @@ import (
 )
 
 func StartNodesKadDataSaver(db *pg.DB, kadDataChan chan *pb.Node) Worker {
-	worker := NewSimpleWorker()
+	worker := NewSimpleWorker(1)
 	kadDataChanI := make(chan interface{}, 16)
 
 	go func() {
@@ -27,10 +27,10 @@ func StartNodesKadDataSaver(db *pg.DB, kadDataChan chan *pb.Node) Worker {
 			for _, node := range items {
 				var xmax string
 				_, err := db.QueryOne(&xmax, `
-				INSERT INTO storj3_nodes (id, kad_params, kad_updated_at)
-				VALUES (?, ?, NOW())
-				ON CONFLICT (id) DO UPDATE SET kad_params = EXCLUDED.kad_params, kad_updated_at = NOW()
-				RETURNING xmax`, node.(*pb.Node).Id, node)
+					INSERT INTO storj3_nodes (id, kad_params, kad_updated_at)
+					VALUES (?, ?, NOW())
+					ON CONFLICT (id) DO UPDATE SET kad_params = EXCLUDED.kad_params, kad_updated_at = NOW()
+					RETURNING xmax`, node.(*pb.Node).Id, node)
 				if err != nil {
 					return merry.Wrap(err)
 				}

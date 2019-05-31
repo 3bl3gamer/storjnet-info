@@ -7,6 +7,7 @@ import (
 	"github.com/ansel1/merry"
 	"github.com/spf13/cobra"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/storj"
 )
 
 var (
@@ -49,9 +50,12 @@ func CMDImportNodesKadData(cmd *cobra.Command, args []string) (err error) {
 func start() error {
 	db := makePGConnection()
 	kadDataChan := make(chan *pb.Node, 16)
+	nodeIDsChan := make(chan storj.NodeID, 16)
 	workers := []Worker{
+		StartOldKadDataLoader(db, nodeIDsChan),
+		StartNodesKadDataFetcher(nodeIDsChan, kadDataChan),
+		//StartNeighborsKadDataFetcher(kadDataChan),
 		StartNodesKadDataSaver(db, kadDataChan),
-		StartNeighborsKadDataFetcher(kadDataChan),
 	}
 	for {
 		for _, worker := range workers {

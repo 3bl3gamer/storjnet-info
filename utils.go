@@ -72,10 +72,10 @@ type SimpleWorker struct {
 	doneChan chan struct{}
 }
 
-func NewSimpleWorker() *SimpleWorker {
+func NewSimpleWorker(count int) *SimpleWorker {
 	return &SimpleWorker{
 		errChan:  make(chan error, 1),
-		doneChan: make(chan struct{}, 1),
+		doneChan: make(chan struct{}, count),
 	}
 }
 
@@ -97,7 +97,9 @@ func (w SimpleWorker) PopError() error {
 }
 
 func (w SimpleWorker) CloseAndWait() error {
-	<-w.doneChan
+	for i := 0; i < cap(w.doneChan); i++ {
+		<-w.doneChan
+	}
 	close(w.doneChan)
 	close(w.errChan)
 	return w.PopError()
