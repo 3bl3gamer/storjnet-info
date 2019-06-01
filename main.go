@@ -49,13 +49,19 @@ func CMDImportNodesKadData(cmd *cobra.Command, args []string) (err error) {
 
 func start() error {
 	db := makePGConnection()
-	kadDataChan := make(chan *pb.Node, 16)
-	nodeIDsChan := make(chan storj.NodeID, 16)
+	nodeIDsForKadChan := make(chan storj.NodeID, 16)
+	kadDataForSaveChan := make(chan *pb.Node, 16)
+	kadDataForSelfChan := make(chan *pb.Node, 16)
+	selfDataForSaveChan := make(chan *NodeInfoWithID, 16)
 	workers := []Worker{
-		StartOldKadDataLoader(db, nodeIDsChan),
-		StartNodesKadDataFetcher(nodeIDsChan, kadDataChan),
+		StartOldKadDataLoader(db, nodeIDsForKadChan),
+		StartNodesKadDataFetcher(nodeIDsForKadChan, kadDataForSaveChan),
 		//StartNeighborsKadDataFetcher(kadDataChan),
-		StartNodesKadDataSaver(db, kadDataChan),
+		StartNodesKadDataSaver(db, kadDataForSaveChan),
+		//
+		StartOldSelfDataLoader(db, kadDataForSelfChan),
+		StartNodesSelfDataFetcher(kadDataForSelfChan, selfDataForSaveChan),
+		StartNodesSelfDataSaver(db, selfDataForSaveChan),
 	}
 	for {
 		for _, worker := range workers {
