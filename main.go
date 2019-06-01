@@ -56,7 +56,7 @@ func start() error {
 	workers := []Worker{
 		StartOldKadDataLoader(db, nodeIDsForKadChan),
 		StartNodesKadDataFetcher(nodeIDsForKadChan, kadDataForSaveChan),
-		//StartNeighborsKadDataFetcher(kadDataChan),
+		StartNeighborsKadDataFetcher(kadDataForSaveChan),
 		StartNodesKadDataSaver(db, kadDataForSaveChan),
 		//
 		StartOldSelfDataLoader(db, kadDataForSelfChan),

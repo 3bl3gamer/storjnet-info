@@ -33,7 +33,7 @@ func StartNodesKadDataSaver(db *pg.DB, kadDataChan chan *pb.Node) Worker {
 			for _, node := range items {
 				var xmax string
 				_, err := db.QueryOne(&xmax, `
-					INSERT INTO storj3_nodes (id, kad_params, kad_updated_at)
+					INSERT INTO nodes (id, kad_params, kad_updated_at)
 					VALUES (?, ?, NOW())
 					ON CONFLICT (id) DO UPDATE SET kad_params = EXCLUDED.kad_params, kad_updated_at = NOW()
 					RETURNING xmax`, node.(*pb.Node).Id, node)
@@ -76,7 +76,7 @@ func StartNodesSelfDataSaver(db *pg.DB, selfDataChan chan *NodeInfoWithID) Worke
 			for _, node := range items {
 				var xmax string
 				_, err := db.QueryOne(&xmax, `
-					INSERT INTO storj3_nodes (id, self_params, self_updated_at)
+					INSERT INTO nodes (id, self_params, self_updated_at)
 					VALUES (?, ?, NOW())
 					ON CONFLICT (id) DO UPDATE SET self_params = EXCLUDED.self_params, self_updated_at = NOW()
 					RETURNING xmax`, node.(*NodeInfoWithID).ID, node.(*NodeInfoWithID).Info)

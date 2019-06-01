@@ -165,8 +165,8 @@ func StartOldKadDataLoader(db *pg.DB, nodeIDsChan chan storj.NodeID) Worker {
 		idsBytes := make([][]byte, 10)
 		for {
 			_, err := db.Query(&idsBytes, `
-				WITH cte AS (SELECT id FROM storj3_nodes ORDER BY kad_checked_at ASC NULLS FIRST LIMIT 10)
-				UPDATE storj3_nodes AS nodes SET kad_checked_at = NOW() FROM cte WHERE nodes.id = cte.id
+				WITH cte AS (SELECT id FROM nodes ORDER BY kad_checked_at ASC NULLS FIRST LIMIT 10)
+				UPDATE nodes AS nodes SET kad_checked_at = NOW() FROM cte WHERE nodes.id = cte.id
 				RETURNING nodes.id`)
 			if err != nil {
 				worker.AddError(err)
@@ -238,8 +238,8 @@ func StartOldSelfDataLoader(db *pg.DB, kadDataChan chan *pb.Node) Worker {
 		nodesUn := make(UnmershableKadParamsSlice, 10)
 		for {
 			_, err := db.Query(&nodesUn, `
-				WITH cte AS (SELECT id FROM storj3_nodes ORDER BY self_checked_at ASC NULLS FIRST LIMIT 10)
-				UPDATE storj3_nodes AS nodes SET self_checked_at = NOW() FROM cte WHERE nodes.id = cte.id
+				WITH cte AS (SELECT id FROM nodes ORDER BY self_checked_at ASC NULLS FIRST LIMIT 10)
+				UPDATE nodes AS nodes SET self_checked_at = NOW() FROM cte WHERE nodes.id = cte.id
 				RETURNING nodes.id, nodes.kad_params`)
 			if err != nil {
 				worker.AddError(err)
