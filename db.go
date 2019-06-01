@@ -2,17 +2,13 @@ package main
 
 import (
 	"log"
+	"time"
 
 	"github.com/ansel1/merry"
 	"github.com/go-pg/pg"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 )
-
-type NodeInfoWithID struct {
-	ID   storj.NodeID
-	Info *pb.NodeInfoResponse
-}
 
 func StartNodesKadDataSaver(db *pg.DB, kadDataChan chan *pb.Node) Worker {
 	worker := NewSimpleWorker(1)
@@ -97,5 +93,73 @@ func StartNodesSelfDataSaver(db *pg.DB, selfDataChan chan *NodeInfoWithID) Worke
 		}
 	}()
 
+	return worker
+}
+
+func StartOldKadDataLoader(db *pg.DB, nodeIDsChan chan storj.NodeID) Worker {
+	worker := NewSimpleWorker(1)
+
+	go func() {
+		defer worker.Done()
+		idsBytes := make([][]byte, 10)
+		for {
+			_, err := db.Query(&idsBytes, `
+				WITH cte AS (SELECT id FROM nodes ORDER BY kad_checked_at ASC NULLS FIRST LIMIT 10)
+				UPDATE nodes AS nodes SET kad_checked_at = NOW() FROM cte WHERE nodes.id = cte.id
+				RETURNING nodes.id`)
+			if err != nil {
+				worker.AddError(err)
+				return
+			}
+			ids, err := storj.NodeIDsFromBytes(idsBytes)
+			if err != nil {
+				worker.AddError(err)
+				return
+			}
+			if len(ids) > 0 {
+				log.Printf("INFO: DB-IDS: old %s - %s", ids[0], ids[len(ids)-1])
+			} else {
+				log.Print("INFO: DB-IDS: no old IDs")
+				time.Sleep(10 * time.Second)
+			}
+			for _, id := range ids {
+				nodeIDsChan <- id
+			}
+		}
+	}()
+	return worker
+}
+
+func StartOldSelfDataLoader(db *pg.DB, kadDataChan chan *pb.Node) Worker {
+	worker := NewSimpleWorker(1)
+
+	go func() {
+		defer worker.Done()
+		nodesUn := make(UnmershableKadParamsSlice, 10)
+		for {
+			_, err := db.Query(&nodesUn, `
+				WITH cte AS (SELECT id FROM nodes ORDER BY self_checked_at ASC NULLS FIRST LIMIT 10)
+				UPDATE nodes AS nodes SET self_checked_at = NOW() FROM cte WHERE nodes.id = cte.id
+				RETURNING nodes.id, nodes.kad_params`)
+			if err != nil {
+				worker.AddError(err)
+				return
+			}
+			nodes, err := nodesUn.ToKadNodes()
+			if err != nil {
+				worker.AddError(err)
+				return
+			}
+			if len(nodes) > 0 {
+				log.Printf("INFO: DB-KAD: old %s - %s", nodes[0].Id, nodes[len(nodes)-1].Id)
+			} else {
+				log.Print("INFO: DB-KAD: no old KADs")
+				time.Sleep(10 * time.Second)
+			}
+			for _, node := range nodes {
+				kadDataChan <- node
+			}
+		}
+	}()
 	return worker
 }
