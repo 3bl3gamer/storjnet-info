@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"io"
 	"log"
-	"strings"
 
 	"github.com/ansel1/merry"
 	"github.com/go-pg/pg"
@@ -123,7 +122,7 @@ func StartNodesKadDataImporter(fpath string, infinite bool, kadDataChan chan *pb
 				return
 			}
 			node := &pb.Node{}
-			if err := jsonpb.Unmarshal(strings.NewReader(line), node); err != nil {
+			if err := jsonpb.UnmarshalString(line, node); err != nil {
 				worker.AddError(err)
 				return
 			}

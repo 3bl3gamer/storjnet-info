@@ -112,45 +112,6 @@ type NodeInfoWithID struct {
 	Info *pb.NodeInfoResponse
 }
 
-type UnmarshableKadParams struct {
-	ID        []byte
-	KadParams struct {
-		ID      string
-		Address struct {
-			Transport string
-			Address   string
-		}
-		LastIP string
-	}
-}
-
-type UnmarshableKadParamsSlice []*UnmarshableKadParams
-
-func (p UnmarshableKadParamsSlice) ToKadNodes() ([]*pb.Node, error) {
-	nodes := make([]*pb.Node, len(p))
-	var err error
-	for i, params := range p {
-		node := &pb.Node{Address: &pb.NodeAddress{}}
-		node.Id, err = storj.NodeIDFromBytes(params.ID)
-		if err != nil {
-			return nil, merry.Errorf("wrong ID: %s: %s", params.ID, err)
-		}
-		// if params.KadParams.Address.Transport == "" {
-		// 	params.KadParams.Address.Transport = "TCP_TLS_GRPC"
-		// }
-		transportID, ok := pb.NodeTransport_value[params.KadParams.Address.Transport]
-		if !ok {
-			return nil, merry.Errorf(`wrong transport name "%s" of node %s`,
-				params.KadParams.Address.Transport, params.KadParams.ID)
-		}
-		node.Address.Transport = pb.NodeTransport(transportID)
-		node.Address.Address = params.KadParams.Address.Address
-		node.LastIp = params.KadParams.LastIP
-		nodes[i] = node
-	}
-	return nodes, nil
-}
-
 // 	m := jsonpb.Marshaler{Indent: "  ", EmitDefaults: true}
 // 	formatted, err := m.MarshalToString(unformatted)
 // 	if err != nil {

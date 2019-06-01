@@ -100,7 +100,7 @@ func StartNeighborsKadDataFetcher(kadDataChan chan *pb.Node) Worker {
 			for _, node := range nodes {
 				kadDataChan <- node
 			}
-			time.Sleep(3 * time.Second)
+			time.Sleep(30 * time.Second)
 		}
 	}()
 	return worker

@@ -6,6 +6,7 @@ import (
 
 	"github.com/ansel1/merry"
 	"github.com/go-pg/pg"
+	"github.com/gogo/protobuf/jsonpb"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 )
@@ -135,21 +136,28 @@ func StartOldSelfDataLoader(db *pg.DB, kadDataChan chan *pb.Node) Worker {
 
 	go func() {
 		defer worker.Done()
-		nodesUn := make(UnmarshableKadParamsSlice, 10)
+		nodesStr := make([]string, 10)
+		nodes := make([]*pb.Node, 10)
 		for {
-			_, err := db.Query(&nodesUn, `
-				WITH cte AS (SELECT id FROM nodes ORDER BY self_checked_at ASC NULLS FIRST LIMIT 10)
+			_, err := db.Query(&nodesStr, `
+				WITH cte AS (SELECT id FROM nodes WHERE kad_params IS NOT NULL ORDER BY self_checked_at ASC NULLS FIRST LIMIT 10)
 				UPDATE nodes AS nodes SET self_checked_at = NOW() FROM cte WHERE nodes.id = cte.id
-				RETURNING nodes.id, nodes.kad_params`)
+				RETURNING nodes.kad_params`)
 			if err != nil {
 				worker.AddError(err)
 				return
 			}
-			nodes, err := nodesUn.ToKadNodes()
-			if err != nil {
-				worker.AddError(err)
-				return
+
+			nodes = nodes[:len(nodesStr)]
+			for i, nodeStr := range nodesStr {
+				node := &pb.Node{}
+				if err := jsonpb.UnmarshalString(nodeStr, node); err != nil {
+					worker.AddError(err)
+					return
+				}
+				nodes[i] = node
 			}
+
 			if len(nodes) > 0 {
 				log.Printf("INFO: DB-KAD: old %s - %s", nodes[0].Id, nodes[len(nodes)-1].Id)
 			} else {
