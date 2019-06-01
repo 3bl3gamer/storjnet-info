@@ -112,7 +112,7 @@ type NodeInfoWithID struct {
 	Info *pb.NodeInfoResponse
 }
 
-type UnmershableKadParams struct {
+type UnmarshableKadParams struct {
 	ID        []byte
 	KadParams struct {
 		ID      string
@@ -124,9 +124,9 @@ type UnmershableKadParams struct {
 	}
 }
 
-type UnmershableKadParamsSlice []*UnmershableKadParams
+type UnmarshableKadParamsSlice []*UnmarshableKadParams
 
-func (p UnmershableKadParamsSlice) ToKadNodes() ([]*pb.Node, error) {
+func (p UnmarshableKadParamsSlice) ToKadNodes() ([]*pb.Node, error) {
 	nodes := make([]*pb.Node, len(p))
 	var err error
 	for i, params := range p {
@@ -135,9 +135,9 @@ func (p UnmershableKadParamsSlice) ToKadNodes() ([]*pb.Node, error) {
 		if err != nil {
 			return nil, merry.Errorf("wrong ID: %s: %s", params.ID, err)
 		}
-		if params.KadParams.Address.Transport == "" {
-			params.KadParams.Address.Transport = "TCP_TLS_GRPC" //TODO: remove
-		}
+		// if params.KadParams.Address.Transport == "" {
+		// 	params.KadParams.Address.Transport = "TCP_TLS_GRPC"
+		// }
 		transportID, ok := pb.NodeTransport_value[params.KadParams.Address.Transport]
 		if !ok {
 			return nil, merry.Errorf(`wrong transport name "%s" of node %s`,

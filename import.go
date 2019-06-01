@@ -53,7 +53,7 @@ func ImportNodeIDs(fpath string) (err error) {
 	countNew := 0
 	err = saveChunked(db, 100, nodeIDsChan, func(tx *pg.Tx, items []interface{}) error {
 		for _, id := range items {
-			res, err := db.Exec(`INSERT INTO storj3_nodes (id) VALUES (?) ON CONFLICT (id) DO NOTHING RETURNING xmax`, id)
+			res, err := db.Exec(`INSERT INTO nodes (id) VALUES (?) ON CONFLICT (id) DO NOTHING RETURNING xmax`, id)
 			if err != nil {
 				return merry.Wrap(err)
 			}
@@ -75,41 +75,64 @@ func ImportNodeIDs(fpath string) (err error) {
 	default:
 	}
 
-	log.Printf("done")
+	log.Printf("INFO: done")
 	return nil
 }
 
 func ImportNodesKadData(fpath string) (err error) {
-	f, err := openFileOrStdin(fpath)
-	if err != nil {
-		return merry.Wrap(err)
-	}
-	defer f.Close()
-
 	db := makePGConnection()
 	kadDataChan := make(chan *pb.Node, 16)
+	importer := StartNodesKadDataImporter(fpath, false, kadDataChan)
 	saver := StartNodesKadDataSaver(db, kadDataChan)
 
-	lineF := bufio.NewReader(f)
-	for {
-		line, err := lineF.ReadString('\n')
-		if err == io.EOF {
-			if line == "" {
-				break
-			}
-		} else if err != nil {
-			return merry.Wrap(err)
-		}
-		node := &pb.Node{}
-		if err := jsonpb.Unmarshal(strings.NewReader(line), node); err != nil {
-			return merry.Wrap(err)
-		}
-		kadDataChan <- node
+	if err := importer.CloseAndWait(); err != nil {
+		return merry.Wrap(err)
 	}
 	close(kadDataChan)
-
 	if err := saver.CloseAndWait(); err != nil {
 		return merry.Wrap(err)
 	}
+
+	log.Printf("INFO: done")
 	return nil
+}
+
+func StartNodesKadDataImporter(fpath string, infinite bool, kadDataChan chan *pb.Node) Worker {
+	worker := NewSimpleWorker(1)
+
+	f, err := openFileOrStdin(fpath)
+	if err != nil {
+		worker.AddError(err)
+		return worker
+	}
+
+	lineF := bufio.NewReader(f)
+	go func() {
+		defer func() {
+			f.Close()
+			worker.Done()
+		}()
+		for {
+			line, err := lineF.ReadString('\n')
+			if err == io.EOF {
+				if line == "" {
+					break
+				}
+			} else if err != nil {
+				worker.AddError(err)
+				return
+			}
+			node := &pb.Node{}
+			if err := jsonpb.Unmarshal(strings.NewReader(line), node); err != nil {
+				worker.AddError(err)
+				return
+			}
+			kadDataChan <- node
+		}
+		if infinite {
+			worker.AddError(merry.New("expcted to import KAD data infinitely, but file has ended"))
+		}
+	}()
+
+	return worker
 }

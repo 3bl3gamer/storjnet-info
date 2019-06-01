@@ -12,8 +12,14 @@ import (
 
 var (
 	rootCmd = &cobra.Command{
-		Use:   "storj3stat",
-		Short: "Tool for gathering storj network stats",
+		Use:          "storj3stat",
+		Short:        "Tool for gathering storj network stats",
+		SilenceUsage: true,
+	}
+	runCmd = &cobra.Command{
+		Use:   "run",
+		Short: "start gathering and updating storj nodes data",
+		RunE:  CMDRun,
 	}
 	importCmd = &cobra.Command{
 		Use:   "import",
@@ -34,6 +40,7 @@ var (
 )
 
 func init() {
+	rootCmd.AddCommand(runCmd)
 	rootCmd.AddCommand(importCmd)
 	importCmd.AddCommand(importIDsCmd)
 	importCmd.AddCommand(importKadDataCmd)
@@ -47,7 +54,7 @@ func CMDImportNodesKadData(cmd *cobra.Command, args []string) (err error) {
 	return merry.Wrap(ImportNodesKadData(args[0]))
 }
 
-func start() error {
+func CMDRun(cmd *cobra.Command, args []string) error {
 	db := makePGConnection()
 	nodeIDsForKadChan := make(chan storj.NodeID, 16)
 	kadDataForSaveChan := make(chan *pb.Node, 16)
@@ -62,6 +69,8 @@ func start() error {
 		StartOldSelfDataLoader(db, kadDataForSelfChan),
 		StartNodesSelfDataFetcher(kadDataForSelfChan, selfDataForSaveChan),
 		StartNodesSelfDataSaver(db, selfDataForSaveChan),
+		//
+		StartNodesKadDataImporter("-", true, kadDataForSaveChan),
 	}
 	for {
 		for _, worker := range workers {
@@ -71,14 +80,10 @@ func start() error {
 		}
 		time.Sleep(time.Second)
 	}
-	return nil
 }
 
 func main() {
-	if err := start(); err != nil {
+	if err := rootCmd.Execute(); err != nil {
 		log.Print(merry.Details(err))
 	}
-	// if err := rootCmd.Execute(); err != nil {
-	// 	log.Print(merry.Details(err))
-	// }
 }

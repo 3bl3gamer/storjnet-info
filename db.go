@@ -135,7 +135,7 @@ func StartOldSelfDataLoader(db *pg.DB, kadDataChan chan *pb.Node) Worker {
 
 	go func() {
 		defer worker.Done()
-		nodesUn := make(UnmershableKadParamsSlice, 10)
+		nodesUn := make(UnmarshableKadParamsSlice, 10)
 		for {
 			_, err := db.Query(&nodesUn, `
 				WITH cte AS (SELECT id FROM nodes ORDER BY self_checked_at ASC NULLS FIRST LIMIT 10)
