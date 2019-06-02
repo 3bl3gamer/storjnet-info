@@ -62,21 +62,29 @@ func CMDImportNodesKadData(cmd *cobra.Command, args []string) (err error) {
 
 func CMDRun(cmd *cobra.Command, args []string) error {
 	db := makePGConnection()
+	gdb, err := makeGeoIPConnection()
+	if err != nil {
+		return merry.Wrap(err)
+	}
+
 	nodeIDsForKadChan := make(chan storj.NodeID, 16)
-	kadDataForSaveChan := make(chan *pb.Node, 16)
+	kadDataRawChan := make(chan *pb.Node, 16)
+	kadDataForSaveChan := make(chan *KadDataExt, 16)
 	kadDataForSelfChan := make(chan *pb.Node, 16)
-	selfDataForSaveChan := make(chan *NodeInfoWithID, 16)
+	selfDataForSaveChan := make(chan *NodeInfoExt, 16)
+
 	workers := []Worker{
 		StartOldKadDataLoader(db, nodeIDsForKadChan),
-		StartNodesKadDataFetcher(nodeIDsForKadChan, kadDataForSaveChan),
-		StartNeighborsKadDataFetcher(kadDataForSaveChan),
+		StartNodesKadDataFetcher(nodeIDsForKadChan, kadDataRawChan),
+		StartNeighborsKadDataFetcher(kadDataRawChan),
+		StartLocationSearcher(gdb, kadDataRawChan, kadDataForSaveChan),
 		StartNodesKadDataSaver(db, kadDataForSaveChan),
 		//
 		StartOldSelfDataLoader(db, kadDataForSelfChan),
 		StartNodesSelfDataFetcher(kadDataForSelfChan, selfDataForSaveChan),
 		StartNodesSelfDataSaver(db, selfDataForSaveChan),
 		//
-		StartNodesKadDataImporter("-", true, kadDataForSaveChan),
+		StartNodesKadDataImporter("-", true, kadDataRawChan),
 	}
 	for {
 		for _, worker := range workers {

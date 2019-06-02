@@ -1,10 +1,14 @@
 package main
 
 import (
+	"database/sql/driver"
+	"fmt"
 	"os"
 
+	"github.com/abh/geoip"
 	"github.com/ansel1/merry"
 	"github.com/go-pg/pg"
+	"github.com/lib/pq"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 )
@@ -28,6 +32,14 @@ func makePGConnection() *pg.DB {
 	// 	log.Printf("\033[36m%s \033[34m%s\033[39m", time.Since(event.StartTime), query)
 	// })
 	return db
+}
+
+func makeGeoIPConnection() (*geoip.GeoIP, error) {
+	gdb, err := geoip.Open("/usr/share/GeoIP/GeoIPCity.dat")
+	if err != nil {
+		return nil, merry.Wrap(err)
+	}
+	return gdb, nil
 }
 
 func saveChunked(db *pg.DB, chunkSize int, channel chan interface{}, handler func(tx *pg.Tx, items []interface{}) error) error {
@@ -107,9 +119,30 @@ func (w SimpleWorker) CloseAndWait() error {
 	return w.PopError()
 }
 
-type NodeInfoWithID struct {
+type NodeInfoExt struct {
 	ID   storj.NodeID
 	Info *pb.NodeInfoResponse
+}
+
+type NodeLocation struct {
+	Country   string
+	City      string
+	Longitude float32
+	Latitude  float32
+}
+
+func (l *NodeLocation) Value() (driver.Value, error) {
+	if l == nil {
+		return nil, nil
+	}
+	// composite types seem not supported in go-pg, so there is manual formatting with semi-hacky escaping
+	return fmt.Sprintf("(%s,%s,%f,%f)",
+		pq.QuoteIdentifier(l.Country), pq.QuoteIdentifier(l.City), l.Longitude, l.Latitude), nil
+}
+
+type KadDataExt struct {
+	Node     *pb.Node
+	Location *NodeLocation
 }
 
 // 	m := jsonpb.Marshaler{Indent: "  ", EmitDefaults: true}

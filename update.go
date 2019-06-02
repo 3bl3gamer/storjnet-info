@@ -106,7 +106,7 @@ func StartNeighborsKadDataFetcher(kadDataChan chan *pb.Node) Worker {
 	return worker
 }
 
-func StartNodesSelfDataFetcher(kadDataChan chan *pb.Node, selfDataChan chan *NodeInfoWithID) Worker {
+func StartNodesSelfDataFetcher(kadDataChan chan *pb.Node, selfDataChan chan *NodeInfoExt) Worker {
 	routinesCount := 16
 	worker := NewSimpleWorker(routinesCount)
 
@@ -140,7 +140,7 @@ func StartNodesSelfDataFetcher(kadDataChan chan *pb.Node, selfDataChan chan *Nod
 					}
 					atomic.AddInt64(&countErrTotal, 1)
 				} else {
-					selfDataChan <- &NodeInfoWithID{node.Id, info}
+					selfDataChan <- &NodeInfoExt{node.Id, info}
 					atomic.AddInt64(&countOk, 1)
 				}
 

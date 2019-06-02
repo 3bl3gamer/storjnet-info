@@ -11,7 +11,7 @@ import (
 	"storj.io/storj/pkg/storj"
 )
 
-func StartNodesKadDataSaver(db *pg.DB, kadDataChan chan *pb.Node) Worker {
+func StartNodesKadDataSaver(db *pg.DB, kadDataChan chan *KadDataExt) Worker {
 	worker := NewSimpleWorker(1)
 	kadDataChanI := make(chan interface{}, 16)
 
@@ -30,10 +30,11 @@ func StartNodesKadDataSaver(db *pg.DB, kadDataChan chan *pb.Node) Worker {
 			for _, node := range items {
 				var xmax string
 				_, err := db.QueryOne(&xmax, `
-					INSERT INTO nodes (id, kad_params, kad_updated_at)
-					VALUES (?, ?, NOW())
-					ON CONFLICT (id) DO UPDATE SET kad_params = EXCLUDED.kad_params, kad_updated_at = NOW()
-					RETURNING xmax`, node.(*pb.Node).Id, node)
+					INSERT INTO nodes (id, kad_params, location, kad_updated_at)
+					VALUES (?, ?, ?, NOW())
+					ON CONFLICT (id) DO UPDATE SET
+						kad_params = EXCLUDED.kad_params, location = EXCLUDED.location, kad_updated_at = NOW()
+					RETURNING xmax`, node.(*KadDataExt).Node.Id, node.(*KadDataExt).Node, node.(*KadDataExt).Location)
 				if err != nil {
 					return merry.Wrap(err)
 				}
@@ -54,7 +55,7 @@ func StartNodesKadDataSaver(db *pg.DB, kadDataChan chan *pb.Node) Worker {
 	return worker
 }
 
-func StartNodesSelfDataSaver(db *pg.DB, selfDataChan chan *NodeInfoWithID) Worker {
+func StartNodesSelfDataSaver(db *pg.DB, selfDataChan chan *NodeInfoExt) Worker {
 	worker := NewSimpleWorker(1)
 	selfDataChanI := make(chan interface{}, 16)
 
@@ -76,7 +77,7 @@ func StartNodesSelfDataSaver(db *pg.DB, selfDataChan chan *NodeInfoWithID) Worke
 					INSERT INTO nodes (id, self_params, self_updated_at)
 					VALUES (?, ?, NOW())
 					ON CONFLICT (id) DO UPDATE SET self_params = EXCLUDED.self_params, self_updated_at = NOW()
-					RETURNING xmax`, node.(*NodeInfoWithID).ID, node.(*NodeInfoWithID).Info)
+					RETURNING xmax`, node.(*NodeInfoExt).ID, node.(*NodeInfoExt).Info)
 				if err != nil {
 					return merry.Wrap(err)
 				}
@@ -152,7 +153,7 @@ func StartOldSelfDataLoader(db *pg.DB, kadDataChan chan *pb.Node) Worker {
 			for i, nodeStr := range nodesStr {
 				node := &pb.Node{}
 				if err := jsonpb.UnmarshalString(nodeStr, node); err != nil {
-					worker.AddError(err)
+					worker.AddError(merry.Errorf("wrong node data: %s: %s", nodeStr, err))
 					return
 				}
 				nodes[i] = node
@@ -174,13 +175,16 @@ func StartOldSelfDataLoader(db *pg.DB, kadDataChan chan *pb.Node) Worker {
 
 func SaveGlobalNodesStats(db *pg.DB) error {
 	_, err := db.Exec(`
-		INSERT INTO storjinfo.global_stats (count_total, count_active_24h, count_active_12h, versions) VALUES (
+		INSERT INTO storjinfo.global_stats (count_total, count_active_24h, count_active_12h, versions, countries) VALUES (
 			(SELECT count(*) FROM nodes),
 			(SELECT count(*) FROM nodes WHERE self_updated_at > NOW() - INTERVAL '24 hours'),
 			(SELECT count(*) FROM nodes WHERE self_updated_at > NOW() - INTERVAL '12 hours'),
 			(SELECT jsonb_object_agg(COALESCE(version, 'null'), cnt) FROM (
 				WITH cte AS (SELECT self_params->'version'->>'version' AS version FROM nodes)
 				SELECT version, count(*) AS cnt FROM cte GROUP BY version
+			) AS t),
+			(SELECT jsonb_object_agg(COALESCE(country, 'null'), cnt) FROM (
+				SELECT (location).country, count(*) AS cnt FROM nodes GROUP BY (location).country
 			) AS t)
 		)
 		`)

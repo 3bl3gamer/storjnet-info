@@ -80,14 +80,25 @@ func ImportNodeIDs(fpath string) (err error) {
 
 func ImportNodesKadData(fpath string) (err error) {
 	db := makePGConnection()
-	kadDataChan := make(chan *pb.Node, 16)
-	importer := StartNodesKadDataImporter(fpath, false, kadDataChan)
-	saver := StartNodesKadDataSaver(db, kadDataChan)
+	gdb, err := makeGeoIPConnection()
+	if err != nil {
+		return merry.Wrap(err)
+	}
+
+	rawKadDataChan := make(chan *pb.Node, 16)
+	extKadDataChan := make(chan *KadDataExt, 16)
+	importer := StartNodesKadDataImporter(fpath, false, rawKadDataChan)
+	location := StartLocationSearcher(gdb, rawKadDataChan, extKadDataChan)
+	saver := StartNodesKadDataSaver(db, extKadDataChan)
 
 	if err := importer.CloseAndWait(); err != nil {
 		return merry.Wrap(err)
 	}
-	close(kadDataChan)
+	close(rawKadDataChan)
+	if err := location.CloseAndWait(); err != nil {
+		return merry.Wrap(err)
+	}
+	close(extKadDataChan)
 	if err := saver.CloseAndWait(); err != nil {
 		return merry.Wrap(err)
 	}
