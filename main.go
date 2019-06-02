@@ -37,6 +37,11 @@ var (
 		Args:  cobra.MinimumNArgs(1),
 		RunE:  CMDImportNodesKadData,
 	}
+	saveStatsCmd = &cobra.Command{
+		Use:   "save-stats",
+		Short: "save nodes statistics snapshot",
+		RunE:  CMDSaveStats,
+	}
 )
 
 func init() {
@@ -44,6 +49,7 @@ func init() {
 	rootCmd.AddCommand(importCmd)
 	importCmd.AddCommand(importIDsCmd)
 	importCmd.AddCommand(importKadDataCmd)
+	rootCmd.AddCommand(saveStatsCmd)
 }
 
 func CMDImportNodeIDs(cmd *cobra.Command, args []string) (err error) {
@@ -80,6 +86,11 @@ func CMDRun(cmd *cobra.Command, args []string) error {
 		}
 		time.Sleep(time.Second)
 	}
+}
+
+func CMDSaveStats(cmd *cobra.Command, args []string) error {
+	db := makePGConnection()
+	return merry.Wrap(SaveGlobalNodesStats(db))
 }
 
 func main() {

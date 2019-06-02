@@ -171,3 +171,18 @@ func StartOldSelfDataLoader(db *pg.DB, kadDataChan chan *pb.Node) Worker {
 	}()
 	return worker
 }
+
+func SaveGlobalNodesStats(db *pg.DB) error {
+	_, err := db.Exec(`
+		INSERT INTO storjinfo.global_stats (count_total, count_active_24h, count_active_12h, versions) VALUES (
+			(SELECT count(*) FROM nodes),
+			(SELECT count(*) FROM nodes WHERE self_updated_at > NOW() - INTERVAL '24 hours'),
+			(SELECT count(*) FROM nodes WHERE self_updated_at > NOW() - INTERVAL '12 hours'),
+			(SELECT jsonb_object_agg(COALESCE(version, 'null'), cnt) FROM (
+				WITH cte AS (SELECT self_params->'version'->>'version' AS version FROM nodes)
+				SELECT version, count(*) AS cnt FROM cte GROUP BY version
+			) AS t)
+		)
+		`)
+	return merry.Wrap(err)
+}

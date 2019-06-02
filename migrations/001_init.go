@@ -6,7 +6,7 @@ func init() {
 	migrations.MustRegisterTx(func(db migrations.DB) error {
 		return execSome(db, `
 			CREATE TABLE storjinfo.nodes (
-				ID bytea PRIMARY KEY,
+				id bytea PRIMARY KEY,
 				created_at timestamptz NOT NULL DEFAULT NOW(),
 				kad_params jsonb,
 				kad_updated_at timestamptz,
