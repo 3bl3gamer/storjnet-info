@@ -175,16 +175,50 @@ func StartOldSelfDataLoader(db *pg.DB, kadDataChan chan *pb.Node) Worker {
 
 func SaveGlobalNodesStats(db *pg.DB) error {
 	_, err := db.Exec(`
-		INSERT INTO storjinfo.global_stats (count_total, count_active_24h, count_active_12h, versions, countries) VALUES (
-			(SELECT count(*) FROM nodes),
-			(SELECT count(*) FROM nodes WHERE self_updated_at > NOW() - INTERVAL '24 hours'),
-			(SELECT count(*) FROM nodes WHERE self_updated_at > NOW() - INTERVAL '12 hours'),
-			(SELECT jsonb_object_agg(COALESCE(version, 'null'), cnt) FROM (
-				WITH cte AS (SELECT self_params->'version'->>'version' AS version FROM nodes)
+		WITH active_nodes AS (
+			SELECT * FROM nodes WHERE self_updated_at > NOW() - INTERVAL '24 hours'
+		)
+		INSERT INTO storjinfo.global_stats (
+			count_total, count_hours,
+			free_disk, free_bandwidth,
+			versions, countries, difficulties
+		) VALUES ((
+			SELECT count(*) FROM nodes
+		), (
+			SELECT array_agg((
+				hours, (SELECT count(*) FROM nodes WHERE self_updated_at > NOW() - hours * INTERVAL '1 hour')
+			)::activity_stat_item)
+			FROM generate_series(1, 24) AS hours
+		),
+		(
+			SELECT array_agg((
+				perc, (
+					SELECT percentile_cont(perc) WITHIN GROUP (ORDER BY (self_params->'capacity'->>'free_disk')::bigint)
+					FROM active_nodes WHERE self_params->'capacity'->>'free_disk' IS NOT NULL
+				)
+			)::data_stat_item)
+			FROM unnest(ARRAY[0.01, 0.05, 0.1, 0.25, 0.5, 0.75, 0.90, 0.95, 0.99]) AS perc
+		), (
+			SELECT array_agg((
+				perc, (
+					SELECT percentile_cont(perc) WITHIN GROUP (ORDER BY (self_params->'capacity'->>'free_bandwidth')::bigint)
+					FROM active_nodes WHERE self_params->'capacity'->>'free_bandwidth' IS NOT NULL
+				)
+			)::data_stat_item)
+			FROM unnest(ARRAY[0.01, 0.05, 0.1, 0.25, 0.5, 0.75, 0.90, 0.95, 0.99]) AS perc
+		),
+		(
+			SELECT array_agg((version, cnt)::version_stat_item ORDER BY version) FROM (
+				WITH cte AS (SELECT self_params->'version'->>'version' AS version FROM active_nodes)
 				SELECT version, count(*) AS cnt FROM cte GROUP BY version
-			) AS t),
-			(SELECT jsonb_object_agg(COALESCE(country, 'null'), cnt) FROM (
-				SELECT (location).country, count(*) AS cnt FROM nodes GROUP BY (location).country
+			) AS t
+		), (
+			SELECT array_agg((country, cnt)::country_stat_item ORDER BY cnt) FROM (
+				SELECT (location).country, count(*) AS cnt FROM active_nodes GROUP BY (location).country
+			) AS t
+		), (
+			SELECT array_agg((dif, count)::difficulty_stat_item ORDER BY dif) FROM (
+				SELECT length(substring(('x'||encode(id, 'hex'))::bit(256)::text FROM '0*$')) AS dif, count(*) FROM active_nodes GROUP BY dif
 			) AS t)
 		)
 		`)
