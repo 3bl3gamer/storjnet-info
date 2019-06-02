@@ -71,16 +71,29 @@ func StartNodesSelfDataSaver(db *pg.DB, selfDataChan chan *NodeInfoExt) Worker {
 	go func() {
 		defer worker.Done()
 		err := saveChunked(db, 10, selfDataChanI, func(tx *pg.Tx, items []interface{}) error {
-			for _, node := range items {
+			for _, nodeI := range items {
+				node := nodeI.(*NodeInfoExt)
+
 				var xmax string
 				_, err := db.QueryOne(&xmax, `
 					INSERT INTO nodes (id, self_params, self_updated_at)
 					VALUES (?, ?, NOW())
 					ON CONFLICT (id) DO UPDATE SET self_params = EXCLUDED.self_params, self_updated_at = NOW()
-					RETURNING xmax`, node.(*NodeInfoExt).ID, node.(*NodeInfoExt).Info)
+					RETURNING xmax`, node.ID, node.Info)
 				if err != nil {
 					return merry.Wrap(err)
 				}
+
+				_, err = db.Exec(`
+					INSERT INTO nodes_history (id, month_date, items)
+					VALUES (?, date_trunc('month', now() at time zone 'utc')::date, ARRAY[(NOW(), ?, ?)::data_history_item])
+					ON CONFLICT (id, month_date) DO UPDATE
+					SET items = nodes_history.items || EXCLUDED.items
+					`, node.ID, node.Info.Capacity.FreeDisk, node.Info.Capacity.FreeBandwidth)
+				if err != nil {
+					return merry.Wrap(err)
+				}
+
 				count++
 				if xmax == "0" {
 					countNew++
@@ -224,3 +237,20 @@ func SaveGlobalNodesStats(db *pg.DB) error {
 		`)
 	return merry.Wrap(err)
 }
+
+/*
+func SaveNodesDataUsageHistory(db *pg.DB) error {
+	_, err := db.Exec(`
+		INSERT INTO nodes_history (id, month_date, items)
+			SELECT
+				id, date_trunc('month', now() at time zone 'utc')::date,
+				ARRAY[(NOW(), self_params->'capacity'->>'free_disk', self_params->'capacity'->>'free_bandwidth')::data_history_item]
+			FROM nodes
+			WHERE self_updated_at > NOW() - INTERVAL '3 days'
+				AND self_params ? 'capacity'
+		ON CONFLICT (id, month_date) DO UPDATE
+		SET items = nodes_history.items || EXCLUDED.items
+		`)
+	return merry.Wrap(err)
+}
+*/
