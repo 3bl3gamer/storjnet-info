@@ -22,8 +22,7 @@ func NewInspector() (pb.KadInspectorClient, error) {
 	return pb.NewKadInspectorClient(conn), nil
 }
 
-func StartNodesKadDataFetcher(nodeIDsChan chan storj.NodeID, kadDataChan chan *pb.Node) Worker {
-	routinesCount := 8
+func StartNodesKadDataFetcher(nodeIDsChan chan storj.NodeID, kadDataChan chan *pb.Node, routinesCount int) Worker {
 	worker := NewSimpleWorker(routinesCount)
 
 	inspector, err := NewInspector()
@@ -74,7 +73,7 @@ func StartNodesKadDataFetcher(nodeIDsChan chan storj.NodeID, kadDataChan chan *p
 	return worker
 }
 
-func StartNeighborsKadDataFetcher(kadDataChan chan *pb.Node) Worker {
+func StartNeighborsKadDataFetcher(kadDataChan chan *pb.Node, secondsInterval int) Worker {
 	worker := NewSimpleWorker(1)
 
 	inspector, err := NewInspector()
@@ -100,14 +99,13 @@ func StartNeighborsKadDataFetcher(kadDataChan chan *pb.Node) Worker {
 			for _, node := range nodes {
 				kadDataChan <- node
 			}
-			time.Sleep(30 * time.Second)
+			time.Sleep(time.Duration(secondsInterval) * time.Second)
 		}
 	}()
 	return worker
 }
 
-func StartNodesSelfDataFetcher(kadDataChan chan *pb.Node, selfDataChan chan *NodeInfoExt) Worker {
-	routinesCount := 16
+func StartNodesSelfDataFetcher(kadDataChan chan *pb.Node, selfDataChan chan *NodeInfoExt, routinesCount int) Worker {
 	worker := NewSimpleWorker(routinesCount)
 
 	inspector, err := NewInspector()

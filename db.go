@@ -11,7 +11,7 @@ import (
 	"storj.io/storj/pkg/storj"
 )
 
-func StartNodesKadDataSaver(db *pg.DB, kadDataChan chan *KadDataExt) Worker {
+func StartNodesKadDataSaver(db *pg.DB, kadDataChan chan *KadDataExt, chunkSize int) Worker {
 	worker := NewSimpleWorker(1)
 	kadDataChanI := make(chan interface{}, 16)
 
@@ -26,14 +26,14 @@ func StartNodesKadDataSaver(db *pg.DB, kadDataChan chan *KadDataExt) Worker {
 	countNew := 0
 	go func() {
 		defer worker.Done()
-		err := saveChunked(db, 10, kadDataChanI, func(tx *pg.Tx, items []interface{}) error {
+		err := saveChunked(db, chunkSize, kadDataChanI, func(tx *pg.Tx, items []interface{}) error {
 			for _, node := range items {
 				var xmax string
 				_, err := db.QueryOne(&xmax, `
 					INSERT INTO nodes (id, kad_params, location, kad_updated_at)
 					VALUES (?, ?, ?, NOW())
 					ON CONFLICT (id) DO UPDATE SET
-						kad_params = EXCLUDED.kad_params, location = EXCLUDED.location, kad_updated_at = NOW()
+						kad_params = EXCLUDED.kad_params, location = COALESCE(nodes.location, EXCLUDED.location), kad_updated_at = NOW()
 					RETURNING xmax`, node.(*KadDataExt).Node.Id, node.(*KadDataExt).Node, node.(*KadDataExt).Location)
 				if err != nil {
 					return merry.Wrap(err)
@@ -55,7 +55,7 @@ func StartNodesKadDataSaver(db *pg.DB, kadDataChan chan *KadDataExt) Worker {
 	return worker
 }
 
-func StartNodesSelfDataSaver(db *pg.DB, selfDataChan chan *NodeInfoExt) Worker {
+func StartNodesSelfDataSaver(db *pg.DB, selfDataChan chan *NodeInfoExt, chunkSize int) Worker {
 	worker := NewSimpleWorker(1)
 	selfDataChanI := make(chan interface{}, 16)
 
@@ -70,7 +70,7 @@ func StartNodesSelfDataSaver(db *pg.DB, selfDataChan chan *NodeInfoExt) Worker {
 	countNew := 0
 	go func() {
 		defer worker.Done()
-		err := saveChunked(db, 10, selfDataChanI, func(tx *pg.Tx, items []interface{}) error {
+		err := saveChunked(db, chunkSize, selfDataChanI, func(tx *pg.Tx, items []interface{}) error {
 			for _, nodeI := range items {
 				node := nodeI.(*NodeInfoExt)
 
@@ -111,17 +111,17 @@ func StartNodesSelfDataSaver(db *pg.DB, selfDataChan chan *NodeInfoExt) Worker {
 	return worker
 }
 
-func StartOldKadDataLoader(db *pg.DB, nodeIDsChan chan storj.NodeID) Worker {
+func StartOldKadDataLoader(db *pg.DB, nodeIDsChan chan storj.NodeID, chunkSize int) Worker {
 	worker := NewSimpleWorker(1)
 
 	go func() {
 		defer worker.Done()
-		idsBytes := make([][]byte, 10)
+		idsBytes := make([][]byte, chunkSize)
 		for {
 			_, err := db.Query(&idsBytes, `
-				WITH cte AS (SELECT id FROM nodes ORDER BY kad_checked_at ASC NULLS FIRST LIMIT 10)
+				WITH cte AS (SELECT id FROM nodes ORDER BY kad_checked_at ASC NULLS FIRST LIMIT ?)
 				UPDATE nodes AS nodes SET kad_checked_at = NOW() FROM cte WHERE nodes.id = cte.id
-				RETURNING nodes.id`)
+				RETURNING nodes.id`, chunkSize)
 			if err != nil {
 				worker.AddError(err)
 				return
@@ -145,18 +145,18 @@ func StartOldKadDataLoader(db *pg.DB, nodeIDsChan chan storj.NodeID) Worker {
 	return worker
 }
 
-func StartOldSelfDataLoader(db *pg.DB, kadDataChan chan *pb.Node) Worker {
+func StartOldSelfDataLoader(db *pg.DB, kadDataChan chan *pb.Node, chunkSize int) Worker {
 	worker := NewSimpleWorker(1)
 
 	go func() {
 		defer worker.Done()
-		nodesStr := make([]string, 10)
-		nodes := make([]*pb.Node, 10)
+		nodesStr := make([]string, chunkSize)
+		nodes := make([]*pb.Node, chunkSize)
 		for {
 			_, err := db.Query(&nodesStr, `
-				WITH cte AS (SELECT id FROM nodes WHERE kad_params IS NOT NULL ORDER BY self_checked_at ASC NULLS FIRST LIMIT 10)
+				WITH cte AS (SELECT id FROM nodes WHERE kad_params IS NOT NULL ORDER BY self_checked_at ASC NULLS FIRST LIMIT ?)
 				UPDATE nodes AS nodes SET self_checked_at = NOW() FROM cte WHERE nodes.id = cte.id
-				RETURNING nodes.kad_params`)
+				RETURNING nodes.kad_params`, chunkSize)
 			if err != nil {
 				worker.AddError(err)
 				return
@@ -235,6 +235,14 @@ func SaveGlobalNodesStats(db *pg.DB) error {
 			) AS t)
 		)
 		`)
+	/*
+		SELECT array_agg((perc, cnt)::data_stat_item) FROM (
+			SELECT perc, percentile_cont(perc) WITHIN GROUP (ORDER BY (self_params->'capacity'->>'free_disk')::bigint) as cnt
+			FROM nodes, unnest(ARRAY[0.01, 0.05, 0.1, 0.25, 0.5, 0.75, 0.90, 0.95, 0.99]) AS perc
+			WHERE self_params->'capacity'->>'free_disk' IS NOT NULL
+			GROUP BY perc
+		) AS t;
+	*/
 	return merry.Wrap(err)
 }
 

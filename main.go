@@ -44,12 +44,39 @@ var (
 	}
 )
 
+var runFlags = struct {
+	startDelay          int64
+	kadImportRecentSkip int
+
+	idsLoadChunkSize     int
+	kadFetchRoutines     int
+	kadNeighborsInterval int
+	kadSaveChunkSize     int
+
+	kadLoadChunkSize  int
+	selfFetchRoutines int
+	selfSaveChunkSize int
+}{}
+
 func init() {
 	rootCmd.AddCommand(runCmd)
 	rootCmd.AddCommand(importCmd)
 	importCmd.AddCommand(importIDsCmd)
 	importCmd.AddCommand(importKadDataCmd)
 	rootCmd.AddCommand(saveStatsCmd)
+
+	flags := runCmd.Flags()
+	flags.Int64Var(&runFlags.startDelay, "start-delay", 0, "delay in seconds before storagenode connection attempt")
+	flags.IntVar(&runFlags.kadImportRecentSkip, "kad-import-recent-skip", 32, "")
+
+	flags.IntVar(&runFlags.idsLoadChunkSize, "ids-load-chunk-size", 10, "")
+	flags.IntVar(&runFlags.kadFetchRoutines, "kad-fetch-routines", 8, "")
+	flags.IntVar(&runFlags.kadNeighborsInterval, "kad-neighbors-interval", 30, "")
+	flags.IntVar(&runFlags.kadSaveChunkSize, "kad-save-chunk-size", 10, "")
+
+	flags.IntVar(&runFlags.kadLoadChunkSize, "kad-load-chunk-size", 10, "")
+	flags.IntVar(&runFlags.selfFetchRoutines, "self-fetch-routines", 2, "")
+	flags.IntVar(&runFlags.selfSaveChunkSize, "self-save-chunk-size", 10, "")
 }
 
 func CMDImportNodeIDs(cmd *cobra.Command, args []string) (err error) {
@@ -61,6 +88,10 @@ func CMDImportNodesKadData(cmd *cobra.Command, args []string) (err error) {
 }
 
 func CMDRun(cmd *cobra.Command, args []string) error {
+	if runFlags.startDelay > 0 {
+		time.Sleep(time.Duration(runFlags.startDelay) * time.Second)
+	}
+
 	db := makePGConnection()
 	gdb, err := makeGeoIPConnection()
 	if err != nil {
@@ -74,17 +105,17 @@ func CMDRun(cmd *cobra.Command, args []string) error {
 	selfDataForSaveChan := make(chan *NodeInfoExt, 16)
 
 	workers := []Worker{
-		StartOldKadDataLoader(db, nodeIDsForKadChan),
-		StartNodesKadDataFetcher(nodeIDsForKadChan, kadDataRawChan),
-		StartNeighborsKadDataFetcher(kadDataRawChan),
+		StartOldKadDataLoader(db, nodeIDsForKadChan, runFlags.idsLoadChunkSize),
+		StartNodesKadDataFetcher(nodeIDsForKadChan, kadDataRawChan, runFlags.kadFetchRoutines),
+		StartNeighborsKadDataFetcher(kadDataRawChan, runFlags.kadNeighborsInterval),
 		StartLocationSearcher(gdb, kadDataRawChan, kadDataForSaveChan),
-		StartNodesKadDataSaver(db, kadDataForSaveChan),
+		StartNodesKadDataSaver(db, kadDataForSaveChan, runFlags.kadSaveChunkSize),
 		//
-		StartOldSelfDataLoader(db, kadDataForSelfChan),
-		StartNodesSelfDataFetcher(kadDataForSelfChan, selfDataForSaveChan),
-		StartNodesSelfDataSaver(db, selfDataForSaveChan),
+		StartOldSelfDataLoader(db, kadDataForSelfChan, runFlags.kadLoadChunkSize),
+		StartNodesSelfDataFetcher(kadDataForSelfChan, selfDataForSaveChan, runFlags.selfFetchRoutines),
+		StartNodesSelfDataSaver(db, selfDataForSaveChan, runFlags.selfSaveChunkSize),
 		//
-		StartNodesKadDataImporter("-", true, kadDataRawChan),
+		StartNodesKadDataImporter("-", true, kadDataRawChan, runFlags.kadImportRecentSkip),
 	}
 	for {
 		for _, worker := range workers {

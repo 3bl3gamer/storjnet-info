@@ -87,9 +87,9 @@ func ImportNodesKadData(fpath string) (err error) {
 
 	rawKadDataChan := make(chan *pb.Node, 16)
 	extKadDataChan := make(chan *KadDataExt, 16)
-	importer := StartNodesKadDataImporter(fpath, false, rawKadDataChan)
+	importer := StartNodesKadDataImporter(fpath, false, rawKadDataChan, 0)
 	location := StartLocationSearcher(gdb, rawKadDataChan, extKadDataChan)
-	saver := StartNodesKadDataSaver(db, extKadDataChan)
+	saver := StartNodesKadDataSaver(db, extKadDataChan, 100)
 
 	if err := importer.CloseAndWait(); err != nil {
 		return merry.Wrap(err)
@@ -107,7 +107,7 @@ func ImportNodesKadData(fpath string) (err error) {
 	return nil
 }
 
-func StartNodesKadDataImporter(fpath string, infinite bool, kadDataChan chan *pb.Node) Worker {
+func StartNodesKadDataImporter(fpath string, infinite bool, kadDataChan chan *pb.Node, recentSkipSize int) Worker {
 	worker := NewSimpleWorker(1)
 
 	f, err := openFileOrStdin(fpath)
@@ -116,12 +116,19 @@ func StartNodesKadDataImporter(fpath string, infinite bool, kadDataChan chan *pb
 		return worker
 	}
 
+	var recentIDs []storj.NodeID
+	recentIDsPos := 0
+	if recentSkipSize > 0 {
+		recentIDs = make([]storj.NodeID, recentSkipSize)
+	}
+
 	lineF := bufio.NewReader(f)
 	go func() {
 		defer func() {
 			f.Close()
 			worker.Done()
 		}()
+	lines_loop:
 		for {
 			line, err := lineF.ReadString('\n')
 			if err == io.EOF {
@@ -136,6 +143,16 @@ func StartNodesKadDataImporter(fpath string, infinite bool, kadDataChan chan *pb
 			if err := jsonpb.UnmarshalString(line, node); err != nil {
 				worker.AddError(err)
 				return
+			}
+			if recentIDs != nil {
+				for _, recentID := range recentIDs {
+					if recentID == node.Id {
+						log.Printf("INFO: KAD-IMPORT: skipping recent %s", node.Id)
+						continue lines_loop
+					}
+				}
+				recentIDs[recentIDsPos] = node.Id
+				recentIDsPos = (recentIDsPos + 1) % len(recentIDs)
 			}
 			kadDataChan <- node
 		}
