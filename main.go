@@ -75,7 +75,7 @@ func init() {
 	flags.IntVar(&runFlags.kadSaveChunkSize, "kad-save-chunk-size", 10, "")
 
 	flags.IntVar(&runFlags.kadLoadChunkSize, "kad-load-chunk-size", 10, "")
-	flags.IntVar(&runFlags.selfFetchRoutines, "self-fetch-routines", 2, "")
+	flags.IntVar(&runFlags.selfFetchRoutines, "self-fetch-routines", 4, "")
 	flags.IntVar(&runFlags.selfSaveChunkSize, "self-save-chunk-size", 10, "")
 }
 

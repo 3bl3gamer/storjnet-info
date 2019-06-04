@@ -119,8 +119,12 @@ func StartOldKadDataLoader(db *pg.DB, nodeIDsChan chan storj.NodeID, chunkSize i
 		idsBytes := make([][]byte, chunkSize)
 		for {
 			_, err := db.Query(&idsBytes, `
-				WITH cte AS (SELECT id FROM nodes ORDER BY kad_checked_at ASC NULLS FIRST LIMIT ?)
-				UPDATE nodes AS nodes SET kad_checked_at = NOW() FROM cte WHERE nodes.id = cte.id
+				WITH cte AS (
+					SELECT id FROM nodes
+					WHERE kad_updated_at < NOW() - INTERVAL '15 minutes'
+					ORDER BY kad_checked_at ASC NULLS FIRST LIMIT ?
+				)
+				UPDATE nodes SET kad_checked_at = NOW() FROM cte WHERE nodes.id = cte.id
 				RETURNING nodes.id`, chunkSize)
 			if err != nil {
 				worker.AddError(err)
@@ -154,8 +158,12 @@ func StartOldSelfDataLoader(db *pg.DB, kadDataChan chan *pb.Node, chunkSize int)
 		nodes := make([]*pb.Node, chunkSize)
 		for {
 			_, err := db.Query(&nodesStr, `
-				WITH cte AS (SELECT id FROM nodes WHERE kad_params IS NOT NULL ORDER BY self_checked_at ASC NULLS FIRST LIMIT ?)
-				UPDATE nodes AS nodes SET self_checked_at = NOW() FROM cte WHERE nodes.id = cte.id
+				WITH cte AS (
+					SELECT id FROM nodes
+					WHERE kad_params IS NOT NULL AND self_updated_at < NOW() - INTERVAL '15 minutes'
+					ORDER BY self_checked_at ASC NULLS FIRST LIMIT ?
+				)
+				UPDATE nodes SET self_checked_at = NOW() FROM cte WHERE nodes.id = cte.id
 				RETURNING nodes.kad_params`, chunkSize)
 			if err != nil {
 				worker.AddError(err)
