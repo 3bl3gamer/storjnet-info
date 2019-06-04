@@ -193,8 +193,8 @@ func SaveGlobalNodesStats(db *pg.DB) error {
 		)
 		INSERT INTO storjinfo.global_stats (
 			count_total, count_hours,
-			free_disk, free_bandwidth,
-			versions, countries, difficulties
+			free_disk, free_disk_total, free_bandwidth,
+			versions, types, countries, difficulties
 		) VALUES ((
 			SELECT count(*) FROM nodes
 		), (
@@ -206,24 +206,38 @@ func SaveGlobalNodesStats(db *pg.DB) error {
 		(
 			SELECT array_agg((
 				perc, (
-					SELECT percentile_cont(perc) WITHIN GROUP (ORDER BY (self_params->'capacity'->>'free_disk')::bigint)
-					FROM active_nodes WHERE self_params->'capacity'->>'free_disk' IS NOT NULL
+					SELECT percentile_cont(perc) WITHIN GROUP (ORDER BY (self_params->'capacity'->'free_disk')::bigint)
+					FROM active_nodes WHERE self_params->'capacity'->'free_disk' IS NOT NULL
 				)
 			)::data_stat_item)
 			FROM unnest(ARRAY[0.01, 0.05, 0.1, 0.25, 0.5, 0.75, 0.90, 0.95, 0.99]) AS perc
 		), (
 			SELECT array_agg((
 				perc, (
-					SELECT percentile_cont(perc) WITHIN GROUP (ORDER BY (self_params->'capacity'->>'free_bandwidth')::bigint)
-					FROM active_nodes WHERE self_params->'capacity'->>'free_bandwidth' IS NOT NULL
+					SELECT sum((self_params->'capacity'->'free_disk')::bigint)
+					FROM active_nodes WHERE (self_params->'capacity'->'free_disk')::bigint <= (
+						SELECT percentile_disc(perc) WITHIN GROUP (ORDER BY (self_params->'capacity'->'free_disk')::bigint)
+						FROM active_nodes WHERE self_params->'capacity'->'free_disk' IS NOT NULL
+					)
+				)
+			)::data_stat_item)
+			FROM unnest(ARRAY[0.90, 0.95, 0.99, 0.995, 0.999, 1]) AS perc
+		), (
+			SELECT array_agg((
+				perc, (
+					SELECT percentile_cont(perc) WITHIN GROUP (ORDER BY (self_params->'capacity'->'free_bandwidth')::bigint)
+					FROM active_nodes WHERE self_params->'capacity'->'free_bandwidth' IS NOT NULL
 				)
 			)::data_stat_item)
 			FROM unnest(ARRAY[0.01, 0.05, 0.1, 0.25, 0.5, 0.75, 0.90, 0.95, 0.99]) AS perc
 		),
 		(
 			SELECT array_agg((version, cnt)::version_stat_item ORDER BY version) FROM (
-				WITH cte AS (SELECT self_params->'version'->>'version' AS version FROM active_nodes)
-				SELECT version, count(*) AS cnt FROM cte GROUP BY version
+				SELECT self_params->'version'->>'version' AS version, count(*) AS cnt FROM active_nodes GROUP BY version
+			) AS t
+		), (
+			SELECT array_agg((type, cnt)::type_stat_item ORDER BY type) FROM (
+				SELECT self_params->>'type' AS type, count(*) AS cnt FROM active_nodes GROUP BY type
 			) AS t
 		), (
 			SELECT array_agg((country, cnt)::country_stat_item ORDER BY cnt) FROM (
