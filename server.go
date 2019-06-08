@@ -156,7 +156,7 @@ var templateFuncs = template.FuncMap{
 }
 
 func getTemplate(path string) (*template.Template, error) {
-	if false {
+	if true {
 		if tmpl, ok := templateCache[path]; ok {
 			return tmpl, nil
 		}
