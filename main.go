@@ -42,6 +42,11 @@ var (
 		Short: "save nodes statistics snapshot",
 		RunE:  CMDSaveStats,
 	}
+	startHTTPServerCmd = &cobra.Command{
+		Use:   "start-http-server",
+		Short: "start serving stats via http",
+		RunE:  CMDStartHTTPServer,
+	}
 )
 
 var runFlags = struct {
@@ -64,6 +69,7 @@ func init() {
 	importCmd.AddCommand(importIDsCmd)
 	importCmd.AddCommand(importKadDataCmd)
 	rootCmd.AddCommand(saveStatsCmd)
+	rootCmd.AddCommand(startHTTPServerCmd)
 
 	flags := runCmd.Flags()
 	flags.Int64Var(&runFlags.startDelay, "start-delay", 0, "delay in seconds before storagenode connection attempt")
@@ -130,6 +136,10 @@ func CMDRun(cmd *cobra.Command, args []string) error {
 func CMDSaveStats(cmd *cobra.Command, args []string) error {
 	db := makePGConnection()
 	return merry.Wrap(SaveGlobalNodesStats(db))
+}
+
+func CMDStartHTTPServer(cmd *cobra.Command, args []string) error {
+	return merry.Wrap(StartHTTPServer("0.0.0.0:9002"))
 }
 
 func main() {

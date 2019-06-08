@@ -1,0 +1,40 @@
+{{define "base" -}}
+<html>
+	<head>
+		<meta charset="utf-8" />
+		<title>{{block "title" .}}Storj3 stat{{ end }}</title>
+		<style>
+			.dim {
+				color: darkgray
+			}
+
+			.small {
+				font-size: 85%
+			}
+
+			table {
+				border-collapse: collapse;
+				margin: 4px;
+				/* border-spacing: 0; */
+			}
+
+			thead{
+				font-weight: bold;
+				text-align: center;
+			}
+
+			tr {
+				border-bottom: 1px solid lightgray;
+			}
+
+			td:not(:first-child) {
+				padding: 1px 15px;
+				text-align: right;
+			}
+		</style>
+	</head>
+	<body>
+		{{block "content" .}}...{{end}}
+	</body>
+</html>
+{{ end }}

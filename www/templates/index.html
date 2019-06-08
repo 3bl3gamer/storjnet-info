@@ -1,0 +1,185 @@
+{{define "content"}}
+
+<h1>
+	{{if eq .Lang "ru"}}
+	Статистика сети Storj'а v3
+	{{else}}
+	Storj v3 network statistics
+	{{end}}
+</h1>
+
+<p class="dim small">
+	{{if eq .Lang "ru"}}
+	*по версии ноды, работающей где-то в Париже
+	{{else}}
+	*from the perspective of the node working somewhere in Paris
+	{{end}}
+</p>
+
+<p>
+	{{if eq .Lang "ru"}}
+	Обновлено
+	{{else}}
+	Last update at
+	{{end}}
+	{{formatDateTime .LastStat.CreatedAt .Lang}}
+	<span class="dim small">
+		({{ago .LastStat.CreatedAt .Lang}}
+		{{if eq .Lang "ru"}}
+		назад
+		{{- else}}
+		ago
+		{{- end}})
+	</span>
+</p>
+
+<h2>Размер сети</h2>
+<p>
+	{{$countNow := .LastStat.CountHours.At 24}}
+	{{$countDayAgo := .DayAgoStat.CountHours.At 24}}
+	{{$countInc := sub $countNow $countDayAgo}}
+	Всего в сети {{$countNow}} {{pluralize $countNow .Lang "живая нода" "живые ноды" "живых нод"}},
+	{{signed $countInc}} за последний день
+	<span class="dim small">
+		(живыми считаются ноды, к которым удалось подключиться за последние 24 часа)
+	</span>
+</p>
+
+<h2>Свободное место и трафик</h2>
+<p>
+	{{$freeSize := .LastStat.FreeDisk.At 0.5}}
+	{{$freeBand := .LastStat.FreeBandwidth.At 0.5}}
+	{{$freeSizeDayAgo := .DayAgoStat.FreeDisk.At 0.5}}
+	{{$freeBandDayAgo := .DayAgoStat.FreeBandwidth.At 0.5}}
+	{{$sizeDelta := sub $freeSize $freeSizeDayAgo}}
+	{{$bandDelta := sub $freeBand $freeBandDayAgo}}
+	<table>
+		<thead>
+			<tr>
+				<td></td>
+				<td>Медиана</td>
+				<td>За дань</td>
+			</tr>
+		</thead>
+		<tr>
+			<td>freeDisk</td>
+			<td>{{sizeIB $freeSize}}</td>
+			<td>{{sizeIBSign $sizeDelta}}</td>
+		</tr>
+		<tr>
+			<td>freeBandwidth</td>
+			<td>{{sizeIB $freeBand}}</td>
+			<td>{{sizeIBSign $bandDelta}}</td>
+		</tr>
+	</table>
+</p>
+<p class="dim">
+	<b>freeDisk</b> — не особо надёжный показатель, т.к. он зависит не только от Сторжа, но и, наприер, от
+	качающегося на тот же диск торрента.
+</p>
+<p class="dim">
+	Другое дело с <b>freeBandwidth</b>: он зависит только от Сторжа, так что дневное изменение можно использовать
+	для примерной оценки входящего+исходящего трафика на обычную, среднюю ноду.
+</p>
+<p>
+	{{$perc := 0.995}}
+	{{$sizeTotal := .LastStat.FreeDiskTotal.At $perc}}
+	{{$sizeTotalDayAgo := .DayAgoStat.FreeDiskTotal.At $perc}}
+	{{$sizeDelta := sub $sizeTotal $sizeTotalDayAgo}}
+	Суммарный незанятый обём сети: более {{sizeIB $sizeTotal}}, {{sizeIBSign $sizeDelta}} за последний день
+	<span class="dim small">
+		(по {{percents $perc}}% нод. Самые объёмные не учитываются:
+		они могли наколдовать себе огромный виртуальный диск)
+	</span>
+</p>
+
+<h2>Версии</h2>
+<p>
+	<table>
+		<thead>
+			<tr>
+				<td>Версия</td>
+				<td>Кол-во</td>
+			</tr>
+		</thead>
+		{{range .LastStat.Versions}}
+		<tr>
+			<td>{{if .Version}}{{.Version}}{{else}}{{loc $.Lang "N/a" "ru" "Н/д"}}{{end}}</td>
+			<td>{{.Count}}</td>
+		</tr>
+		{{end}}
+	</table>
+	<span class="dim small">Кто забыл обновиться?</span>
+</p>
+
+<h2>Страны</h2>
+<p>
+	<table>
+		<thead>
+			<tr>
+				<td>Страна</td>
+				<td>Кол-во</td>
+			</tr>
+		</thead>
+		{{range .LastStat.Countries.Top 10}}
+		<tr>
+			<td>{{.Country}}</td>
+			<td>{{.Count}}</td>
+		</tr>
+		{{end}}
+	</table>
+	<span class="dim small">топ-10 стран по кол-ву нод</span>
+</p>
+<p>
+	{{$count := len .LastStat.Countries}}
+	Ноды запущены в {{$count}} {{pluralize $count "стране" "странах" "странах"}},
+	для {{.LastStat.Countries.UnknownCount}} {{pluralize .LastStat.Countries.UnknownCount "ноды" "нод" "нод"}}
+	местоположение определить не удалось.
+</p>
+
+<h2>Сложности идентификаторов</h2>
+<p>
+	<table style="font-size:75%">
+		<thead>
+			<tr>
+				<td>Сложность</td>
+				<td>Кол-во нод</td>
+			</tr>
+		</thead>
+		{{range .LastStat.Difficulties}}
+		<tr style="border-bottom:1px solid white">
+			<td style="padding: 0 15px">{{.Difficulty}}</td>
+			<td style="padding: 0 0; text-align:left; position: relative;">
+				<div
+					style="background: gray; display:inline-block; text-align:right; color: white; width:{{div .Count 2}}px; min-width: 1px">
+					{{if lt .Count 45}}&nbsp;{{else}}{{.Count}}&thinsp;{{end}}
+				</div>
+				{{if lt .Count 45}}{{.Count}}{{end}}
+			</td>
+		</tr>
+		{{end}}
+	</table>
+</p>
+
+<h2>Виды нод</h2>
+{{range .NodeIDsWithType}}
+<h3>{{.NodeType}}</h3>
+<p>
+	{{if .IDs}}
+	<ol>
+		{{range .IDs}}
+		<li><a href="/nodes/{{.}}">{{.}}</a></li>
+		{{end}}
+	</ol>
+	{{else}}
+	Таких нет.
+	{{end}}
+</p>
+{{end}}
+<h3>STORAGE</h3>
+<p>
+	{{$count := .LastStat.Types.OfType .NodeType_STORAGE}}
+	Всего их {{$count}}: слишком много, чтобы вывести сюда списком.
+</p>
+
+{{end}}
