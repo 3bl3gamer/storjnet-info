@@ -47,6 +47,18 @@ func makeGeoIPConnection() (*geoip.GeoIP, error) {
 	return gdb, nil
 }
 
+func appendFileString(fpath, text string) error {
+	f, err := os.OpenFile(fpath, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0600)
+	if err != nil {
+		return merry.Wrap(err)
+	}
+	defer f.Close()
+	if _, err = f.WriteString(text); err != nil {
+		return merry.Wrap(err)
+	}
+	return nil
+}
+
 func saveChunked(db *pg.DB, chunkSize int, channel chan interface{}, handler func(tx *pg.Tx, items []interface{}) error) error {
 	var err error
 	items := make([]interface{}, 0, chunkSize)

@@ -269,6 +269,7 @@ func HandleNode(wr http.ResponseWriter, r *http.Request, ps httprouter.Params) e
 	node := &Node{ID: nodeID}
 	err = db.Model(node).Column("created_at", "kad_params", "kad_updated_at", "self_updated_at", "self_params", "location").Where("id = ?", nodeID).Select()
 	if err == pg.ErrNoRows {
+		appendFileString("unknown_nodes_log.txt", time.Now().Format("2006-01-02 15:04:05")+" "+node.ID.String()+"\n")
 		return render(wr, http.StatusBadRequest, "node.html", "base", map[string]interface{}{
 			"Lang":           "ru",
 			"NodeIDStr":      node.ID.String(),
