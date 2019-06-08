@@ -49,9 +49,9 @@
 	{{if .Node.Location}}
 	{{$lon := .Node.Location.Longitude}}
 	{{$lat := .Node.Location.Latitude}}
-	<a target="_blank" href="https://yandex.ru/maps/?ll={{$lon}},{{$lat}}&pt={{$lon}},{{$lat}}">
+	<a target="_blank" href="https://yandex.ru/maps/?ll={{$lon}},{{$lat}}&z=6&pt={{$lon}},{{$lat}}">
 		<img width=432 height=300 title="Yandex map static image"
-			src="https://static-maps.yandex.ru/1.x/?ll={{$lon}},{{$lat}}&size=648,450&z=10&l=map&scale=1.5&pt={{$lon}},{{$lat}},comma">
+			src="https://static-maps.yandex.ru/1.x/?ll={{$lon}},{{$lat}}&size=648,450&z=6&l=map&scale=1.5&pt={{$lon}},{{$lat}},comma">
 	</a>
 </p>
 <p>

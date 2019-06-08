@@ -164,17 +164,15 @@
 <h2>Виды нод</h2>
 {{range .NodeIDsWithType}}
 <h3>{{.NodeType}}</h3>
-<p>
-	{{if .IDs}}
-	<ol>
-		{{range .IDs}}
-		<li><a href="/@{{.}}">{{.}}</a></li>
-		{{end}}
-	</ol>
-	{{else}}
-	Таких нет.
+{{if .IDs}}
+<ol>
+	{{range .IDs}}
+	<li><a href="/@{{.}}">{{.}}</a></li>
 	{{end}}
-</p>
+</ol>
+{{else}}
+Таких нет.
+{{end}}
 {{end}}
 <h3>STORAGE</h3>
 <p>
