@@ -381,6 +381,16 @@ type GlobalStat struct {
 	Types         TypesStatItems      `sql:",array"`
 }
 
+type Node struct {
+	ID            storj.NodeID
+	CreatedAt     time.Time
+	KadParams     map[string]interface{}
+	SelfParams    map[string]interface{}
+	KadUpdatedAt  time.Time
+	SelfUpdatedAt time.Time
+	Location      *NodeLocation `sql:"composite:node_Location"`
+}
+
 func nextChar(str string, pos *int) (byte, error) {
 	if len(str) <= *pos {
 		return 0, merry.Errorf("buffer suddenly ended: %d, %s", *pos, str)

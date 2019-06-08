@@ -2,7 +2,7 @@
 <html>
 	<head>
 		<meta charset="utf-8" />
-		<title>{{block "title" .}}Storj3 stat{{ end }}</title>
+		<title>{{block "title" .}}Storj3 stat{{end}}</title>
 		<style>
 			.dim {
 				color: darkgray
@@ -18,7 +18,7 @@
 				/* border-spacing: 0; */
 			}
 
-			thead{
+			thead {
 				font-weight: bold;
 				text-align: center;
 			}
@@ -30,6 +30,11 @@
 			td:not(:first-child) {
 				padding: 1px 15px;
 				text-align: right;
+			}
+
+			code {
+				background-color: #E7E7E7;
+				border-radius: 2px;
 			}
 		</style>
 	</head>

@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"html/template"
 	"log"
@@ -13,6 +15,7 @@ import (
 	"github.com/go-pg/pg"
 	"github.com/julienschmidt/httprouter"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/storj"
 )
 
 type ctxKey string
@@ -133,6 +136,23 @@ var templateFuncs = template.FuncMap{
 	"nodeTypeName": func(nodeType int64) string {
 		return pb.NodeType_name[int32(nodeType)]
 	},
+	"formattedJSON": func(val interface{}) (string, error) {
+		buf, err := json.MarshalIndent(val, "", " ")
+		if err != nil {
+			return "", merry.Wrap(err)
+		}
+		return string(buf), nil
+	},
+	"nodeIDHex": func(id storj.NodeID) string {
+		return hex.EncodeToString(id[:])
+	},
+	"nodeIDBin": func(id storj.NodeID) string {
+		res := ""
+		for _, b := range id {
+			res += fmt.Sprintf("% 08b", b)
+		}
+		return res
+	},
 }
 
 func getTemplate(path string) (*template.Template, error) {
@@ -223,7 +243,7 @@ func HandleIndex(wr http.ResponseWriter, r *http.Request, ps httprouter.Params) 
 		return merry.Wrap(err)
 	}
 
-	return render(wr, http.StatusInternalServerError, "index.html", "base", map[string]interface{}{
+	return render(wr, http.StatusOK, "index.html", "base", map[string]interface{}{
 		"Lang":             "ru",
 		"LastStat":         lastStat,
 		"DayAgoStat":       dayAgoStat,
@@ -232,11 +252,47 @@ func HandleIndex(wr http.ResponseWriter, r *http.Request, ps httprouter.Params) 
 	})
 }
 
+func HandleNode(wr http.ResponseWriter, r *http.Request, ps httprouter.Params) error {
+	db := r.Context().Value(ctxKey("db")).(*pg.DB)
+
+	nodeIDStr := ps.ByName("nodeID")
+	nodeID, err := storj.NodeIDFromString(nodeIDStr)
+	if err != nil {
+		return render(wr, http.StatusBadRequest, "node.html", "base", map[string]interface{}{
+			"Lang":            "ru",
+			"NodeIDStr":       nodeIDStr,
+			"NodeIDIsInvalid": true,
+			"NodeIDDecodeErr": err.Error(),
+		})
+	}
+
+	node := &Node{ID: nodeID}
+	err = db.Model(node).Column("created_at", "kad_params", "kad_updated_at", "self_updated_at", "self_params", "location").Where("id = ?", nodeID).Select()
+	if err == pg.ErrNoRows {
+		return render(wr, http.StatusBadRequest, "node.html", "base", map[string]interface{}{
+			"Lang":           "ru",
+			"NodeIDStr":      node.ID.String(),
+			"NodeIDNotFound": true,
+			"Node":           node,
+		})
+	}
+	if err != nil {
+		return merry.Wrap(err)
+	}
+
+	return render(wr, http.StatusOK, "node.html", "base", map[string]interface{}{
+		"Lang":      "ru",
+		"NodeIDStr": node.ID.String(),
+		"Node":      node,
+	})
+}
+
 func StartHTTPServer(address string) error {
 	db := makePGConnection()
 
 	router := httprouter.New()
 	router.Handle("GET", "/", wrap(db, HandleIndex))
+	router.Handle("GET", "/@:nodeID", wrap(db, HandleNode))
 
 	jsFS := http.FileServer(http.Dir("www/js"))
 	router.Handler("GET", "/js/*fpath", http.StripPrefix("/js/", jsFS))
