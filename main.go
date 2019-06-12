@@ -81,7 +81,7 @@ func init() {
 	flags.IntVar(&runFlags.kadSaveChunkSize, "kad-save-chunk-size", 10, "")
 
 	flags.IntVar(&runFlags.kadLoadChunkSize, "kad-load-chunk-size", 10, "")
-	flags.IntVar(&runFlags.selfFetchRoutines, "self-fetch-routines", 4, "")
+	flags.IntVar(&runFlags.selfFetchRoutines, "self-fetch-routines", 8, "")
 	flags.IntVar(&runFlags.selfSaveChunkSize, "self-save-chunk-size", 10, "")
 }
 
@@ -107,8 +107,9 @@ func CMDRun(cmd *cobra.Command, args []string) error {
 	nodeIDsForKadChan := make(chan storj.NodeID, 16)
 	kadDataRawChan := make(chan *pb.Node, 16)
 	kadDataForSaveChan := make(chan *KadDataExt, 16)
-	kadDataForSelfChan := make(chan *pb.Node, 16)
-	selfDataForSaveChan := make(chan *NodeInfoExt, 16)
+
+	kadDataForSelfChan := make(chan *SelfUpdate_Kad, 16)
+	selfDataForSaveChan := make(chan *SelfUpdate_Self, 16)
 
 	workers := []Worker{
 		StartOldKadDataLoader(db, nodeIDsForKadChan, runFlags.idsLoadChunkSize),

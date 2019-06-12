@@ -13,7 +13,7 @@ import (
 	"github.com/abh/geoip"
 	"github.com/ansel1/merry"
 	"github.com/go-pg/pg"
-	"github.com/lib/pq"
+	"github.com/gogo/protobuf/jsonpb"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 )
@@ -136,6 +136,8 @@ func (w SimpleWorker) CloseAndWait() error {
 	return w.PopError()
 }
 
+// лучше бы тут сделать структуру с анонимным полем аналогично NodeKadExt,
+// но пока https://github.com/go-pg/pg/issues/1237
 type NodeIDExt storj.NodeID
 
 func (id *NodeIDExt) Scan(val interface{}) error {
@@ -152,13 +154,32 @@ func (id *NodeIDExt) Scan(val interface{}) error {
 	return nil
 }
 
+func (id NodeIDExt) Value() (driver.Value, error) {
+	return id[:], nil
+}
+
 func (id NodeIDExt) String() string {
 	return storj.NodeID(id).String()
 }
 
-type NodeInfoExt struct {
-	ID   storj.NodeID
-	Info *pb.NodeInfoResponse
+type NodeKadExt struct {
+	pb.Node
+}
+
+func (node *NodeKadExt) Scan(val interface{}) error {
+	return merry.Wrap(jsonpb.UnmarshalString(string(val.([]byte)), &node.Node))
+}
+
+type SelfUpdate_Kad struct {
+	ID            NodeIDExt
+	KadParams     NodeKadExt
+	SelfUpdatedAt time.Time
+}
+
+type SelfUpdate_Self struct {
+	SelfUpdate_Kad
+	SelfParams    *pb.NodeInfoResponse
+	SelfUpdateErr error
 }
 
 type NodeLocation struct {
@@ -174,7 +195,7 @@ func (l *NodeLocation) Value() (driver.Value, error) {
 	}
 	// composite types seem not supported in go-pg, so there is manual formatting with semi-hacky escaping
 	return fmt.Sprintf("(%s,%s,%f,%f)",
-		pq.QuoteIdentifier(l.Country), pq.QuoteIdentifier(l.City), l.Longitude, l.Latitude), nil
+		escapePGString(l.Country), escapePGString(l.City), l.Longitude, l.Latitude), nil
 }
 
 type KadDataExt struct {
@@ -410,6 +431,10 @@ func nextChar(str string, pos *int) (byte, error) {
 	c := str[*pos]
 	*pos++
 	return c, nil
+}
+
+func escapePGString(name string) string {
+	return `"` + strings.Replace(name, `"`, `""`, -1) + `"`
 }
 
 func unescapePGString(str string) (string, error) {

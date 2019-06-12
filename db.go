@@ -1,13 +1,13 @@
 package main
 
 import (
+	"database/sql"
+	"fmt"
 	"log"
 	"time"
 
 	"github.com/ansel1/merry"
 	"github.com/go-pg/pg"
-	"github.com/gogo/protobuf/jsonpb"
-	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 )
 
@@ -30,10 +30,13 @@ func StartNodesKadDataSaver(db *pg.DB, kadDataChan chan *KadDataExt, chunkSize i
 			for _, node := range items {
 				var xmax string
 				_, err := db.QueryOne(&xmax, `
-					INSERT INTO nodes (id, kad_params, location, kad_updated_at)
-					VALUES (?, ?, ?, NOW())
+					INSERT INTO nodes (id, kad_params, location, kad_updated_at, kad_checked_at)
+					VALUES (?, ?, ?, NOW(), NOW())
 					ON CONFLICT (id) DO UPDATE SET
-						kad_params = EXCLUDED.kad_params, location = COALESCE(nodes.location, EXCLUDED.location), kad_updated_at = NOW()
+						kad_params = EXCLUDED.kad_params,
+						location = COALESCE(nodes.location, EXCLUDED.location),
+						kad_updated_at = NOW(),
+						kad_checked_at = GREATEST(nodes.kad_checked_at, EXCLUDED.kad_checked_at)
 					RETURNING xmax`, node.(*KadDataExt).Node.Id, node.(*KadDataExt).Node, node.(*KadDataExt).Location)
 				if err != nil {
 					return merry.Wrap(err)
@@ -55,7 +58,7 @@ func StartNodesKadDataSaver(db *pg.DB, kadDataChan chan *KadDataExt, chunkSize i
 	return worker
 }
 
-func StartNodesSelfDataSaver(db *pg.DB, selfDataChan chan *NodeInfoExt, chunkSize int) Worker {
+func StartNodesSelfDataSaver(db *pg.DB, selfDataChan chan *SelfUpdate_Self, chunkSize int) Worker {
 	worker := NewSimpleWorker(1)
 	selfDataChanI := make(chan interface{}, 16)
 
@@ -72,26 +75,48 @@ func StartNodesSelfDataSaver(db *pg.DB, selfDataChan chan *NodeInfoExt, chunkSiz
 		defer worker.Done()
 		err := saveChunked(db, chunkSize, selfDataChanI, func(tx *pg.Tx, items []interface{}) error {
 			for _, nodeI := range items {
-				node := nodeI.(*NodeInfoExt)
-
+				node := nodeI.(*SelfUpdate_Self)
 				var xmax string
-				_, err := db.QueryOne(&xmax, `
-					INSERT INTO nodes (id, self_params, self_updated_at)
-					VALUES (?, ?, NOW())
-					ON CONFLICT (id) DO UPDATE SET self_params = EXCLUDED.self_params, self_updated_at = NOW()
-					RETURNING xmax`, node.ID, node.Info)
-				if err != nil {
-					return merry.Wrap(err)
+
+				if node.SelfUpdateErr == nil {
+					_, err := db.QueryOne(&xmax, `
+						INSERT INTO nodes (id, self_params, self_updated_at)
+						VALUES (?, ?, NOW())
+						ON CONFLICT (id) DO UPDATE SET self_params = EXCLUDED.self_params, self_updated_at = NOW()
+						RETURNING xmax`, node.ID, node.SelfParams)
+					if err != nil {
+						return merry.Wrap(err)
+					}
+
+					if time.Now().Sub(node.SelfUpdatedAt) >= 15*time.Minute {
+						_, err = db.Exec(`
+						INSERT INTO nodes_history (id, month_date, free_data_items)
+						VALUES (?, date_trunc('month', now() at time zone 'utc')::date, ARRAY[(NOW(), ?, ?)::data_history_item])
+						ON CONFLICT (id, month_date) DO UPDATE
+						SET free_data_items = nodes_history.free_data_items || EXCLUDED.free_data_items
+						`, node.ID, node.SelfParams.Capacity.FreeDisk, node.SelfParams.Capacity.FreeBandwidth)
+						if err != nil {
+							return merry.Wrap(err)
+						}
+					}
 				}
 
-				_, err = db.Exec(`
-					INSERT INTO nodes_history (id, month_date, items)
-					VALUES (?, date_trunc('month', now() at time zone 'utc')::date, ARRAY[(NOW(), ?, ?)::data_history_item])
-					ON CONFLICT (id, month_date) DO UPDATE
-					SET items = nodes_history.items || EXCLUDED.items
-					`, node.ID, node.Info.Capacity.FreeDisk, node.Info.Capacity.FreeBandwidth)
-				if err != nil {
-					return merry.Wrap(err)
+				if time.Now().Sub(node.SelfUpdatedAt) >= time.Minute {
+					var lastErr sql.NullString
+					if node.SelfUpdateErr != nil {
+						lastErr = sql.NullString{node.SelfUpdateErr.Error(), true}
+					}
+					fmt.Println("!!!", node.ID, node.SelfUpdateErr == nil)
+					_, err := db.Exec(`
+						INSERT INTO nodes_history (id, month_date, activity_stamps, last_self_params_error)
+						VALUES (?, date_trunc('month', now() at time zone 'utc')::date, ARRAY[(EXTRACT(EPOCH FROM NOW())/10)::int*10 + ?::int], ?)
+						ON CONFLICT (id, month_date) DO UPDATE
+						SET activity_stamps = nodes_history.activity_stamps || EXCLUDED.activity_stamps,
+							last_self_params_error = EXCLUDED.last_self_params_error
+						`, node.ID, node.SelfUpdateErr != nil, lastErr)
+					if err != nil {
+						return merry.Wrap(err)
+					}
 				}
 
 				count++
@@ -116,8 +141,8 @@ func StartOldKadDataLoader(db *pg.DB, nodeIDsChan chan storj.NodeID, chunkSize i
 
 	go func() {
 		defer worker.Done()
-		idsBytes := make([][]byte, chunkSize)
 		for {
+			idsBytes := make([][]byte, chunkSize)
 			_, err := db.Query(&idsBytes, `
 				WITH cte AS (
 					SELECT id FROM nodes
@@ -136,7 +161,7 @@ func StartOldKadDataLoader(db *pg.DB, nodeIDsChan chan storj.NodeID, chunkSize i
 				return
 			}
 			if len(ids) > 0 {
-				log.Printf("INFO: DB-IDS: old %s - %s", ids[0], ids[len(ids)-1])
+				log.Printf("INFO: DB-IDS: old %s - %s (%d)", ids[0], ids[len(ids)-1], len(ids))
 			} else {
 				log.Print("INFO: DB-IDS: no old IDs")
 				time.Sleep(10 * time.Second)
@@ -149,44 +174,35 @@ func StartOldKadDataLoader(db *pg.DB, nodeIDsChan chan storj.NodeID, chunkSize i
 	return worker
 }
 
-func StartOldSelfDataLoader(db *pg.DB, kadDataChan chan *pb.Node, chunkSize int) Worker {
+func StartOldSelfDataLoader(db *pg.DB, kadDataChan chan *SelfUpdate_Kad, chunkSize int) Worker {
 	worker := NewSimpleWorker(1)
 
 	go func() {
 		defer worker.Done()
-		nodesStr := make([]string, chunkSize)
-		nodes := make([]*pb.Node, chunkSize)
 		for {
-			_, err := db.Query(&nodesStr, `
+			nodes := make([]*SelfUpdate_Kad, chunkSize)
+			_, err := db.Query(&nodes, `
 				WITH cte AS (
 					SELECT id FROM nodes
-					WHERE kad_params IS NOT NULL AND self_updated_at < NOW() - INTERVAL '15 minutes'
+					WHERE kad_params IS NOT NULL AND self_updated_at < NOW() - INTERVAL '1 minute'
 					ORDER BY self_checked_at ASC NULLS FIRST LIMIT ?
 				)
 				UPDATE nodes SET self_checked_at = NOW() FROM cte WHERE nodes.id = cte.id
-				RETURNING nodes.kad_params`, chunkSize)
+				RETURNING nodes.kad_params, nodes.self_updated_at`, chunkSize)
 			if err != nil {
 				worker.AddError(err)
 				return
 			}
 
-			nodes = nodes[:len(nodesStr)]
-			for i, nodeStr := range nodesStr {
-				node := &pb.Node{}
-				if err := jsonpb.UnmarshalString(nodeStr, node); err != nil {
-					worker.AddError(merry.Errorf("wrong node data: %s: %s", nodeStr, err))
-					return
-				}
-				nodes[i] = node
-			}
-
 			if len(nodes) > 0 {
-				log.Printf("INFO: DB-KAD: old %s - %s", nodes[0].Id, nodes[len(nodes)-1].Id)
+				log.Printf("INFO: DB-KAD: old %s - %s (%d)", nodes[0].KadParams.Id, nodes[len(nodes)-1].KadParams.Id, len(nodes))
 			} else {
 				log.Print("INFO: DB-KAD: no old KADs")
 				time.Sleep(10 * time.Second)
 			}
+
 			for _, node := range nodes {
+				node.ID = NodeIDExt(node.KadParams.Id)
 				kadDataChan <- node
 			}
 		}
@@ -257,30 +273,5 @@ func SaveGlobalNodesStats(db *pg.DB) error {
 			) AS t)
 		)
 		`)
-	/*
-		SELECT array_agg((perc, cnt)::data_stat_item) FROM (
-			SELECT perc, percentile_cont(perc) WITHIN GROUP (ORDER BY (self_params->'capacity'->>'free_disk')::bigint) as cnt
-			FROM nodes, unnest(ARRAY[0.01, 0.05, 0.1, 0.25, 0.5, 0.75, 0.90, 0.95, 0.99]) AS perc
-			WHERE self_params->'capacity'->>'free_disk' IS NOT NULL
-			GROUP BY perc
-		) AS t;
-	*/
 	return merry.Wrap(err)
 }
-
-/*
-func SaveNodesDataUsageHistory(db *pg.DB) error {
-	_, err := db.Exec(`
-		INSERT INTO nodes_history (id, month_date, items)
-			SELECT
-				id, date_trunc('month', now() at time zone 'utc')::date,
-				ARRAY[(NOW(), self_params->'capacity'->>'free_disk', self_params->'capacity'->>'free_bandwidth')::data_history_item]
-			FROM nodes
-			WHERE self_updated_at > NOW() - INTERVAL '3 days'
-				AND self_params ? 'capacity'
-		ON CONFLICT (id, month_date) DO UPDATE
-		SET items = nodes_history.items || EXCLUDED.items
-		`)
-	return merry.Wrap(err)
-}
-*/

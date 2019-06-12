@@ -58,7 +58,7 @@
 			<tr>
 				<td></td>
 				<td>Медиана</td>
-				<td>За дань</td>
+				<td>За день</td>
 			</tr>
 		</thead>
 		<tr>
@@ -86,7 +86,7 @@
 	{{$sizeTotal := .LastStat.FreeDiskTotal.At $perc}}
 	{{$sizeTotalDayAgo := .DayAgoStat.FreeDiskTotal.At $perc}}
 	{{$sizeDelta := sub $sizeTotal $sizeTotalDayAgo}}
-	Суммарный незанятый обём сети: более {{sizeIB $sizeTotal}}, {{sizeIBSign $sizeDelta}} за последний день
+	Суммарный незанятый объём сети: более {{sizeIB $sizeTotal}}, {{sizeIBSign $sizeDelta}} за последний день
 	<span class="dim small">
 		(по {{percents $perc}}% нод. Самые объёмные не учитываются:
 		они могли наколдовать себе огромный виртуальный диск)

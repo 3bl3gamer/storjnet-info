@@ -105,7 +105,7 @@ func StartNeighborsKadDataFetcher(kadDataChan chan *pb.Node, secondsInterval int
 	return worker
 }
 
-func StartNodesSelfDataFetcher(kadDataChan chan *pb.Node, selfDataChan chan *NodeInfoExt, routinesCount int) Worker {
+func StartNodesSelfDataFetcher(nodesInChan chan *SelfUpdate_Kad, nodesOutChan chan *SelfUpdate_Self, routinesCount int) Worker {
 	worker := NewSimpleWorker(routinesCount)
 
 	inspector, err := NewInspector()
@@ -121,11 +121,12 @@ func StartNodesSelfDataFetcher(kadDataChan chan *pb.Node, selfDataChan chan *Nod
 	for i := 0; i < routinesCount; i++ {
 		go func() {
 			defer worker.Done()
-			for node := range kadDataChan {
+			for node := range nodesInChan {
 				info, err := inspector.NodeInfo(context.Background(), &pb.NodeInfoRequest{
-					Id:      node.Id,
-					Address: node.GetAddress(),
+					Id:      node.KadParams.Id,
+					Address: node.KadParams.GetAddress(),
 				})
+				outNode := &SelfUpdate_Self{SelfUpdate_Kad: *node}
 
 				if err != nil {
 					if st, ok := status.FromError(err); ok {
@@ -136,11 +137,13 @@ func StartNodesSelfDataFetcher(kadDataChan chan *pb.Node, selfDataChan chan *Nod
 					} else {
 						log.Printf("WARN: SELF: strange reason: %s", err)
 					}
+					outNode.SelfUpdateErr = err
 					atomic.AddInt64(&countErrTotal, 1)
 				} else {
-					selfDataChan <- &NodeInfoExt{node.Id, info}
+					outNode.SelfParams = info
 					atomic.AddInt64(&countOk, 1)
 				}
+				nodesOutChan <- outNode
 
 				if atomic.AddInt64(&countTotal, 1)%10 == 0 {
 					log.Printf("INFO: SELF: total: %d, ok: %d, err: %d; %.2f rpm",
