@@ -10,6 +10,8 @@ import (
 	"storj.io/storj/pkg/storj"
 )
 
+var envMode = "dev"
+
 var (
 	rootCmd = &cobra.Command{
 		Use:          "storj3stat",
@@ -71,7 +73,10 @@ func init() {
 	rootCmd.AddCommand(saveStatsCmd)
 	rootCmd.AddCommand(startHTTPServerCmd)
 
-	flags := runCmd.Flags()
+	flags := rootCmd.Flags()
+	flags.StringVar(&envMode, "env", envMode, "evironment, dev or prod")
+
+	flags = runCmd.Flags()
 	flags.Int64Var(&runFlags.startDelay, "start-delay", 0, "delay in seconds before storagenode connection attempt")
 	flags.IntVar(&runFlags.kadImportRecentSkip, "kad-import-recent-skip", 32, "")
 

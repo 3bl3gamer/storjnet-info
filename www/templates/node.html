@@ -1,7 +1,7 @@
 {{define "title"}}{{.NodeIDStr}}{{end}}
 
 {{define "node_id_info"}}
-<p>
+<p class="node-id-info">
 	<b>Айди в base58:</b> {{.String}}<br>
 	<b>Айди в HEX:</b> {{nodeIDHex .}}<br>
 	<b>Айди побитно:</b> {{nodeIDBin .}}<br>
@@ -10,7 +10,7 @@
 {{end}}
 
 {{define "content"}}
-<h1>
+<h1 class="node-id">
 	{{.NodeIDStr}}
 </h1>
 
@@ -31,18 +31,6 @@
 
 {{template "node_id_info" .Node.ID}}
 
-<h2>Параметры ноды (из Kademlia)</h2>
-<pre>{{formattedJSON .Node.KadParams}}</pre>
-<span class="dim small">
-	обновлено {{formatDateTime .Node.KadUpdatedAt .Lang}}, {{ago .Node.KadUpdatedAt .Lang}} назад
-</span>
-
-<h2>Параметры ноды (запрошенные напрямую)</h2>
-<pre>{{formattedJSON .Node.SelfParams}}</pre>
-<span class="dim small">
-	обновлено {{formatDateTime .Node.SelfUpdatedAt .Lang}}, {{ago .Node.SelfUpdatedAt .Lang}} назад
-</span>
-
 <h2>Местоположение</h2>
 <p class="dim small">по базе GeoIP</p>
 <p>
@@ -62,6 +50,18 @@
 	Определить не удалось.
 	{{end}}
 </p>
+
+<h2>Параметры ноды (из Kademlia)</h2>
+<pre>{{formattedJSON .Node.KadParams}}</pre>
+<span class="dim small">
+	обновлено {{formatDateTime .Node.KadUpdatedAt .Lang}}, {{ago .Node.KadUpdatedAt .Lang}} назад
+</span>
+
+<h2>Параметры ноды (запрошенные напрямую)</h2>
+<pre>{{formattedJSON .Node.SelfParams}}</pre>
+<span class="dim small">
+	обновлено {{formatDateTime .Node.SelfUpdatedAt .Lang}}, {{ago .Node.SelfUpdatedAt .Lang}} назад
+</span>
 
 {{end}}
 {{end}}

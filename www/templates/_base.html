@@ -1,50 +1,31 @@
 {{define "base" -}}
 <html>
 	<head>
-		<meta charset="utf-8" />
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
 		<title>{{block "title" .}}Storj3 stat{{end}}</title>
-		<style>
-			.dim {
-				color: darkgray
-			}
-
-			.small {
-				font-size: 85%
-			}
-
-			table {
-				border-collapse: collapse;
-				margin: 4px;
-				/* border-spacing: 0; */
-			}
-
-			thead {
-				font-weight: bold;
-				text-align: center;
-			}
-
-			tr {
-				border-bottom: 1px solid lightgray;
-			}
-
-			td:not(:first-child) {
-				padding: 1px 15px;
-				text-align: right;
-			}
-
-			code {
-				background-color: #E7E7E7;
-				border-radius: 2px;
-			}
-		</style>
+		<link href="/css/main.css" rel="stylesheet" type="text/css">
 	</head>
 	<body>
-		{{block "content" .}}...{{end}}
-		<p class="small" style="margin-top:64px">
+		<div class="header">
+			<a class="logo" href="/">
+				<div class="logo-main">Storj Net Info</div>
+				<div class="logo-sub">Статистика сети v3</div>
+			</a>
+			<form class="nodes-search" method="GET" action="/search">
+				<input type="text" name="q" placeholder="Поиск нод по ID">
+				<input type="submit" value="🔍">
+			</form>
+		</div>
+		</div>
+		<div class="content">
+			{{block "content" .}}...{{end}}
+		</div>
+		<div class="footer">
 			По багам, фичам и вообще писать можно в
 			<a href="tg://zblzgamer">tg://zblzgamer</a> или на
 			<a href="mailto:zblzgamer@yandex.ru">zblzgamer@yandex.ru</a>
-		</p>
+		</div>
 		{{block "local_html_content" .}}{{end}}
 	</body>
 </html>

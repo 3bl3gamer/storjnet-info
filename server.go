@@ -118,14 +118,14 @@ var templateFuncs = template.FuncMap{
 	},
 	"signed": func(a int64) string {
 		res := strconv.FormatInt(a, 10)
-		if a > 0 {
+		if a >= 0 {
 			res = "+" + res
 		}
 		return res
 	},
 	"sizeIB": sizeIB,
 	"sizeIBSign": func(size int64) string {
-		if size > 0 {
+		if size >= 0 {
 			return "+" + sizeIB(size)
 		}
 		return "-" + sizeIB(-size)
@@ -156,7 +156,7 @@ var templateFuncs = template.FuncMap{
 }
 
 func getTemplate(path string) (*template.Template, error) {
-	if true {
+	if envMode == "prod" {
 		if tmpl, ok := templateCache[path]; ok {
 			return tmpl, nil
 		}
@@ -203,7 +203,7 @@ func wrap(db *pg.DB, handle HandleExt) httprouter.Handle {
 }
 
 func Handle404(wr http.ResponseWriter, r *http.Request, ps httprouter.Params) error {
-	return render(wr, http.StatusNotFound, "404.html", "404.html", nil)
+	return render(wr, http.StatusNotFound, "404.html", "base", nil)
 }
 
 func Handle500(wr http.ResponseWriter, r *http.Request, ps httprouter.Params) error {
@@ -288,15 +288,29 @@ func HandleNode(wr http.ResponseWriter, r *http.Request, ps httprouter.Params) e
 	})
 }
 
+func HandleSearch(wr http.ResponseWriter, r *http.Request, ps httprouter.Params) error {
+	println(ps.ByName("q"))
+	q := r.URL.Query().Get("q")
+	location := "/"
+	if q != "" {
+		location = "/@" + q
+	}
+	http.Redirect(wr, r, location, 303)
+	return nil
+}
+
 func StartHTTPServer(address string) error {
 	db := makePGConnection()
 
 	router := httprouter.New()
 	router.Handle("GET", "/", wrap(db, HandleIndex))
 	router.Handle("GET", "/@:nodeID", wrap(db, HandleNode))
+	router.Handle("GET", "/search", wrap(db, HandleSearch))
 
 	jsFS := http.FileServer(http.Dir("www/js"))
 	router.Handler("GET", "/js/*fpath", http.StripPrefix("/js/", jsFS))
+	cssFS := http.FileServer(http.Dir("www/css"))
+	router.Handler("GET", "/css/*fpath", http.StripPrefix("/css/", cssFS))
 
 	wrapped404 := wrap(db, Handle404)
 	router.NotFound = http.HandlerFunc(func(wr http.ResponseWriter, r *http.Request) {

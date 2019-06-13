@@ -1,35 +1,35 @@
+{{define "title"}}
+{{if eq .Lang "ru"}}
+Общая статистика
+{{else}}
+Overall stats
+{{end}}
+{{end}}
+
 {{define "content"}}
 
 <h1>
 	{{if eq .Lang "ru"}}
-	Статистика сети Storj'а v3
+	Общая статистика
 	{{else}}
-	Storj v3 network statistics
+	Overall stats
 	{{end}}
 </h1>
 
 <p class="dim small">
 	{{if eq .Lang "ru"}}
-	*по версии ноды, работающей где-то в Париже
+	обновлена
 	{{else}}
-	*from the perspective of the node working somewhere in Paris
+	last update at
 	{{end}}
-</p>
-
-<p>
-	{{if eq .Lang "ru"}}
-	Обновлено
-	{{else}}
-	Last update at
-	{{end}}
-	{{formatDateTime .LastStat.CreatedAt .Lang}}
-	<span class="dim small">
-		({{ago .LastStat.CreatedAt .Lang}}
+	{{formatDateTime .LastStat.CreatedAt .Lang}},
+	<span>
+		{{ago .LastStat.CreatedAt .Lang}}
 		{{if eq .Lang "ru"}}
 		назад
 		{{- else}}
 		ago
-		{{- end}})
+		{{- end}}
 	</span>
 </p>
 
@@ -179,5 +179,4 @@
 	{{$count := .LastStat.Types.OfType .NodeType_STORAGE}}
 	Всего их {{$count}}: слишком много, чтобы вывести сюда списком.
 </p>
-
 {{end}}
