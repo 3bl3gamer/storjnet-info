@@ -101,7 +101,7 @@ func StartNodesSelfDataSaver(db *pg.DB, selfDataChan chan *SelfUpdate_Self, chun
 					}
 				}
 
-				if time.Now().Sub(node.SelfUpdatedAt) >= time.Minute {
+				if time.Now().Sub(node.SelfUpdatedAt) >= 5*time.Minute {
 					var lastErr sql.NullString
 					if node.SelfUpdateErr != nil {
 						lastErr = sql.NullString{node.SelfUpdateErr.Error(), true}
@@ -184,7 +184,7 @@ func StartOldSelfDataLoader(db *pg.DB, kadDataChan chan *SelfUpdate_Kad, chunkSi
 			_, err := db.Query(&nodes, `
 				WITH cte AS (
 					SELECT id FROM nodes
-					WHERE kad_params IS NOT NULL AND self_updated_at < NOW() - INTERVAL '1 minute'
+					WHERE kad_params IS NOT NULL AND self_updated_at < NOW() - INTERVAL '5 minutes'
 					ORDER BY self_checked_at ASC NULLS FIRST LIMIT ?
 				)
 				UPDATE nodes SET self_checked_at = NOW() FROM cte WHERE nodes.id = cte.id
