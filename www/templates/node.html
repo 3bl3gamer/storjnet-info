@@ -31,6 +31,15 @@
 
 {{template "node_id_info" .Node.ID}}
 
+<h2>Месячный аптайм</h2>
+<div class="month-chart" data-kind="node-activity-chart"></div>
+{{if .MonthHistory.LastSelfParamsError}}
+<p>
+	Последняя ошибка: <code>{{.MonthHistory.LastSelfParamsError}}</code>
+</p>
+{{end}}
+
+
 <h2>Местоположение</h2>
 <p class="dim small">по базе GeoIP</p>
 <p>
@@ -62,6 +71,11 @@
 <span class="dim small">
 	обновлено {{formatDateTime .Node.SelfUpdatedAt .Lang}}, {{ago .Node.SelfUpdatedAt .Lang}} назад
 </span>
+
+<script>
+	var nodeActivityStamps = Array.from({{.MonthHistory.ActivityStamps }})
+	var freeDataItems = "{.MonthHistory.FreeDataItems.SeparatedCompact}"
+</script>
 
 {{end}}
 {{end}}

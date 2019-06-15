@@ -2,7 +2,6 @@ package main
 
 import (
 	"database/sql"
-	"fmt"
 	"log"
 	"time"
 
@@ -88,7 +87,7 @@ func StartNodesSelfDataSaver(db *pg.DB, selfDataChan chan *SelfUpdate_Self, chun
 						return merry.Wrap(err)
 					}
 
-					if time.Now().Sub(node.SelfUpdatedAt) >= 15*time.Minute {
+					if time.Now().Sub(node.SelfCheckedAt) >= 15*time.Minute {
 						_, err = db.Exec(`
 						INSERT INTO nodes_history (id, month_date, free_data_items)
 						VALUES (?, date_trunc('month', now() at time zone 'utc')::date, ARRAY[(NOW(), ?, ?)::data_history_item])
@@ -101,12 +100,11 @@ func StartNodesSelfDataSaver(db *pg.DB, selfDataChan chan *SelfUpdate_Self, chun
 					}
 				}
 
-				if time.Now().Sub(node.SelfUpdatedAt) >= 5*time.Minute {
+				if time.Now().Sub(node.SelfCheckedAt) >= 5*time.Minute {
 					var lastErr sql.NullString
 					if node.SelfUpdateErr != nil {
 						lastErr = sql.NullString{node.SelfUpdateErr.Error(), true}
 					}
-					fmt.Println("!!!", node.ID, node.SelfUpdateErr == nil)
 					_, err := db.Exec(`
 						INSERT INTO nodes_history (id, month_date, activity_stamps, last_self_params_error)
 						VALUES (?, date_trunc('month', now() at time zone 'utc')::date, ARRAY[(EXTRACT(EPOCH FROM NOW())/10)::int*10 + ?::int], ?)
@@ -188,7 +186,7 @@ func StartOldSelfDataLoader(db *pg.DB, kadDataChan chan *SelfUpdate_Kad, chunkSi
 					ORDER BY self_checked_at ASC NULLS FIRST LIMIT ?
 				)
 				UPDATE nodes SET self_checked_at = NOW() FROM cte WHERE nodes.id = cte.id
-				RETURNING nodes.kad_params, nodes.self_updated_at`, chunkSize)
+				RETURNING nodes.kad_params, nodes.self_checked_at`, chunkSize)
 			if err != nil {
 				worker.AddError(err)
 				return

@@ -103,9 +103,9 @@ body {
 }
 
 .content {
-    position: relative;
+	position: relative;
 	flex-grow: 100;
-    margin: 8px;
+	margin: 8px;
 }
 
 /* =================== */
@@ -113,4 +113,14 @@ body {
 h1.node-id,
 .node-id-info {
 	word-break: break-all;
+}
+
+.month-chart {
+	position: relative;
+	width: 100%;
+	height: 40px;
+}
+.month-chart canvas {
+	width: 100%;
+	height: 100%;
 }

@@ -143,6 +143,13 @@ var templateFuncs = template.FuncMap{
 		}
 		return string(buf), nil
 	},
+	"marshaledJSON": func(val interface{}) (string, error) {
+		buf, err := json.Marshal(val)
+		if err != nil {
+			return "", merry.Wrap(err)
+		}
+		return string(buf), nil
+	},
 	"nodeIDHex": func(id storj.NodeID) string {
 		return hex.EncodeToString(id[:])
 	},
@@ -281,10 +288,17 @@ func HandleNode(wr http.ResponseWriter, r *http.Request, ps httprouter.Params) e
 		return merry.Wrap(err)
 	}
 
+	monthHistory := &NodeHistory{}
+	err = db.Model(monthHistory).Where("month_date = date_trunc('month', now() at time zone 'utc')::date AND id = ?", node.ID).Select()
+	if err != nil && err != pg.ErrNoRows {
+		return merry.Wrap(err)
+	}
+
 	return render(wr, http.StatusOK, "node.html", "base", map[string]interface{}{
-		"Lang":      "ru",
-		"NodeIDStr": node.ID.String(),
-		"Node":      node,
+		"Lang":         "ru",
+		"NodeIDStr":    node.ID.String(),
+		"Node":         node,
+		"MonthHistory": monthHistory,
 	})
 }
 

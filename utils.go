@@ -13,6 +13,7 @@ import (
 	"github.com/abh/geoip"
 	"github.com/ansel1/merry"
 	"github.com/go-pg/pg"
+	"github.com/go-pg/pg/types"
 	"github.com/gogo/protobuf/jsonpb"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
@@ -173,7 +174,7 @@ func (node *NodeKadExt) Scan(val interface{}) error {
 type SelfUpdate_Kad struct {
 	ID            NodeIDExt
 	KadParams     NodeKadExt
-	SelfUpdatedAt time.Time
+	SelfCheckedAt time.Time
 }
 
 type SelfUpdate_Self struct {
@@ -203,7 +204,7 @@ type KadDataExt struct {
 	Location *NodeLocation `sql:"composite:node_Location"`
 }
 
-func scanCompositePaitStr(val interface{}) (string, string, string, error) {
+func scanCompositePairStr(val interface{}) (string, string, string, error) {
 	bytes, ok := val.([]byte)
 	if !ok {
 		return "", "", "", merry.Errorf("expected value to be []byte, got %#v", val)
@@ -211,9 +212,25 @@ func scanCompositePaitStr(val interface{}) (string, string, string, error) {
 	str := string(bytes)
 	sepPos := strings.LastIndex(str, ",")
 	if sepPos == -1 {
-		return "", "", "", merry.New("can not fint two values in " + str)
+		return "", "", "", merry.New("can not find two values in " + str)
 	}
 	return str, str[1:sepPos], str[sepPos+1 : len(str)-1], nil
+}
+func scanCompositeTrioStr(val interface{}) (string, string, string, string, error) {
+	bytes, ok := val.([]byte)
+	if !ok {
+		return "", "", "", "", merry.Errorf("expected value to be []byte, got %#v", val)
+	}
+	str := string(bytes)
+	sepPos1 := strings.LastIndex(str, ",")
+	if sepPos1 == -1 {
+		return "", "", "", "", merry.New("can not find two values in " + str)
+	}
+	sepPos0 := strings.LastIndex(str[:sepPos1], ",")
+	if sepPos1 == -1 {
+		return "", "", "", "", merry.New("can not find three values in " + str)
+	}
+	return str, str[1:sepPos0], str[sepPos0+1 : sepPos1], str[sepPos1+1 : len(str)-1], nil
 }
 
 func scanCompositeItemInt64(itemStr, str string) (int64, error) {
@@ -234,7 +251,7 @@ func scanCompositeItemFloat64(itemStr, str string) (float64, error) {
 
 func scanComposite2ii(val interface{}) (int64, int64, error) {
 	// "(123,234)"
-	str, aStr, bStr, err := scanCompositePaitStr(val)
+	str, aStr, bStr, err := scanCompositePairStr(val)
 	if err != nil {
 		return 0, 0, err
 	}
@@ -251,7 +268,7 @@ func scanComposite2ii(val interface{}) (int64, int64, error) {
 
 func scanComposite2fi(val interface{}) (float64, int64, error) {
 	// "(12.3,234)"
-	str, aStr, bStr, err := scanCompositePaitStr(val)
+	str, aStr, bStr, err := scanCompositePairStr(val)
 	if err != nil {
 		return 0, 0, err
 	}
@@ -268,7 +285,7 @@ func scanComposite2fi(val interface{}) (float64, int64, error) {
 
 func scanComposite2si(val interface{}) (string, int64, error) {
 	// "(12.3,234)"
-	str, aStr, bStr, err := scanCompositePaitStr(val)
+	str, aStr, bStr, err := scanCompositePairStr(val)
 	if err != nil {
 		return "", 0, err
 	}
@@ -422,6 +439,66 @@ type Node struct {
 	KadUpdatedAt  time.Time
 	SelfUpdatedAt time.Time
 	Location      *NodeLocation `sql:"composite:node_Location"`
+}
+
+type DataHistoryItem struct {
+	Stamp         time.Time
+	FreeDisk      int64
+	FreeBandwidth int64
+}
+type DataHistoryItems []DataHistoryItem
+
+type DataHistoryItemsSeparated struct {
+	Stamps        []int64 `json:"stamps"`
+	FreeDisk      []int64 `json:"freeDisk"`
+	FreeBandwidth []int64 `json:"freeBandwidth"`
+}
+
+func (i *DataHistoryItem) Scan(val interface{}) error {
+	str, a, b, c, err := scanCompositeTrioStr(val)
+	if err != nil {
+		return err
+	}
+	a, err = unescapePGString(a)
+	if err != nil {
+		return err
+	}
+	i.Stamp, err = types.ParseTimeString(a)
+	if err != nil {
+		return err
+	}
+	i.FreeDisk, err = scanCompositeItemInt64(b, str)
+	if err != nil {
+		return err
+	}
+	i.FreeBandwidth, err = scanCompositeItemInt64(c, str)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (items DataHistoryItems) SeparatedCompact() *DataHistoryItemsSeparated {
+	res := &DataHistoryItemsSeparated{
+		Stamps:        make([]int64, len(items)),
+		FreeDisk:      make([]int64, len(items)),
+		FreeBandwidth: make([]int64, len(items)),
+	}
+	for i, item := range items {
+		res.Stamps[i] = item.Stamp.Unix()
+		res.FreeDisk[i] = item.FreeDisk
+		res.FreeBandwidth[i] = item.FreeBandwidth
+	}
+	return res
+}
+
+type NodeHistory struct {
+	tableName           struct{} `sql:"nodes_history"`
+	ID                  NodeIDExt
+	MonthDate           time.Time
+	FreeDataItems       DataHistoryItems `pg:",array"`
+	ActivityStamps      []int64          `pg:",array"`
+	LastSelfParamsError string
 }
 
 func nextChar(str string, pos *int) (byte, error) {
