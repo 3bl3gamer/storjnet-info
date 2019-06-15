@@ -120,7 +120,16 @@ h1.node-id,
 	width: 100%;
 	height: 40px;
 }
-.month-chart canvas {
+.month-chart .main-canvas {
 	width: 100%;
 	height: 100%;
+}
+.month-chart .zoom-box-canvas {
+	position: absolute;
+	pointer-events: none;
+	left: 0;
+	bottom: 0;
+	width: 512px;
+	height: 64px;
+	max-width: 100%;
 }
