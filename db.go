@@ -28,7 +28,7 @@ func StartNodesKadDataSaver(db *pg.DB, kadDataChan chan *KadDataExt, chunkSize i
 		err := saveChunked(db, chunkSize, kadDataChanI, func(tx *pg.Tx, items []interface{}) error {
 			for _, node := range items {
 				var xmax string
-				_, err := db.QueryOne(&xmax, `
+				_, err := tx.QueryOne(&xmax, `
 					INSERT INTO nodes (id, kad_params, location, kad_updated_at, kad_checked_at)
 					VALUES (?, ?, ?, NOW(), NOW())
 					ON CONFLICT (id) DO UPDATE SET
@@ -77,8 +77,21 @@ func StartNodesSelfDataSaver(db *pg.DB, selfDataChan chan *SelfUpdate_Self, chun
 				node := nodeI.(*SelfUpdate_Self)
 				var xmax string
 
+				var lastActivityStamp time.Time
+				var lastFreeDataStamp time.Time
+				_, err := tx.QueryOne(pg.Scan(&lastActivityStamp, &lastFreeDataStamp), `
+					SELECT
+						to_timestamp(activity_stamps[array_length(activity_stamps, 1)]),
+						(free_data_items[array_length(free_data_items, 1)]).stamp
+					FROM nodes_history
+					WHERE id = ? AND month_date = date_trunc('month', now() at time zone 'utc')::date
+					`, node.ID)
+				if err != nil && err != pg.ErrNoRows {
+					return merry.Wrap(err)
+				}
+
 				if node.SelfUpdateErr == nil {
-					_, err := db.QueryOne(&xmax, `
+					_, err := tx.QueryOne(&xmax, `
 						INSERT INTO nodes (id, self_params, self_updated_at)
 						VALUES (?, ?, NOW())
 						ON CONFLICT (id) DO UPDATE SET self_params = EXCLUDED.self_params, self_updated_at = NOW()
@@ -87,8 +100,8 @@ func StartNodesSelfDataSaver(db *pg.DB, selfDataChan chan *SelfUpdate_Self, chun
 						return merry.Wrap(err)
 					}
 
-					if time.Now().Sub(node.SelfCheckedAt) >= 15*time.Minute {
-						_, err = db.Exec(`
+					if time.Now().Sub(lastFreeDataStamp) >= 15*time.Minute {
+						_, err = tx.Exec(`
 						INSERT INTO nodes_history (id, month_date, free_data_items)
 						VALUES (?, date_trunc('month', now() at time zone 'utc')::date, ARRAY[(NOW(), ?, ?)::data_history_item])
 						ON CONFLICT (id, month_date) DO UPDATE
@@ -100,17 +113,17 @@ func StartNodesSelfDataSaver(db *pg.DB, selfDataChan chan *SelfUpdate_Self, chun
 					}
 				}
 
-				if time.Now().Sub(node.SelfCheckedAt) >= 5*time.Minute {
+				if time.Now().Sub(lastActivityStamp) >= 5*time.Minute {
 					var lastErr sql.NullString
 					if node.SelfUpdateErr != nil {
 						lastErr = sql.NullString{node.SelfUpdateErr.Error(), true}
 					}
-					_, err := db.Exec(`
+					_, err := tx.Exec(`
 						INSERT INTO nodes_history (id, month_date, activity_stamps, last_self_params_error)
 						VALUES (?, date_trunc('month', now() at time zone 'utc')::date, ARRAY[(EXTRACT(EPOCH FROM NOW())/10)::int*10 + ?::int], ?)
 						ON CONFLICT (id, month_date) DO UPDATE
 						SET activity_stamps = nodes_history.activity_stamps || EXCLUDED.activity_stamps,
-							last_self_params_error = EXCLUDED.last_self_params_error
+							last_self_params_error = COALESCE(EXCLUDED.last_self_params_error, nodes_history.last_self_params_error)
 						`, node.ID, node.SelfUpdateErr != nil, lastErr)
 					if err != nil {
 						return merry.Wrap(err)
@@ -144,7 +157,7 @@ func StartOldKadDataLoader(db *pg.DB, nodeIDsChan chan storj.NodeID, chunkSize i
 			_, err := db.Query(&idsBytes, `
 				WITH cte AS (
 					SELECT id FROM nodes
-					WHERE kad_updated_at < NOW() - INTERVAL '15 minutes'
+					WHERE kad_updated_at IS NULL OR kad_updated_at < NOW() - INTERVAL '15 minutes'
 					ORDER BY kad_checked_at ASC NULLS FIRST LIMIT ?
 				)
 				UPDATE nodes SET kad_checked_at = NOW() FROM cte WHERE nodes.id = cte.id
@@ -182,11 +195,11 @@ func StartOldSelfDataLoader(db *pg.DB, kadDataChan chan *SelfUpdate_Kad, chunkSi
 			_, err := db.Query(&nodes, `
 				WITH cte AS (
 					SELECT id FROM nodes
-					WHERE kad_params IS NOT NULL AND self_updated_at < NOW() - INTERVAL '5 minutes'
+					WHERE kad_params IS NOT NULL AND (self_updated_at IS NULL OR self_updated_at < NOW() - INTERVAL '5 minutes')
 					ORDER BY self_checked_at ASC NULLS FIRST LIMIT ?
 				)
 				UPDATE nodes SET self_checked_at = NOW() FROM cte WHERE nodes.id = cte.id
-				RETURNING nodes.kad_params, nodes.self_checked_at`, chunkSize)
+				RETURNING nodes.kad_params`, chunkSize)
 			if err != nil {
 				worker.AddError(err)
 				return

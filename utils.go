@@ -172,9 +172,8 @@ func (node *NodeKadExt) Scan(val interface{}) error {
 }
 
 type SelfUpdate_Kad struct {
-	ID            NodeIDExt
-	KadParams     NodeKadExt
-	SelfCheckedAt time.Time
+	ID        NodeIDExt
+	KadParams NodeKadExt
 }
 
 type SelfUpdate_Self struct {

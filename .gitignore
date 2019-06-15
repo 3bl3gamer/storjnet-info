@@ -4,3 +4,4 @@ www/templates/_local_html_content.html
 www/js/main.js
 www/node_modules
 www/package-lock.json
+.vscode
