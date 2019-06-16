@@ -340,10 +340,8 @@ func StartHTTPServer(address string) error {
 	router.Handle("GET", "/search", wrap(db, HandleSearch))
 	router.Handle("GET", "/explode", wrap(db, HandleExplode))
 
-	jsFS := http.FileServer(http.Dir("www/js"))
-	router.Handler("GET", "/js/*fpath", http.StripPrefix("/js/", jsFS))
-	cssFS := http.FileServer(http.Dir("www/css"))
-	router.Handler("GET", "/css/*fpath", http.StripPrefix("/css/", cssFS))
+	router.ServeFiles("/js/*filepath", http.Dir("www/js"))
+	router.ServeFiles("/css/*filepath", http.Dir("www/css"))
 
 	wrapped404 := wrap(db, Handle404)
 	router.NotFound = http.HandlerFunc(func(wr http.ResponseWriter, r *http.Request) {
