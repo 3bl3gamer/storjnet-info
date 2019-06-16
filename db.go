@@ -2,6 +2,7 @@ package main
 
 import (
 	"database/sql"
+	"hash/fnv"
 	"log"
 	"time"
 
@@ -284,5 +285,23 @@ func SaveGlobalNodesStats(db *pg.DB) error {
 			) AS t)
 		)
 		`)
+	return merry.Wrap(err)
+}
+
+func SaveVisit(db *pg.DB, ipAddress, userAgent, urlPath string) error {
+	hashCalc := fnv.New64a()
+	if _, err := hashCalc.Write([]byte(ipAddress)); err != nil {
+		return merry.Wrap(err)
+	}
+	visitorHash := hashCalc.Sum(nil)
+	if _, err := hashCalc.Write([]byte(userAgent + "_" + urlPath)); err != nil {
+		return merry.Wrap(err)
+	}
+	hash := hashCalc.Sum(nil)
+	_, err := db.Exec(`
+		INSERT INTO visits (id, day_date, visitor_id, user_agent, path, count)
+		VALUES (?, (now() at time zone 'utc')::date, ?, ?, ?, 1)
+		ON CONFLICT (id, day_date) DO UPDATE SET count = visits.count + 1
+		`, hash, visitorHash, userAgent, urlPath)
 	return merry.Wrap(err)
 }

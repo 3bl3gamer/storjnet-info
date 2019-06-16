@@ -9,6 +9,7 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/ansel1/merry"
@@ -199,12 +200,25 @@ type HandleExt func(wr http.ResponseWriter, r *http.Request, ps httprouter.Param
 
 func wrap(db *pg.DB, handle HandleExt) httprouter.Handle {
 	return func(wr http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+		if r.Method == "GET" {
+			// всякая яндексметрика режется адблоками, так что считаем посещения и со своей стороны
+			go func() {
+				ipAddress := r.RemoteAddr[:strings.LastIndex(r.RemoteAddr, ":")]
+				if err := SaveVisit(db, ipAddress, r.UserAgent(), r.URL.Path); err != nil {
+					log.Print(merry.Details(err))
+				}
+			}()
+		}
+
 		r = r.WithContext(context.WithValue(r.Context(), ctxKey("db"), db))
 		if err := handle(wr, r, ps); err != nil {
 			d := merry.Details(err)
 			log.Print(d)
-			//Handle500(wr, r, ps)
-			wr.Write([]byte("<pre>" + d))
+			if envMode == "prod" {
+				Handle500(wr, r, ps)
+			} else {
+				wr.Write([]byte("<pre>" + d))
+			}
 		}
 	}
 }
@@ -215,6 +229,10 @@ func Handle404(wr http.ResponseWriter, r *http.Request, ps httprouter.Params) er
 
 func Handle500(wr http.ResponseWriter, r *http.Request, ps httprouter.Params) error {
 	return render(wr, http.StatusInternalServerError, "500.html", "500.html", nil)
+}
+
+func HandleExplode(wr http.ResponseWriter, r *http.Request, ps httprouter.Params) error {
+	return merry.New("KABOOM!")
 }
 
 func HandleIndex(wr http.ResponseWriter, r *http.Request, ps httprouter.Params) error {
@@ -320,6 +338,7 @@ func StartHTTPServer(address string) error {
 	router.Handle("GET", "/", wrap(db, HandleIndex))
 	router.Handle("GET", "/@:nodeID", wrap(db, HandleNode))
 	router.Handle("GET", "/search", wrap(db, HandleSearch))
+	router.Handle("GET", "/explode", wrap(db, HandleExplode))
 
 	jsFS := http.FileServer(http.Dir("www/js"))
 	router.Handler("GET", "/js/*fpath", http.StripPrefix("/js/", jsFS))

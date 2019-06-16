@@ -73,7 +73,7 @@ func init() {
 	rootCmd.AddCommand(saveStatsCmd)
 	rootCmd.AddCommand(startHTTPServerCmd)
 
-	flags := rootCmd.Flags()
+	flags := startHTTPServerCmd.Flags()
 	flags.StringVar(&envMode, "env", envMode, "evironment, dev or prod")
 
 	flags = runCmd.Flags()
