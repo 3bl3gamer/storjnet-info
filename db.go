@@ -298,9 +298,9 @@ func SaveVisit(db *pg.DB, ipAddress, userAgent, urlPath string) error {
 	}
 	hash := hashCalc.Sum(nil)
 	_, err := db.Exec(`
-		INSERT INTO visits (id, day_date, visitor_id, user_agent, path, count)
+		INSERT INTO visits (visit_hash, day_date, visitor_hash, user_agent, path, count)
 		VALUES (?, (now() at time zone 'utc')::date, ?, ?, ?, 1)
-		ON CONFLICT (id, day_date) DO UPDATE SET count = visits.count + 1
+		ON CONFLICT (visit_hash, day_date) DO UPDATE SET count = visits.count + 1
 		`, hash, visitorHash, userAgent, urlPath)
 	return merry.Wrap(err)
 }

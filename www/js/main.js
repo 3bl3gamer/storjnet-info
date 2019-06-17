@@ -12,6 +12,7 @@ function setupActivityChart(wrap) {
 	let stamps = window.nodeActivityStamps
 	let stampMargin = 3 * 60 //3 minutes
 	let hScalesHeight = 10
+	let zoomBoxTimeWidth = 24 * 3600
 
 	let monthStart = startOfMonth(((stamps[0] + stamps[stamps.length - 1]) / 2) * 1000)
 	let monthEnd = endOfMonth(monthStart)
@@ -35,10 +36,8 @@ function setupActivityChart(wrap) {
 			}
 			let stampEnd = stamps[iNext - 1]
 
-			let xStart =
-				((stamp - stampMargin - stampMin) / stampWidth) * canvasExt.cssWidth
-			let xEnd =
-				((stampEnd + stampMargin - stampMin) / stampWidth) * canvasExt.cssWidth
+			let xStart = ((stamp - stampMargin - stampMin) / stampWidth) * canvasExt.cssWidth
+			let xEnd = ((stampEnd + stampMargin - stampMin) / stampWidth) * canvasExt.cssWidth
 
 			let minXWidth = 1 / canvasExt.pixelRatio
 			if (xEnd - xStart < minXWidth) {
@@ -73,20 +72,15 @@ function setupActivityChart(wrap) {
 		)
 		rc.strokeStyle = 'rgba(0,0,0,0.05)'
 		rc.lineWidth = 0.5
-		rc.strokeRect(
-			0.5,
-			0.5,
-			canvasExt.cssWidth - 1,
-			canvasExt.cssHeight - hScalesHeight,
-		)
+		rc.strokeRect(0.5, 0.5, canvasExt.cssWidth - 1, canvasExt.cssHeight - hScalesHeight)
 
 		rc.restore()
 	}
 
 	let zoomBoxCanvasExt = null
-	function showZoomBox(x, y, e) {
+	function showZoomBox(x, y, e, touch) {
 		if (zoomBoxCanvasExt === null) {
-			zoomBoxCanvasExt = CanvasExt.createIn(wrap, 'zoom-box-canvas')
+			zoomBoxCanvasExt = CanvasExt.createIn(wrap, 'zoom-box-canvas' + (touch ? ' touch' : ''))
 		}
 		let boxSize = zoomBoxCanvasExt.canvas.getBoundingClientRect()
 		let pixRatio = window.devicePixelRatio
@@ -107,23 +101,18 @@ function setupActivityChart(wrap) {
 		rc.fillStyle = 'rgba(255,255,255,0.5)'
 		rc.fillRect(0, 0, zoomBoxCanvasExt.cssWidth, 32 + hScalesHeight + 1)
 
+		let timeW2 = zoomBoxTimeWidth / 2
 		let pos = x / canvasExt.cssWidth
 		let stamp = (+monthStart + pos * (monthEnd - monthStart)) / 1000
 		rc.save()
 		rc.beginPath()
 		roundedRect(rc, 0.5, 0.5, zoomBoxCanvasExt.cssWidth - 1, 31, 2.5)
 		rc.clip()
-		drawRegions(zoomBoxCanvasExt, stamp - 12 * 3600, stamp + 12 * 3600, 32)
+		drawRegions(zoomBoxCanvasExt, stamp - timeW2, stamp + timeW2, 32)
 		rc.restore()
 		rc.stroke()
 
-		drawMonthDays(
-			zoomBoxCanvasExt,
-			(stamp - 12 * 3600) * 1000,
-			(stamp + 12 * 3600) * 1000,
-			32,
-			6,
-		)
+		drawMonthDays(zoomBoxCanvasExt, (stamp - timeW2) * 1000, (stamp + timeW2) * 1000, 32, 6)
 
 		rc.restore()
 	}
@@ -134,7 +123,10 @@ function setupActivityChart(wrap) {
 		}
 	}
 
-	window.addEventListener('resize', redraw)
+	window.addEventListener('resize', function() {
+		hideZoomBox()
+		redraw()
+	})
 	hoverSingle({ elem: wrap, onHover: showZoomBox, onLeave: hideZoomBox })
 	redraw()
 }

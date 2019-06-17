@@ -84,40 +84,22 @@ export function drawMonthDays(canvasExt, dateDrawFrom, dateDrawTo, y, markHeight
 		dayDate.setDate(dayDate.getDate() + dayNum)
 
 		if (prevDayDate !== null)
-			drawHours(
-				canvasExt,
-				dateDrawFrom,
-				dateDrawTo,
-				prevDayDate,
-				dayDate,
-				y,
-				markHeight - 2,
-			)
+			drawHours(canvasExt, dateDrawFrom, dateDrawTo, prevDayDate, dayDate, y, markHeight - 2)
 		if (dayDate.getTime() >= dateDrawTo) break
 
 		rc.fillStyle = 'black'
-		let x =
-			((dayDate - dateDrawFrom) / (dateDrawTo - dateDrawFrom)) * canvasExt.cssWidth
+		let x = ((dayDate - dateDrawFrom) / (dateDrawTo - dateDrawFrom)) * canvasExt.cssWidth
 		rc.fillRect(x, y, 1, -markHeight)
 		rc.fillText(dayDate.getDate(), x, y + 2)
 
 		prevDayDate = dayDate
 	}
 }
-function drawHours(
-	canvasExt,
-	dateDrawFrom,
-	dateDrawTo,
-	curDayDate,
-	nextDayDate,
-	y,
-	markHeight,
-) {
+function drawHours(canvasExt, dateDrawFrom, dateDrawTo, curDayDate, nextDayDate, y, markHeight) {
 	let rc = canvasExt.rc
 
 	let labelWidth = rc.measureText('12:00').width * 1.5
-	let dayWidth =
-		(canvasExt.cssWidth * (nextDayDate - curDayDate)) / (dateDrawTo - dateDrawFrom)
+	let dayWidth = (canvasExt.cssWidth * (nextDayDate - curDayDate)) / (dateDrawTo - dateDrawFrom)
 	let maxLabels = dayWidth / labelWidth
 	let step = [1, 2, 3, 4, 6, 12].find(x => x > 24 / maxLabels)
 	if (step == null) return
@@ -128,12 +110,11 @@ function drawHours(
 		let curDate = new Date(curDayDate)
 		curDate.setHours(curDate.getHours() + hourNum)
 		if (curDate >= nextDayDate) break
-		let x =
-            ((curDate - dateDrawFrom) / (dateDrawTo - dateDrawFrom)) * canvasExt.cssWidth
-        rc.fillStyle = 'black'
+		let x = ((curDate - dateDrawFrom) / (dateDrawTo - dateDrawFrom)) * canvasExt.cssWidth
+		rc.fillStyle = 'black'
 		rc.fillRect(x, y, 1, -markHeight)
-        rc.strokeText(curDate.getHours() + ':00', x, y + 2)
-        rc.fillStyle = '#777'
+		rc.strokeText(curDate.getHours() + ':00', x, y + 2)
+		rc.fillStyle = '#777'
 		rc.fillText(curDate.getHours() + ':00', x, y + 2)
 	}
 }
@@ -141,11 +122,11 @@ function drawHours(
 export function hoverSingle({ elem, onHover, onLeave }) {
 	function move(e) {
 		let box = elem.getBoundingClientRect()
-		onHover(e.clientX - box.left, e.clientY - box.top, e)
+		onHover(e.clientX - box.left, e.clientY - box.top, e, null)
 	}
 	function leave(e) {
 		let box = elem.getBoundingClientRect()
-		onLeave(e.clientX - box.left, e.clientY - box.top, e)
+		onLeave(e.clientX - box.left, e.clientY - box.top, e, null)
 	}
 
 	function touchMove(e) {
@@ -154,10 +135,12 @@ export function hoverSingle({ elem, onHover, onLeave }) {
 		let box = elem.getBoundingClientRect()
 		let t0 = e.targetTouches[0]
 
-		onHover(t0.clientX - box.left, t0.clientY - box.top, e)
+		onHover(t0.clientX - box.left, t0.clientY - box.top, e, t0)
+		e.preventDefault()
 	}
 
 	elem.addEventListener('mousemove', move, true)
 	elem.addEventListener('mouseleave', leave, true)
+	elem.addEventListener('touchstart', touchMove, true)
 	elem.addEventListener('touchmove', touchMove, true)
 }

@@ -133,3 +133,6 @@ h1.node-id,
 	height: 64px;
 	max-width: 100%;
 }
+.month-chart .zoom-box-canvas.touch {
+	height: 96px;
+}
