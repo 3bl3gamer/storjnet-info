@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"html/template"
-	"log"
 	"net/http"
 	"strconv"
 	"strings"
@@ -170,7 +169,7 @@ func getTemplate(path string) (*template.Template, error) {
 		}
 	}
 
-	log.Println("building template: " + path)
+	logInfo("SERVER", "building template: %s", path)
 	tmpl := template.New(path)
 	tmpl = tmpl.Funcs(templateFuncs)
 	tmpl, err := tmpl.ParseGlob("www/templates/_*.html")
@@ -203,9 +202,12 @@ func wrap(db *pg.DB, handle HandleExt) httprouter.Handle {
 		if r.Method == "GET" {
 			// всякая яндексметрика режется адблоками, так что считаем посещения и со своей стороны
 			go func() {
-				ipAddress := r.RemoteAddr[:strings.LastIndex(r.RemoteAddr, ":")]
+				ipAddress := r.Header.Get("X-Real-IP")
+				if ipAddress == "" {
+					ipAddress = r.RemoteAddr[:strings.LastIndex(r.RemoteAddr, ":")]
+				}
 				if err := SaveVisit(db, ipAddress, r.UserAgent(), r.URL.Path); err != nil {
-					log.Print(merry.Details(err))
+					logErr("SERVER", merry.Details(err))
 				}
 			}()
 		}
@@ -213,7 +215,7 @@ func wrap(db *pg.DB, handle HandleExt) httprouter.Handle {
 		r = r.WithContext(context.WithValue(r.Context(), ctxKey("db"), db))
 		if err := handle(wr, r, ps); err != nil {
 			d := merry.Details(err)
-			log.Print(d)
+			logErr("SERVER", d)
 			if envMode == "prod" {
 				Handle500(wr, r, ps)
 			} else {

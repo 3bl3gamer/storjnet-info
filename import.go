@@ -3,7 +3,6 @@ package main
 import (
 	"bufio"
 	"io"
-	"log"
 
 	"github.com/ansel1/merry"
 	"github.com/go-pg/pg"
@@ -61,7 +60,7 @@ func ImportNodeIDs(fpath string) (err error) {
 				countNew++
 			}
 		}
-		log.Printf("imported %d IDs, %d new", count, countNew)
+		logInfo("IDS-IMPORT", "imported %d IDs, %d new", count, countNew)
 		return nil
 	})
 	if err != nil {
@@ -74,7 +73,7 @@ func ImportNodeIDs(fpath string) (err error) {
 	default:
 	}
 
-	log.Printf("INFO: done")
+	logInfo("IDS-IMPORT", "done")
 	return nil
 }
 
@@ -103,7 +102,7 @@ func ImportNodesKadData(fpath string) (err error) {
 		return merry.Wrap(err)
 	}
 
-	log.Printf("INFO: done")
+	logInfo("KAD-IMPORT", "done")
 	return nil
 }
 
@@ -147,7 +146,7 @@ func StartNodesKadDataImporter(fpath string, infinite bool, kadDataChan chan *pb
 			if recentIDs != nil {
 				for _, recentID := range recentIDs {
 					if recentID == node.Id {
-						log.Printf("INFO: KAD-IMPORT: skipping recent %s", node.Id)
+						logInfo("KAD-IMPORT", "skipping recent %s", node.Id)
 						continue lines_loop
 					}
 				}

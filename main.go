@@ -116,6 +116,15 @@ func CMDRun(cmd *cobra.Command, args []string) error {
 	kadDataForSelfChan := make(chan *SelfUpdate_Kad, 16)
 	selfDataForSaveChan := make(chan *SelfUpdate_Self, 16)
 
+	go func() {
+		for {
+			logInfo("CHANS", "KAD: %d->%d->%d, SELF: %d->%d",
+				len(nodeIDsForKadChan), len(kadDataRawChan), len(kadDataForSaveChan),
+				len(kadDataForSelfChan), len(selfDataForSaveChan))
+			time.Sleep(5 * time.Second)
+		}
+	}()
+
 	workers := []Worker{
 		StartOldKadDataLoader(db, nodeIDsForKadChan, runFlags.idsLoadChunkSize),
 		StartNodesKadDataFetcher(nodeIDsForKadChan, kadDataRawChan, runFlags.kadFetchRoutines),
@@ -150,6 +159,6 @@ func CMDStartHTTPServer(cmd *cobra.Command, args []string) error {
 
 func main() {
 	if err := rootCmd.Execute(); err != nil {
-		log.Print(merry.Details(err))
+		log.Fatal(merry.Details(err))
 	}
 }

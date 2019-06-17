@@ -3,7 +3,6 @@ package main
 import (
 	"database/sql"
 	"hash/fnv"
-	"log"
 	"time"
 
 	"github.com/ansel1/merry"
@@ -46,10 +45,10 @@ func StartNodesKadDataSaver(db *pg.DB, kadDataChan chan *KadDataExt, chunkSize i
 					countNew++
 				}
 			}
-			log.Printf("INFO: SAVE-KAD: imported %d kad nodes, %d new", count, countNew)
+			logInfo("SAVE-KAD", "imported %d kad nodes, %d new", count, countNew)
 			return nil
 		})
-		log.Printf("INFO: SAVE-KAD: done, imported %d kad nodes, %d new", count, countNew)
+		logInfo("SAVE-KAD", "done, imported %d kad nodes, %d new", count, countNew)
 		if err != nil {
 			worker.AddError(err)
 		}
@@ -136,10 +135,10 @@ func StartNodesSelfDataSaver(db *pg.DB, selfDataChan chan *SelfUpdate_Self, chun
 					countNew++
 				}
 			}
-			log.Printf("INFO: SAVE-SELF: imported %d self nodes data, %d new", count, countNew)
+			logInfo("SAVE-SELF", "imported %d self nodes data, %d new", count, countNew)
 			return nil
 		})
-		log.Printf("INFO: SAVE-SELF: done, imported %d self nodes data, %d new", count, countNew)
+		logInfo("SAVE-SELF", "done, imported %d self nodes data, %d new", count, countNew)
 		if err != nil {
 			worker.AddError(err)
 		}
@@ -173,9 +172,9 @@ func StartOldKadDataLoader(db *pg.DB, nodeIDsChan chan storj.NodeID, chunkSize i
 				return
 			}
 			if len(ids) > 0 {
-				log.Printf("INFO: DB-IDS: old %s - %s (%d)", ids[0], ids[len(ids)-1], len(ids))
+				logInfo("DB-IDS", "old %s - %s (%d)", ids[0], ids[len(ids)-1], len(ids))
 			} else {
-				log.Print("INFO: DB-IDS: no old IDs")
+				logInfo("DB-IDS", "no old IDs")
 				time.Sleep(10 * time.Second)
 			}
 			for _, id := range ids {
@@ -207,9 +206,9 @@ func StartOldSelfDataLoader(db *pg.DB, kadDataChan chan *SelfUpdate_Kad, chunkSi
 			}
 
 			if len(nodes) > 0 {
-				log.Printf("INFO: DB-KAD: old %s - %s (%d)", nodes[0].KadParams.Id, nodes[len(nodes)-1].KadParams.Id, len(nodes))
+				logInfo("DB-KAD", "old %s - %s (%d)", nodes[0].KadParams.Id, nodes[len(nodes)-1].KadParams.Id, len(nodes))
 			} else {
-				log.Print("INFO: DB-KAD: no old KADs")
+				logInfo("DB-KAD", "no old KADs")
 				time.Sleep(10 * time.Second)
 			}
 

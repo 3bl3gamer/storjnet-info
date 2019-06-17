@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"log"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -40,7 +39,6 @@ func StartNodesKadDataFetcher(nodeIDsChan chan storj.NodeID, kadDataChan chan *p
 		go func() {
 			defer worker.Done()
 			for nodeID := range nodeIDsChan {
-				//log.Printf("INFO: KAD: fetching %s", nodeID)
 				resp, err := inspector.LookupNode(context.Background(), &pb.LookupNodeRequest{
 					Id: nodeID.String(),
 				})
@@ -49,13 +47,12 @@ func StartNodesKadDataFetcher(nodeIDsChan chan storj.NodeID, kadDataChan chan *p
 					atomic.AddInt64(&countErrTotal, 1)
 					if st, ok := status.FromError(err); ok {
 						if st.Message() == "node not found" {
-							//log.Printf("WARN: KAD: skipping %s: not found", nodeID)
 							atomic.AddInt64(&countErrNotFound, 1)
 						} else {
-							log.Printf("WARN: KAD: skipping %s: strange message: %s", nodeID, st.Message())
+							logWarn("KAD-FETCH", "skipping %s: strange message: %s", nodeID, st.Message())
 						}
 					} else {
-						log.Printf("WARN: KAD: skipping %s: strange reason: %s", nodeID, err)
+						logWarn("KAD-FETCH", "skipping %s: strange reason: %s", nodeID, err)
 					}
 				} else {
 					kadDataChan <- resp.GetNode()
@@ -63,7 +60,7 @@ func StartNodesKadDataFetcher(nodeIDsChan chan storj.NodeID, kadDataChan chan *p
 				}
 
 				if atomic.AddInt64(&countTotal, 1)%10 == 0 {
-					log.Printf("INFO: KAD: total: %d, ok: %d, err(nf): %d(%d); %.2f rpm",
+					logInfo("KAD-FETCH", "total: %d, ok: %d, err(nf): %d(%d); %.2f rpm",
 						countTotal, countOk, countErrTotal, countErrNotFound,
 						float64(countTotal)/float64(time.Now().Unix()-stamp)*60)
 				}
@@ -91,11 +88,11 @@ func StartNeighborsKadDataFetcher(kadDataChan chan *pb.Node, secondsInterval int
 			})
 			if err != nil {
 				//fetcher.errChan <- merry.Wrap(err)
-				log.Printf("WARN: NEI: %s", err)
+				logWarn("NEI", "%s", err)
 				continue
 			}
 			nodes := resp.GetNodes()
-			log.Printf("INFO: NEI: got %d neighbor(s)", len(nodes))
+			logInfo("NEI", "got %d neighbor(s)", len(nodes))
 			for _, node := range nodes {
 				kadDataChan <- node
 			}
@@ -130,12 +127,14 @@ func StartNodesSelfDataFetcher(nodesInChan chan *SelfUpdate_Kad, nodesOutChan ch
 
 				if err != nil {
 					if st, ok := status.FromError(err); ok {
-						if !strings.HasSuffix(st.Message(), "connect: connection refused") &&
-							!strings.HasSuffix(st.Message(), "transport error: context deadline exceeded") {
-							log.Printf("WARN: SELF: %s", err)
+						if !strings.HasSuffix(st.Message(), `connect: connection refused"`) &&
+							!strings.HasSuffix(st.Message(), `connect: no route to host"`) &&
+							!strings.HasSuffix(st.Message(), `transport error: context deadline exceeded"`) &&
+							!strings.HasSuffix(st.Message(), `no such host"`) {
+							logWarn("SELF-FETCH", "%s", err)
 						}
 					} else {
-						log.Printf("WARN: SELF: strange reason: %s", err)
+						logWarn("SELF-FETCH", "strange reason: %s", err)
 					}
 					outNode.SelfUpdateErr = err
 					atomic.AddInt64(&countErrTotal, 1)
@@ -146,7 +145,7 @@ func StartNodesSelfDataFetcher(nodesInChan chan *SelfUpdate_Kad, nodesOutChan ch
 				nodesOutChan <- outNode
 
 				if atomic.AddInt64(&countTotal, 1)%10 == 0 {
-					log.Printf("INFO: SELF: total: %d, ok: %d, err: %d; %.2f rpm",
+					logInfo("SELF-FETCH", "total: %d, ok: %d, err: %d; %.2f rpm",
 						countTotal, countOk, countErrTotal,
 						float64(countTotal)/float64(time.Now().Unix()-stamp)*60)
 				}

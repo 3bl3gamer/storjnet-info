@@ -4,6 +4,7 @@ import (
 	"database/sql/driver"
 	"encoding/hex"
 	"fmt"
+	"log"
 	"math"
 	"os"
 	"strconv"
@@ -550,4 +551,31 @@ func unescapePGString(str string) (string, error) {
 	}
 
 	return string(destBuf), nil
+}
+
+var maxLogTagLen int
+
+func logMsg(level, tag, msg string, args ...interface{}) {
+	if maxLogTagLen < len(tag) {
+		maxLogTagLen = len(tag)
+	}
+	offset := ""
+	for i := len(tag); i < maxLogTagLen; i++ {
+		offset += " "
+	}
+	msg = level + ": " + tag + ": " + offset + msg
+	if len(args) == 0 {
+		log.Print(msg)
+	} else {
+		log.Printf(msg, args...)
+	}
+}
+func logInfo(tag, msg string, args ...interface{}) {
+	logMsg("INFO", tag, msg, args...)
+}
+func logWarn(tag, msg string, args ...interface{}) {
+	logMsg("WARN", tag, msg, args...)
+}
+func logErr(tag, msg string, args ...interface{}) {
+	logMsg("ERRO", tag, msg, args...)
 }
