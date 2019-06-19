@@ -308,7 +308,7 @@ func HandleNode(wr http.ResponseWriter, r *http.Request, ps httprouter.Params) e
 		return merry.Wrap(err)
 	}
 
-	monthHistory := &NodeHistory{}
+	monthHistory := &NodeHistory{ActivityStamps: []int64{}, FreeDataItems: []DataHistoryItem{}}
 	err = db.Model(monthHistory).Where("month_date = date_trunc('month', now() at time zone 'utc')::date AND id = ?", node.ID).Select()
 	if err != nil && err != pg.ErrNoRows {
 		return merry.Wrap(err)

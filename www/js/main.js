@@ -14,7 +14,9 @@ function setupActivityChart(wrap) {
 	let hScalesHeight = 10
 	let zoomBoxTimeWidth = 24 * 3600
 
-	let monthStart = startOfMonth(((stamps[0] + stamps[stamps.length - 1]) / 2) * 1000)
+	let monthMidStamp =
+		stamps.length == 0 ? Date.now() : ((stamps[0] + stamps[stamps.length - 1]) / 2) * 1000
+	let monthStart = startOfMonth(monthMidStamp)
 	let monthEnd = endOfMonth(monthStart)
 
 	function drawRegions(canvasExt, stampMin, stampMax, height) {

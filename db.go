@@ -100,7 +100,7 @@ func StartNodesSelfDataSaver(db *pg.DB, selfDataChan chan *SelfUpdate_Self, chun
 						return merry.Wrap(err)
 					}
 
-					if time.Now().Sub(lastFreeDataStamp) >= 15*time.Minute {
+					if time.Now().Sub(lastFreeDataStamp) >= 14*time.Minute {
 						_, err = tx.Exec(`
 						INSERT INTO nodes_history (id, month_date, free_data_items)
 						VALUES (?, date_trunc('month', now() at time zone 'utc')::date, ARRAY[(NOW(), ?, ?)::data_history_item])
@@ -113,7 +113,7 @@ func StartNodesSelfDataSaver(db *pg.DB, selfDataChan chan *SelfUpdate_Self, chun
 					}
 				}
 
-				if time.Now().Sub(lastActivityStamp) >= 5*time.Minute {
+				if time.Now().Sub(lastActivityStamp) >= 4*time.Minute {
 					var lastErr sql.NullString
 					if node.SelfUpdateErr != nil {
 						lastErr = sql.NullString{node.SelfUpdateErr.Error(), true}

@@ -38,6 +38,9 @@
 	Последняя ошибка: <code>{{.MonthHistory.LastSelfParamsError}}</code>
 </p>
 {{end}}
+{{if not .MonthHistory.ActivityStamps}}
+Данных пока нет.
+{{end}}
 
 
 <h2>Местоположение</h2>
@@ -61,16 +64,24 @@
 </p>
 
 <h2>Параметры ноды (из Kademlia)</h2>
+{{if .Node.KadParams}}
 <pre>{{formattedJSON .Node.KadParams}}</pre>
 <span class="dim small">
 	обновлено {{formatDateTime .Node.KadUpdatedAt .Lang}}, {{ago .Node.KadUpdatedAt .Lang}} назад
 </span>
+{{else}}
+Нет данных (нода ещё не была найдена в DHT).
+{{end}}
 
 <h2>Параметры ноды (запрошенные напрямую)</h2>
+{{if .Node.SelfParams}}
 <pre>{{formattedJSON .Node.SelfParams}}</pre>
 <span class="dim small">
 	обновлено {{formatDateTime .Node.SelfUpdatedAt .Lang}}, {{ago .Node.SelfUpdatedAt .Lang}} назад
 </span>
+{{else}}
+Нет данных (пока не получилось связаться с нодой).
+{{end}}
 
 <script>
 	var nodeActivityStamps = Array.from({{.MonthHistory.ActivityStamps }})
