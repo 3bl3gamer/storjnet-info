@@ -16,5 +16,5 @@ require (
 	github.com/zeebo/errs v1.2.0
 	google.golang.org/grpc v1.21.0
 	mellium.im/sasl v0.2.1 // indirect
-	storj.io/storj v0.13.0
+	storj.io/storj v0.13.5
 )
