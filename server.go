@@ -51,7 +51,12 @@ func sizeIB(size int64) string {
 	i := 0
 	for ; i < len(sizeIBNames)-1 && 1<<uint(i*10+10) < size; i++ {
 	}
-	return strconv.FormatFloat(float64(size)/float64(int(1)<<uint(i*10)), 'g', 3, 64) + " " + sizeIBNames[i]
+	value := float64(size) / float64(int(1)<<uint(i*10))
+	prec := 3
+	if value >= 1000 {
+		prec = 4 // чтоб 1000-1023 не отображалось через экспоненту
+	}
+	return strconv.FormatFloat(value, 'g', prec, 64) + " " + sizeIBNames[i]
 }
 
 var templateFuncs = template.FuncMap{
