@@ -11,12 +11,12 @@ func init() {
 				free_bandwidth bigint
 			);
 			CREATE TABLE storjinfo.nodes_history (
-				id bytea PRIMARY KEY,
-				month_date date,
-				items data_history_item[],
+				id bytea NOT NULL,
+				month_date date NOT NULL,
+				items data_history_item[] NOT NULL,
 				CHECK (length(ID) = 32),
 				CHECK (extract(day from month_date) = 1),
-				UNIQUE (id, month_date)
+				PRIMARY KEY (id, month_date)
 			)
 			`)
 	}, func(db migrations.DB) error {

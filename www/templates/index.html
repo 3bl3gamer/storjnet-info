@@ -44,6 +44,7 @@ Overall stats
 		(живыми считаются ноды, к которым удалось подключиться за последние 24 часа)
 	</span>
 </p>
+<div class="month-chart" data-kind="global-node-activity-counts-chart"></div>
 
 <h2>Свободное место и трафик</h2>
 <p>
@@ -179,4 +180,10 @@ Overall stats
 	{{$count := .LastStat.Types.OfType .NodeType_STORAGE}}
 	Всего их {{$count}}: слишком много, чтобы вывести сюда списком.
 </p>
+{{end}}
+
+{{define "js_payload"}}
+<script>
+	var globalHistoryData = {{.GlobalHistoryData }}
+</script>
 {{end}}

@@ -118,13 +118,20 @@ h1.node-id,
 .month-chart {
 	position: relative;
 	width: 100%;
-	height: 40px;
+	height: 128px;
+}
+.month-chart:not(.ready) {
+	background-color: #EEE;
 }
 .month-chart .main-canvas {
 	width: 100%;
 	height: 100%;
 }
-.month-chart .zoom-box-canvas {
+
+.month-chart[data-kind="node-activity-chart"] {
+	height: 40px;
+}
+.month-chart[data-kind="node-activity-chart"] .zoom-box-canvas {
 	position: absolute;
 	pointer-events: none;
 	left: 0;
@@ -133,6 +140,6 @@ h1.node-id,
 	height: 64px;
 	max-width: 100%;
 }
-.month-chart .zoom-box-canvas.touch {
+.month-chart[data-kind="node-activity-chart"] .zoom-box-canvas.touch {
 	height: 96px;
 }

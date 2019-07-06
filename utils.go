@@ -140,7 +140,9 @@ func (w SimpleWorker) CloseAndWait() error {
 
 // лучше бы тут сделать структуру с анонимным полем аналогично NodeKadExt,
 // но пока https://github.com/go-pg/pg/issues/1237
-type NodeIDExt storj.NodeID
+type NodeIDExt struct {
+	storj.NodeID
+}
 
 func (id *NodeIDExt) Scan(val interface{}) error {
 	var idBytes [32]byte
@@ -152,17 +154,17 @@ func (id *NodeIDExt) Scan(val interface{}) error {
 	if err != nil {
 		return merry.Wrap(err)
 	}
-	*id = NodeIDExt(idVal)
+	*id = NodeIDExt{idVal}
 	return nil
 }
 
 func (id NodeIDExt) Value() (driver.Value, error) {
-	return id[:], nil
+	return id.NodeID[:], nil
 }
 
-func (id NodeIDExt) String() string {
-	return storj.NodeID(id).String()
-}
+// func (id NodeIDExt) String() string {
+// 	return storj.NodeID(id).String()
+// }
 
 type NodeKadExt struct {
 	pb.Node

@@ -213,7 +213,7 @@ func StartOldSelfDataLoader(db *pg.DB, kadDataChan chan *SelfUpdate_Kad, chunkSi
 			}
 
 			for _, node := range nodes {
-				node.ID = NodeIDExt(node.KadParams.Id)
+				node.ID = NodeIDExt{node.KadParams.Id}
 				kadDataChan <- node
 			}
 		}
@@ -303,4 +303,46 @@ func SaveVisit(db *pg.DB, ipAddress, userAgent, urlPath string) error {
 		ON CONFLICT (visit_hash, day_date) DO UPDATE SET count = visits.count + 1
 		`, hash, visitorHash, userAgent, urlPath)
 	return merry.Wrap(err)
+}
+
+type GlobalNodesHistoryData struct {
+	StartTime  time.Time         `json:"startTime"`
+	EndTime    time.Time         `json:"endTime"`
+	Stamps     []int64           `json:"stamps"`
+	CountHours map[int64][]int64 `json:"countHours"`
+}
+
+func LoadGlobalNodesHistoryData(db *pg.DB) (*GlobalNodesHistoryData, error) {
+	// anchorTime := time.Now().In(time.UTC)
+	// year, month, _ := anchorTime.Date()
+	// monthStart := time.Date(year, month, 1, 0, 0, 0, 0, time.UTC)
+	// monthEnd := monthStart.AddDate(0, 1, 0)
+	endTime := time.Now().In(time.UTC)
+	startTime := endTime.AddDate(0, -1, 0)
+
+	var globalStats []*GlobalStat
+	err := db.Model(&globalStats).Where("created_at >= ? AND created_at < ?", startTime, endTime).Order("id").Select()
+	if err != nil {
+		return nil, merry.Wrap(err)
+	}
+
+	l := len(globalStats)
+	stamps := make([]int64, l)
+	countHours := map[int64][]int64{24: make([]int64, l), 12: make([]int64, l), 3: make([]int64, l)}
+
+	for i, stat := range globalStats {
+		stamps[i] = stat.CreatedAt.Unix()
+		for _, item := range stat.CountHours {
+			if counts, ok := countHours[item.Hours]; ok {
+				counts[i] = item.Count
+			}
+		}
+	}
+
+	return &GlobalNodesHistoryData{
+		StartTime:  startTime,
+		EndTime:    endTime,
+		Stamps:     stamps,
+		CountHours: countHours,
+	}, nil
 }

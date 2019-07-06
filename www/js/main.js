@@ -5,26 +5,52 @@ import {
 	drawMonthDays,
 	hoverSingle,
 	roundedRect,
+	minMaxPerc,
+	iterateDays,
+	maxAbs,
+	drawDailyBars,
+	drawVScalesLeft,
+	drawLegend,
+	RectCenter,
+	RectTop,
+	RectBottom,
+	View,
+	drawLine,
+	getDailyIncs,
 } from './utils.js'
 
 function setupActivityChart(wrap) {
+	wrap.classList.add('ready')
 	let canvasExt = CanvasExt.createIn(wrap, 'main-canvas')
 	let stamps = window.nodeActivityStamps
-	let stampMargin = 3 * 60 //3 minutes
-	let hScalesHeight = 10
-	let zoomBoxTimeWidth = 24 * 3600
+	let stampMargin = 3.5 * 60 * 1000 //3.5 minutes
+	let zoomBoxTimeWidth = 24 * 3600 * 1000
+
+	for (let i = 0; i < stamps.length; i++) stamps[i] = (stamps[i] & ~1) * 1000 + (stamps[i] & 1)
 
 	let monthMidStamp =
-		stamps.length == 0 ? Date.now() : ((stamps[0] + stamps[stamps.length - 1]) / 2) * 1000
+		stamps.length == 0 ? Date.now() : (stamps[0] + stamps[stamps.length - 1]) / 2
 	let monthStart = startOfMonth(monthMidStamp)
 	let monthEnd = endOfMonth(monthStart)
 
-	function drawRegions(canvasExt, stampMin, stampMax, height) {
+	let rect = new RectCenter({ left: 0, right: 0, top: 0, bottom: 10 })
+	let view = new View({ startStamp: monthStart, endStamp: monthEnd, bottomValue: 0, topValue: 0 })
+	let labelsRect = new RectBottom({ left: 0, right: 0, height: 4, bottom: 10 })
+	let zoomBoxView = new View({
+		startStamp: monthStart,
+		endStamp: monthEnd,
+		bottomValue: 0,
+		topValue: 0,
+	})
+	let zoomBoxRect = new RectTop({ left: 0, right: 0, height: 32, top: 0 })
+	let zoomBoxLabelsRect = new RectTop({ left: 0, right: 0, height: 4, top: 28 })
+
+	function drawRegions(canvasExt, view, rect) {
+		let height = rect.top + rect.height
 		let rc = canvasExt.rc
 		rc.fillStyle = '#EEE'
 		rc.fillRect(0, 0, canvasExt.cssWidth, height)
 
-		let stampWidth = stampMax - stampMin
 		let i = 0
 		while (i < stamps.length) {
 			let stamp = stamps[i]
@@ -34,12 +60,14 @@ function setupActivityChart(wrap) {
 			let iNext = i
 			while (++iNext < stamps.length) {
 				let delta = stamps[iNext] - stamps[iNext - 1]
-				if (delta > 7 * 60 || (stamps[iNext] & 1) != hasErr) break
+				if (delta > stampMargin * 2 || (stamps[iNext] & 1) != hasErr) break
 			}
 			let stampEnd = stamps[iNext - 1]
 
-			let xStart = ((stamp - stampMargin - stampMin) / stampWidth) * canvasExt.cssWidth
-			let xEnd = ((stampEnd + stampMargin - stampMin) / stampWidth) * canvasExt.cssWidth
+			let xStart =
+				((stamp - stampMargin - view.startStamp) / view.duration) * canvasExt.cssWidth
+			let xEnd =
+				((stampEnd + stampMargin - view.startStamp) / view.duration) * canvasExt.cssWidth
 
 			let minXWidth = 1 / canvasExt.pixelRatio
 			if (xEnd - xStart < minXWidth) {
@@ -58,23 +86,18 @@ function setupActivityChart(wrap) {
 	function redraw() {
 		canvasExt.resize()
 		canvasExt.clear()
+		rect.update(canvasExt.cssWidth, canvasExt.cssHeight)
+		labelsRect.update(canvasExt.cssWidth, canvasExt.cssHeight)
+
 		let rc = canvasExt.rc
 		rc.save()
 		rc.scale(canvasExt.pixelRatio, canvasExt.pixelRatio)
 
-		let stampMin = monthStart.getTime() / 1000 //stamps[0] //
-		let stampMax = monthEnd.getTime() / 1000 //stamps[stamps.length - 1] //
-		drawRegions(canvasExt, stampMin, stampMax, canvasExt.cssHeight - hScalesHeight)
-		drawMonthDays(
-			canvasExt,
-			stampMin * 1000,
-			stampMax * 1000,
-			canvasExt.cssHeight - hScalesHeight,
-			4,
-		)
+		drawRegions(canvasExt, view, rect)
+		drawMonthDays(canvasExt, labelsRect, view)
 		rc.strokeStyle = 'rgba(0,0,0,0.05)'
 		rc.lineWidth = 0.5
-		rc.strokeRect(0.5, 0.5, canvasExt.cssWidth - 1, canvasExt.cssHeight - hScalesHeight)
+		rc.strokeRect(0.5, 0.5, canvasExt.cssWidth - 1, rect.top + rect.height)
 
 		rc.restore()
 	}
@@ -93,28 +116,33 @@ function setupActivityChart(wrap) {
 
 		zoomBoxCanvasExt.resize()
 		zoomBoxCanvasExt.clear()
+		zoomBoxRect.update(zoomBoxCanvasExt.cssWidth, zoomBoxCanvasExt.cssHeight)
+		zoomBoxLabelsRect.update(zoomBoxCanvasExt.cssWidth, zoomBoxCanvasExt.cssHeight)
+
 		let rc = zoomBoxCanvasExt.rc
 		rc.save()
 		rc.scale(zoomBoxCanvasExt.pixelRatio, zoomBoxCanvasExt.pixelRatio)
 
 		rc.fillStyle = 'black'
-		rc.fillRect(x - boxX - 0.5, zoomBoxCanvasExt.cssHeight - hScalesHeight, 1, -30)
+		rc.fillRect(x - boxX - 0.5, zoomBoxCanvasExt.cssHeight - rect.bottom, 1, -rect.height)
 
 		rc.fillStyle = 'rgba(255,255,255,0.5)'
-		rc.fillRect(0, 0, zoomBoxCanvasExt.cssWidth, 32 + hScalesHeight + 1)
+		rc.fillRect(0, 0, zoomBoxCanvasExt.cssWidth, zoomBoxRect.height + 10 + 1)
 
 		let timeW2 = zoomBoxTimeWidth / 2
 		let pos = x / canvasExt.cssWidth
-		let stamp = (+monthStart + pos * (monthEnd - monthStart)) / 1000
+		let stamp = +monthStart + pos * (monthEnd - monthStart)
+		zoomBoxView.updateStamps(stamp - timeW2, stamp + timeW2)
+
 		rc.save()
 		rc.beginPath()
-		roundedRect(rc, 0.5, 0.5, zoomBoxCanvasExt.cssWidth - 1, 31, 2.5)
+		roundedRect(rc, 0.5, 0.5, zoomBoxRect.width - 1, zoomBoxRect.height, 2.5)
 		rc.clip()
-		drawRegions(zoomBoxCanvasExt, stamp - timeW2, stamp + timeW2, 32)
+		drawRegions(zoomBoxCanvasExt, zoomBoxView, zoomBoxRect)
 		rc.restore()
 		rc.stroke()
 
-		drawMonthDays(zoomBoxCanvasExt, (stamp - timeW2) * 1000, (stamp + timeW2) * 1000, 32, 6)
+		drawMonthDays(zoomBoxCanvasExt, zoomBoxLabelsRect, zoomBoxView)
 
 		rc.restore()
 	}
@@ -133,6 +161,82 @@ function setupActivityChart(wrap) {
 	redraw()
 }
 
+function setupGlobalNodeActivityCountsChart(wrap) {
+	wrap.classList.add('ready')
+	let startTime = Date.parse(window.globalHistoryData.startTime)
+	let endTime = Date.parse(window.globalHistoryData.endTime)
+	let stamps = window.globalHistoryData.stamps //Uint32Array.from
+	let countHours = window.globalHistoryData.countHours
+	let hours = Object.keys(countHours).sort((a, b) => +a - +b)
+	let revHours = hours.slice().reverse()
+
+	for (let i = 0; i < stamps.length; i++) stamps[i] *= 1000
+
+	let dailyIncs = getDailyIncs(startTime, endTime, stamps, countHours[24])
+
+	let [bottomValue0, topValue0] = minMaxPerc(countHours[hours[0]], 0.02)
+	let [bottomValue1, topValue1] = minMaxPerc(countHours[hours[hours.length - 1]], 0.02)
+	let bottomValue = Math.min(bottomValue0, bottomValue1)
+	let topValue = Math.max(topValue0, topValue1)
+	let d = (topValue - bottomValue) * 0.1
+	bottomValue -= d
+	topValue += d
+
+	let barsTopValue = maxAbs(dailyIncs) * 1.5 //topValue - bottomValue
+
+	let canvasExt = CanvasExt.createIn(wrap, 'main-canvas')
+
+	let rect = new RectCenter({ left: 0, right: 0, top: 0, bottom: 11 })
+	let view = new View({ startStamp: startTime, endStamp: endTime, bottomValue, topValue })
+	let barsRect = rect
+	let barsView = new View({
+		startStamp: startTime,
+		endStamp: endTime,
+		bottomValue: 0,
+		topValue: barsTopValue,
+	})
+
+	function hoursColor(hours) {
+		return 'hsl(240, 100%, ' + (50 + (1 - hours / 24) * 40) + '%)'
+	}
+	function redraw() {
+		canvasExt.resize()
+		canvasExt.clear()
+		rect.update(canvasExt.cssWidth, canvasExt.cssHeight)
+
+		let rc = canvasExt.rc
+		rc.save()
+		rc.scale(canvasExt.pixelRatio, canvasExt.pixelRatio)
+
+		drawDailyBars(canvasExt, barsRect, barsView, dailyIncs, '#D0F7D0', '#F7D0D0', '#CCC')
+
+		drawMonthDays(canvasExt, rect, view, { vLinesColor: null, hLineColor: '#555' })
+
+		hours.forEach(hours => {
+			let counts = countHours[hours]
+			drawLine(canvasExt, rect, view, stamps, counts, hoursColor(hours))
+		})
+
+		drawVScalesLeft(canvasExt, rect, view, 'black', 'rgba(0,0,0,0.12)')
+
+		drawLegend(canvasExt, rect, revHours.map(h => ({ text: h + ' ч', color: hoursColor(h) })))
+
+		rc.restore()
+	}
+
+	window.addEventListener('resize', function() {
+		redraw()
+	})
+	redraw()
+}
+
 document.querySelectorAll('.month-chart').forEach(wrap => {
-	if (wrap.dataset.kind == 'node-activity-chart') setupActivityChart(wrap)
+	switch (wrap.dataset.kind) {
+		case 'node-activity-chart':
+			setupActivityChart(wrap)
+			break
+		case 'global-node-activity-counts-chart':
+			setupGlobalNodeActivityCountsChart(wrap)
+			break
+	}
 })

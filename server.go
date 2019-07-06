@@ -256,6 +256,11 @@ func HandleIndex(wr http.ResponseWriter, r *http.Request, ps httprouter.Params) 
 		return merry.Wrap(err)
 	}
 
+	globalHistoryData, err := LoadGlobalNodesHistoryData(db)
+	if err != nil {
+		return merry.Wrap(err)
+	}
+
 	orderedTypes := []pb.NodeType{pb.NodeType_SATELLITE, pb.NodeType_BOOTSTRAP} //pb.NodeType_UPLINK, pb.NodeType_INVALID, pb.NodeType_STORAGE
 	var nodeIDsWithType []struct {
 		NodeType pb.NodeType
@@ -276,11 +281,12 @@ func HandleIndex(wr http.ResponseWriter, r *http.Request, ps httprouter.Params) 
 	}
 
 	return render(wr, http.StatusOK, "index.html", "base", map[string]interface{}{
-		"Lang":             "ru",
-		"LastStat":         lastStat,
-		"DayAgoStat":       dayAgoStat,
-		"NodeIDsWithType":  nodeIDsWithType,
-		"NodeType_STORAGE": pb.NodeType_STORAGE,
+		"Lang":              "ru",
+		"LastStat":          lastStat,
+		"DayAgoStat":        dayAgoStat,
+		"NodeIDsWithType":   nodeIDsWithType,
+		"NodeType_STORAGE":  pb.NodeType_STORAGE,
+		"GlobalHistoryData": globalHistoryData,
 	})
 }
 
