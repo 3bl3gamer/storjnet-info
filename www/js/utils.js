@@ -145,7 +145,26 @@ export function minMaxPerc(values, perc) {
 	return [minPerc, maxPerc]
 }
 
-export function maxAbs(values) {
+export function maxArr(values) {
+	let max = -Infinity
+	for (let i = 0; i < values.length; i++) {
+		let v = values[i]
+		if (v > max) max = v
+	}
+	return max
+}
+export function maxArrs(arrays) {
+	if (arrays.length == 0) return -Infinity
+	let accum = new Float64Array(arrays[0].length)
+	for (let i = 0; i < arrays.length; i++) {
+		let values = arrays[i]
+		for (let j = 0; j < values.length; j++) {
+			accum[j] += values[j]
+		}
+	}
+	return maxArr(accum)
+}
+export function maxArrAbs(values) {
 	let max = -Infinity
 	for (let i = 0; i < values.length; i++) {
 		let v = Math.abs(values[i])
@@ -275,6 +294,9 @@ function roundLabelCeil(value) {
 }
 function drawLabeledVScaleLeftLine(rc, rect, view, value, textColor, lineColor) {
 	let lineY = ((view.topValue - value) / view.height) * rect.height
+	rc.strokeStyle = 'rgba(255,255,255,0.75)'
+	rc.lineWidth = 2
+	rc.strokeText(value, rect.left + 2, rect.top + lineY)
 	rc.fillStyle = textColor
 	rc.fillText(value, rect.left + 2, rect.top + lineY)
 	rc.fillStyle = lineColor
@@ -292,28 +314,39 @@ export function drawVScalesLeft(canvasExt, rect, view, textColor, lineColor) {
 	drawLabeledVScaleLeftLine(rc, rect, view, bottomValue, textColor, lineColor)
 }
 
-export function drawLegend(canvasExt, rect, items) {
+export function drawLegend(canvasExt, rect, items, lineWidth = 0.5) {
 	let rc = canvasExt.rc
 	let x = rect.left + 48
+	let y = rect.top + 1
 	let lineLength = 12
+	let lineSep = 3
+	let itemSep = 8
+
+	let totalWidth = items.length * (lineLength + lineSep) + (items.length - 1) * itemSep
+	for (let i = 0; i < items.length; i++) totalWidth += rc.measureText(items[i].text).width
+	rc.fillStyle = 'rgba(255,255,255,0.5)'
+	rc.fillRect(x - 2, y - 1, totalWidth + 4, 8 + 2)
+
 	rc.textAlign = 'left'
 	rc.textBaseline = 'top'
 	for (let i = 0; i < items.length; i++) {
 		let item = items[i]
 		rc.fillStyle = item.color
-		rc.fillRect(x, rect.top + 4, lineLength, 1)
-		x += lineLength + 3
-		rc.fillText(item.text, x, rect.top)
-		x += rc.measureText(item.text).width + 8
+		rc.fillRect(x, y + 4.5 - lineWidth, lineLength, lineWidth * 2)
+		x += lineLength + lineSep
+		rc.fillText(item.text, x, y)
+		x += rc.measureText(item.text).width + itemSep
 	}
 }
 
 function stamp2x(rect, view, stamp) {
 	return rect.left + ((stamp - view.startStamp) / view.duration) * rect.width
 }
-
 function value2y(rect, view, value) {
 	return rect.top + rect.height - ((value - view.bottomValue) / view.height) * rect.height
+}
+function value2yDelta(rect, view, value) {
+	return ((value - view.bottomValue) / view.height) * rect.height
 }
 
 //function stamp2i(view, stamps, stamp)
@@ -341,6 +374,34 @@ export function drawLine(canvasExt, rect, view, stamps, values, color) {
 	}
 	rc.strokeStyle = color
 	rc.stroke()
+}
+export function drawStacked(canvasExt, rect, view, stamps, values, color, accum) {
+	let rc = canvasExt.rc
+	rc.beginPath()
+	let started = false
+	let x = 0
+	let y = 0
+	for (let i = 0; i < stamps.length; i++) {
+		let stamp = stamps[i]
+		let value = values[i]
+		x = stamp2x(rect, view, stamp)
+		y = value2yDelta(rect, view, value)
+		accum[i] += y
+		if (started) {
+			rc.lineTo(x, rect.top + rect.height - accum[i])
+		} else {
+			rc.moveTo(x, rect.top + rect.height - accum[i])
+			started = true
+		}
+	}
+	rc.lineWidth = 1
+	rc.strokeStyle = 'rgba(0,0,0,0.25)'
+	rc.stroke()
+
+	rc.lineTo(x, rect.top + rect.height)
+	rc.lineTo(stamp2x(rect, view, stamps[0]), rect.top + rect.height)
+	rc.fillStyle = color
+	rc.fill()
 }
 
 export function drawDailyBars(canvasExt, rect, view, dailyValues, posColor, negColor, textColor) {

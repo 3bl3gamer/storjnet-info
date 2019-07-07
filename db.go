@@ -306,10 +306,11 @@ func SaveVisit(db *pg.DB, ipAddress, userAgent, urlPath string) error {
 }
 
 type GlobalNodesHistoryData struct {
-	StartTime  time.Time         `json:"startTime"`
-	EndTime    time.Time         `json:"endTime"`
-	Stamps     []int64           `json:"stamps"`
-	CountHours map[int64][]int64 `json:"countHours"`
+	StartTime     time.Time          `json:"startTime"`
+	EndTime       time.Time          `json:"endTime"`
+	Stamps        []int64            `json:"stamps"`
+	CountHours    map[int64][]int64  `json:"countHours"`
+	CountVersions map[string][]int64 `json:"countVersions"`
 }
 
 func LoadGlobalNodesHistoryData(db *pg.DB) (*GlobalNodesHistoryData, error) {
@@ -325,13 +326,15 @@ func LoadGlobalNodesHistoryData(db *pg.DB) (*GlobalNodesHistoryData, error) {
 	if err != nil {
 		return nil, merry.Wrap(err)
 	}
-
 	l := len(globalStats)
-	stamps := make([]int64, l)
-	countHours := map[int64][]int64{24: make([]int64, l), 12: make([]int64, l), 3: make([]int64, l)}
 
+	stamps := make([]int64, l)
 	for i, stat := range globalStats {
 		stamps[i] = stat.CreatedAt.Unix()
+	}
+
+	countHours := map[int64][]int64{24: make([]int64, l), 12: make([]int64, l), 3: make([]int64, l)}
+	for i, stat := range globalStats {
 		for _, item := range stat.CountHours {
 			if counts, ok := countHours[item.Hours]; ok {
 				counts[i] = item.Count
@@ -339,10 +342,39 @@ func LoadGlobalNodesHistoryData(db *pg.DB) (*GlobalNodesHistoryData, error) {
 		}
 	}
 
+	countVersions := make(map[string][]int64)
+	maxVersionsCounts := make(map[string]int64)
+	maxVersionCount := int64(0)
+	for _, stat := range globalStats {
+		for _, item := range stat.Versions {
+			if item.Count > maxVersionsCounts[item.Version] {
+				maxVersionsCounts[item.Version] = item.Count
+			}
+			if item.Count > maxVersionCount {
+				maxVersionCount = item.Count
+			}
+		}
+	}
+	for version, count := range maxVersionsCounts {
+		if count < maxVersionCount/100 {
+			delete(maxVersionsCounts, version)
+		} else {
+			countVersions[version] = make([]int64, l)
+		}
+	}
+	for i, stat := range globalStats {
+		for _, item := range stat.Versions {
+			if _, ok := maxVersionsCounts[item.Version]; ok {
+				countVersions[item.Version][i] = item.Count
+			}
+		}
+	}
+
 	return &GlobalNodesHistoryData{
-		StartTime:  startTime,
-		EndTime:    endTime,
-		Stamps:     stamps,
-		CountHours: countHours,
+		StartTime:     startTime,
+		EndTime:       endTime,
+		Stamps:        stamps,
+		CountHours:    countHours,
+		CountVersions: countVersions,
 	}, nil
 }

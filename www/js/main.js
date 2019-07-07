@@ -7,7 +7,9 @@ import {
 	roundedRect,
 	minMaxPerc,
 	iterateDays,
-	maxAbs,
+	maxArr,
+	maxArrs,
+	maxArrAbs,
 	drawDailyBars,
 	drawVScalesLeft,
 	drawLegend,
@@ -16,6 +18,7 @@ import {
 	RectBottom,
 	View,
 	drawLine,
+	drawStacked,
 	getDailyIncs,
 } from './utils.js'
 
@@ -170,8 +173,6 @@ function setupGlobalNodeActivityCountsChart(wrap) {
 	let hours = Object.keys(countHours).sort((a, b) => +a - +b)
 	let revHours = hours.slice().reverse()
 
-	for (let i = 0; i < stamps.length; i++) stamps[i] *= 1000
-
 	let dailyIncs = getDailyIncs(startTime, endTime, stamps, countHours[24])
 
 	let [bottomValue0, topValue0] = minMaxPerc(countHours[hours[0]], 0.02)
@@ -182,7 +183,7 @@ function setupGlobalNodeActivityCountsChart(wrap) {
 	bottomValue -= d
 	topValue += d
 
-	let barsTopValue = maxAbs(dailyIncs) * 1.5 //topValue - bottomValue
+	let barsTopValue = maxArrAbs(dailyIncs) * 1.5 //topValue - bottomValue
 
 	let canvasExt = CanvasExt.createIn(wrap, 'main-canvas')
 
@@ -230,6 +231,69 @@ function setupGlobalNodeActivityCountsChart(wrap) {
 	redraw()
 }
 
+function setupChart(setupFunc) {
+	return function(wrap) {
+		wrap.classList.add('ready')
+		let canvasExt = CanvasExt.createIn(wrap, 'main-canvas')
+		let redraw = setupFunc(wrap, canvasExt)
+		window.addEventListener('resize', redraw)
+		redraw()
+	}
+}
+function regularRedraw(canvasExt, rects, redrawFunc) {
+	return function() {
+		canvasExt.resize()
+		canvasExt.clear()
+		for (let i = 0; i < rects.length; i++)
+			rects[i].update(canvasExt.cssWidth, canvasExt.cssHeight)
+
+		let rc = canvasExt.rc
+		rc.save()
+		rc.scale(canvasExt.pixelRatio, canvasExt.pixelRatio)
+		redrawFunc(rc)
+		rc.restore()
+	}
+}
+const setupGlobalNodeVersionCountsChart = setupChart(function(wrap, canvasExt) {
+	let startTime = Date.parse(window.globalHistoryData.startTime)
+	let endTime = Date.parse(window.globalHistoryData.endTime)
+	let stamps = window.globalHistoryData.stamps
+	let countVersions = window.globalHistoryData.countVersions
+	let versions = Object.keys(countVersions).sort()
+
+	let topValue = maxArrs(Object.values(countVersions))
+
+	let rect = new RectCenter({ left: 0, right: 0, top: 0, bottom: 11 })
+	let view = new View({ startStamp: startTime, endStamp: endTime, bottomValue: 0, topValue })
+
+	function versionColor(version) {
+		let m = version.match(/v(\d+)\.(\d+)\.(\d+)/)
+		if (m === null) return 'gray'
+		let [, , b, c] = m
+		return `hsl(${(b * 50) % 360},100%,${38 + ((c * 7) % 20) * 1.4}%)`
+	}
+
+	let stackAccum = new Int32Array(stamps.length)
+	return regularRedraw(canvasExt, [rect], function(rc) {
+		rc.fillStyle = 'rgba(255,255,255,0.05)'
+		rc.fillRect(0, 0, canvasExt.cssWidth, canvasExt.cssHeight)
+
+		drawMonthDays(canvasExt, rect, view, { vLinesColor: null, hLineColor: '#555' })
+
+		stackAccum.fill(0)
+		rc.globalCompositeOperation = 'destination-over'
+		versions.forEach(version => {
+			let counts = countVersions[version]
+			drawStacked(canvasExt, rect, view, stamps, counts, versionColor(version), stackAccum)
+		})
+		rc.globalCompositeOperation = 'source-over'
+
+		drawVScalesLeft(canvasExt, rect, view, 'black', 'rgba(0,0,0,0.12)')
+
+		drawLegend(canvasExt, rect, versions.map(v => ({ text: v, color: versionColor(v) })), 3.5)
+	})
+})
+
 document.querySelectorAll('.month-chart').forEach(wrap => {
 	switch (wrap.dataset.kind) {
 		case 'node-activity-chart':
@@ -237,6 +301,9 @@ document.querySelectorAll('.month-chart').forEach(wrap => {
 			break
 		case 'global-node-activity-counts-chart':
 			setupGlobalNodeActivityCountsChart(wrap)
+			break
+		case 'global-node-version-counts-chart':
+			setupGlobalNodeVersionCountsChart(wrap)
 			break
 	}
 })

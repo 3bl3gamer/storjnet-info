@@ -112,6 +112,7 @@ Overall stats
 	</table>
 	<span class="dim small">Кто забыл обновиться?</span>
 </p>
+<div class="month-chart" data-kind="global-node-version-counts-chart"></div>
 
 <h2>Страны</h2>
 <p>
@@ -185,5 +186,6 @@ Overall stats
 {{define "js_payload"}}
 <script>
 	var globalHistoryData = {{.GlobalHistoryData }}
+	for (let i = 0; i < globalHistoryData.stamps.length; i++) globalHistoryData.stamps[i] *= 1000
 </script>
 {{end}}
