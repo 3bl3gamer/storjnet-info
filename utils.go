@@ -436,8 +436,8 @@ type GlobalStat struct {
 type Node struct {
 	ID            storj.NodeID
 	CreatedAt     time.Time
-	KadParams     map[string]interface{}
-	SelfParams    map[string]interface{}
+	KadParams     pb.Node
+	SelfParams    *pb.NodeInfoResponse
 	KadUpdatedAt  time.Time
 	SelfUpdatedAt time.Time
 	Location      *NodeLocation `sql:"composite:node_Location"`

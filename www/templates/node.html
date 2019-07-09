@@ -42,9 +42,13 @@
 Данных пока нет.
 {{end}}
 
+{{if .Node.SelfParams}}
+{{if eq .Node.SelfParams.Type .NodeType_STORAGE}}
 <h2>Изменения данных</h2>
 <div class="month-chart" data-kind="node-data-history-chart"></div>
 <div class="month-chart" data-kind="node-data-history-coeff-chart"></div>
+{{end}}
+{{end}}
 
 <h2>Местоположение</h2>
 <p class="dim small">по базе GeoIP</p>
@@ -87,8 +91,8 @@
 {{end}}
 
 <script>
-	var nodeActivityStamps = {{.MonthHistory.ActivityStamps}}
-	var freeDataItems = {{.MonthHistory.FreeDataItems.SeparatedCompact}}
+	var nodeActivityStamps = {{.MonthHistory.ActivityStamps }}
+	var freeDataItems = {{.MonthHistory.FreeDataItems.SeparatedCompact }}
 	for (let i = 0; i < freeDataItems.stamps.length; i++) freeDataItems.stamps[i] *= 1000
 </script>
 

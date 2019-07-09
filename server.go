@@ -326,10 +326,11 @@ func HandleNode(wr http.ResponseWriter, r *http.Request, ps httprouter.Params) e
 	}
 
 	return render(wr, http.StatusOK, "node.html", "base", map[string]interface{}{
-		"Lang":         "ru",
-		"NodeIDStr":    node.ID.String(),
-		"Node":         node,
-		"MonthHistory": monthHistory,
+		"Lang":             "ru",
+		"NodeIDStr":        node.ID.String(),
+		"Node":             node,
+		"MonthHistory":     monthHistory,
+		"NodeType_STORAGE": pb.NodeType_STORAGE,
 	})
 }
 
