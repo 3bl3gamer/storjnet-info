@@ -112,16 +112,16 @@ export function endOfMonth(date) {
 }
 
 export function minMaxPerc(values, perc) {
-	let blankValue = 0
+	let skipValue = 0
 	let valuesCount = 0
-	for (let i = 0; i < values.length; i++) if (values[i] != blankValue) valuesCount++
+	for (let i = 0; i < values.length; i++) if (values[i] != skipValue) valuesCount++
 	if (valuesCount == 0) return [0, 0]
 
 	let max = -Infinity
 	let min = Infinity
 	for (let i = 0; i < values.length; i++) {
 		let v = values[i]
-		if (v != blankValue) {
+		if (v != skipValue) {
 			if (v > max) max = v
 			if (v < min) min = v
 		}
@@ -130,19 +130,53 @@ export function minMaxPerc(values, perc) {
 	let counts = new Uint32Array(100)
 	for (let i = 0; i < values.length; i++) {
 		let v = values[i]
-		if (v != blankValue) counts[(((v - min) / (max - min)) * (counts.length - 1)) | 0]++
+		if (v != skipValue) counts[(((v - min) / (max - min)) * (counts.length - 1)) | 0]++
 	}
 
 	let thresh = values.length * perc
 	let minPerc = min
 	let maxPerc = max
-	for (let count = 0, i = 0; i < counts.length && count < thresh; i++, count += counts[i]) {
-		minPerc = min + (i / (counts.length - 1)) * (max - min)
+	for (let count = 0, i = 0; i < counts.length; i++) {
+		count += counts[i]
+		if (count > thresh) {
+			let d = (count - thresh) / counts[i]
+			minPerc = min + ((i + 1 - d) / (counts.length - 1)) * (max - min)
+			break
+		}
 	}
-	for (let count = 0, i = counts.length - 1; i >= 0 && count < thresh; i--, count += counts[i]) {
-		maxPerc = min + (i / (counts.length - 1)) * (max - min)
+	for (let count = 0, i = counts.length - 1; i >= 0; i--) {
+		count += counts[i]
+		if (count > thresh) {
+			let d = (count - thresh) / counts[i]
+			maxPerc = min + ((i + d) / (counts.length - 1)) * (max - min)
+			break
+		}
 	}
-	return [minPerc, maxPerc]
+
+	let delta = (maxPerc - minPerc) * 0.2
+	return minMaxArrCut(values, minPerc - delta, maxPerc + delta, skipValue)
+}
+export function minMaxPercMulti(arrays, perc) {
+	let min = Infinity
+	let max = -Infinity
+	for (let i = 0; i < arrays.length; i++) {
+		let [bottom, top] = minMaxPerc(arrays[i], perc)
+		if (bottom < min) min = bottom
+		if (top > max) max = top
+	}
+	return [min, max]
+}
+export function minMaxArrCut(values, bottomValue, topValue, skipValue = 0) {
+	let max = -Infinity
+	let min = Infinity
+	for (let i = 0; i < values.length; i++) {
+		let v = values[i]
+		if (v != skipValue && v >= bottomValue && v <= topValue) {
+			if (v > max) max = v
+			if (v < min) min = v
+		}
+	}
+	return [min, max]
 }
 
 export function maxArr(values) {
@@ -152,6 +186,15 @@ export function maxArr(values) {
 		if (v > max) max = v
 	}
 	return max
+}
+export function minArr(values) {
+	let min = Infinity
+	for (let i = 0; i < values.length; i++) {
+		let v = values[i]
+		if (v == 0) continue
+		if (v < min) min = v
+	}
+	return min
 }
 export function maxArrs(arrays) {
 	if (arrays.length == 0) return -Infinity
@@ -171,6 +214,12 @@ export function maxArrAbs(values) {
 		if (v > max) max = v
 	}
 	return max
+}
+
+export function adjustZero(bottomValue, topValue) {
+	let height = topValue - bottomValue
+	if (bottomValue > 0 && bottomValue / height < 0.1) return [0, topValue]
+	return [bottomValue, topValue]
 }
 
 export function getDailyIncs(startDate, endDate, stamps, values) {
@@ -284,34 +333,48 @@ function drawHours(canvasExt, dateDrawFrom, dateDrawTo, curDayDate, nextDayDate,
 	}
 }
 
-function roundLabelFloor(value) {
-	let n = Math.pow(10, Math.floor(Math.log10(value) - 1))
-	return Math.floor(value / n) * n
+function roundLabelValues(bottomValue, topValue) {
+	// let n = Math.ceil(Math.log10(Math.max(Math.abs(topValue), Math.abs(bottomValue)) / (topValue - bottomValue)))
+	// let k = Math.pow(10, Math.floor(Math.log10(Math.abs(topValue)) - n))
+	let k = Math.pow(10, Math.floor(Math.log10(topValue - bottomValue) - 1))
+
+	bottomValue = Math.ceil(bottomValue / k) * k
+	topValue = Math.floor(topValue / k) * k
+	let midValue = (topValue + bottomValue) / 2
+
+	let height = topValue - bottomValue
+	let bottomK = bottomValue / height
+	let topK = topValue / height
+
+	if (bottomK < -0.1 && topK > 0.1) {
+		if (bottomK < -0.4 && topK > 0.4) {
+			let delta = Math.min(topValue, -bottomValue)
+			topValue = delta
+			bottomValue = -delta
+		}
+		midValue = 0
+	}
+	return [bottomValue, midValue, topValue]
 }
-function roundLabelCeil(value) {
-	let n = 100 //Math.pow(10, Math.floor(Math.log10(value) - 1))
-	return Math.ceil(value / n) * n
-}
-function drawLabeledVScaleLeftLine(rc, rect, view, value, textColor, lineColor) {
+function drawLabeledVScaleLeftLine(rc, rect, view, value, textColor, lineColor, textFunc) {
+	let text = textFunc === null ? '' + value : textFunc(value)
 	let lineY = ((view.topValue - value) / view.height) * rect.height
 	rc.strokeStyle = 'rgba(255,255,255,0.75)'
 	rc.lineWidth = 2
-	rc.strokeText(value, rect.left + 2, rect.top + lineY)
+	rc.strokeText(text, rect.left + 2, rect.top + lineY)
 	rc.fillStyle = textColor
-	rc.fillText(value, rect.left + 2, rect.top + lineY)
+	rc.fillText(text, rect.left + 2, rect.top + lineY)
 	rc.fillStyle = lineColor
 	rc.fillRect(rect.left, rect.top + lineY - 0.5, rect.width, 1)
 }
-export function drawVScalesLeft(canvasExt, rect, view, textColor, lineColor) {
+export function drawVScalesLeft(canvasExt, rect, view, textColor, lineColor, textFunc = null) {
 	let rc = canvasExt.rc
-	let topOffset = (view.height / rect.height) * 10 //font height
-	let topValue = roundLabelFloor(view.topValue - topOffset)
-	let bottomValue = roundLabelCeil(view.bottomValue)
+	let topOffset = (view.height / rect.height) * 11 //font height
+	let values = roundLabelValues(view.bottomValue, view.topValue - topOffset)
 	rc.textAlign = 'left'
 	rc.textBaseline = 'bottom'
-	drawLabeledVScaleLeftLine(rc, rect, view, topValue, textColor, lineColor)
-	drawLabeledVScaleLeftLine(rc, rect, view, (topValue + bottomValue) / 2, textColor, lineColor)
-	drawLabeledVScaleLeftLine(rc, rect, view, bottomValue, textColor, lineColor)
+	for (let i = 0; i < values.length; i++)
+		drawLabeledVScaleLeftLine(rc, rect, view, values[i], textColor, lineColor, textFunc)
 }
 
 export function drawLegend(canvasExt, rect, items, lineWidth = 0.5) {
@@ -331,6 +394,10 @@ export function drawLegend(canvasExt, rect, items, lineWidth = 0.5) {
 	rc.textBaseline = 'top'
 	for (let i = 0; i < items.length; i++) {
 		let item = items[i]
+		if (x > rect.left + rect.width - 100) {
+			x = rect.left + 48
+			y += 10
+		}
 		rc.fillStyle = item.color
 		rc.fillRect(x, y + 4.5 - lineWidth, lineLength, lineWidth * 2)
 		x += lineLength + lineSep
@@ -362,7 +429,7 @@ export function drawLine(canvasExt, rect, view, stamps, values, color) {
 	for (let i = 0; i < stamps.length; i++) {
 		let stamp = stamps[i]
 		let value = values[i]
-		if (value == 0) continue
+		//if (value == 0) continue
 		let x = stamp2x(rect, view, stamp)
 		let y = value2y(rect, view, value)
 		if (started) {
@@ -372,6 +439,7 @@ export function drawLine(canvasExt, rect, view, stamps, values, color) {
 			started = true
 		}
 	}
+	rc.lineJoin = 'bevel'
 	rc.strokeStyle = color
 	rc.stroke()
 }

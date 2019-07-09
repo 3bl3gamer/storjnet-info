@@ -42,6 +42,9 @@
 Данных пока нет.
 {{end}}
 
+<h2>Изменения данных</h2>
+<div class="month-chart" data-kind="node-data-history-chart"></div>
+<div class="month-chart" data-kind="node-data-history-coeff-chart"></div>
 
 <h2>Местоположение</h2>
 <p class="dim small">по базе GeoIP</p>
@@ -84,8 +87,9 @@
 {{end}}
 
 <script>
-	var nodeActivityStamps = Array.from({{.MonthHistory.ActivityStamps }})
-	var freeDataItems = "{.MonthHistory.FreeDataItems.SeparatedCompact}"
+	var nodeActivityStamps = {{.MonthHistory.ActivityStamps}}
+	var freeDataItems = {{.MonthHistory.FreeDataItems.SeparatedCompact}}
+	for (let i = 0; i < freeDataItems.stamps.length; i++) freeDataItems.stamps[i] *= 1000
 </script>
 
 {{end}}

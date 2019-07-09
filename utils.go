@@ -482,14 +482,17 @@ func (i *DataHistoryItem) Scan(val interface{}) error {
 
 func (items DataHistoryItems) SeparatedCompact() *DataHistoryItemsSeparated {
 	res := &DataHistoryItemsSeparated{
-		Stamps:        make([]int64, len(items)),
-		FreeDisk:      make([]int64, len(items)),
-		FreeBandwidth: make([]int64, len(items)),
+		Stamps:        make([]int64, 0, len(items)/2),
+		FreeDisk:      make([]int64, 0, len(items)/2),
+		FreeBandwidth: make([]int64, 0, len(items)/2),
 	}
-	for i, item := range items {
-		res.Stamps[i] = item.Stamp.Unix()
-		res.FreeDisk[i] = item.FreeDisk
-		res.FreeBandwidth[i] = item.FreeBandwidth
+	for _, item := range items {
+		// почему-то данные по объёмам в течение примерно часа приходят одни и те же
+		if len(res.Stamps) == 0 || item.FreeDisk != res.FreeDisk[len(res.FreeDisk)-1] && item.FreeBandwidth != res.FreeBandwidth[len(res.FreeBandwidth)-1] {
+			res.Stamps = append(res.Stamps, item.Stamp.Unix())
+			res.FreeDisk = append(res.FreeDisk, item.FreeDisk)
+			res.FreeBandwidth = append(res.FreeBandwidth, item.FreeBandwidth)
+		}
 	}
 	return res
 }
