@@ -416,20 +416,18 @@ function value2yDelta(rect, view, value) {
 	return ((value - view.bottomValue) / view.height) * rect.height
 }
 
-//function stamp2i(view, stamps, stamp)
-
 function signed(value) {
 	return (value >= 0 ? '+' : '') + value
 }
 
-export function drawLine(canvasExt, rect, view, stamps, values, color) {
+export function drawLine(canvasExt, rect, view, stamps, values, color, skipZero = false) {
 	let rc = canvasExt.rc
 	rc.beginPath()
 	let started = false
 	for (let i = 0; i < stamps.length; i++) {
 		let stamp = stamps[i]
 		let value = values[i]
-		//if (value == 0) continue
+		if (skipZero && value == 0) continue
 		let x = stamp2x(rect, view, stamp)
 		let y = value2y(rect, view, value)
 		if (started) {

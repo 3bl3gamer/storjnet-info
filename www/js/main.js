@@ -1,38 +1,56 @@
 import {
 	CanvasExt,
-	startOfMonth,
-	endOfMonth,
-	drawMonthDays,
-	hoverSingle,
-	roundedRect,
-	minMaxPerc,
-	minMaxPercMulti,
-	iterateDays,
-	maxArr,
-	maxArrs,
-	maxArrAbs,
-	minArr,
-	drawDailyBars,
-	drawVScalesLeft,
-	drawLegend,
+	View,
 	RectCenter,
 	RectTop,
 	RectBottom,
-	View,
+	startOfMonth,
+	endOfMonth,
+	roundedRect,
+	drawMonthDays,
+	drawDailyBars,
+	drawVScalesLeft,
+	drawLegend,
 	drawLine,
 	drawStacked,
+	minMaxPercMulti,
+	maxArrs,
+	maxArrAbs,
 	getDailyIncs,
 	adjustZero,
+	hoverSingle,
 } from './utils.js'
 
-function setupActivityChart(wrap) {
-	wrap.classList.add('ready')
-	let canvasExt = CanvasExt.createIn(wrap, 'main-canvas')
+function setupChart(setupFunc) {
+	return function(wrap) {
+		wrap.classList.add('ready')
+		let canvasExt = CanvasExt.createIn(wrap, 'main-canvas')
+		let redraw = setupFunc(wrap, canvasExt)
+		window.addEventListener('resize', redraw)
+		redraw()
+	}
+}
+function regularRedraw(canvasExt, rects, redrawFunc) {
+	return function() {
+		canvasExt.resize()
+		canvasExt.clear()
+		for (let i = 0; i < rects.length; i++)
+			rects[i].update(canvasExt.cssWidth, canvasExt.cssHeight)
+
+		let rc = canvasExt.rc
+		rc.save()
+		rc.scale(canvasExt.pixelRatio, canvasExt.pixelRatio)
+		redrawFunc(rc)
+		rc.restore()
+	}
+}
+
+let charts = {}
+
+charts['node-activity-chart'] = setupChart(function(wrap, canvasExt) {
 	let stamps = window.nodeActivityStamps
 	let stampMargin = 3.5 * 60 * 1000 //3.5 minutes
 	let zoomBoxTimeWidth = 24 * 3600 * 1000
-
-	for (let i = 0; i < stamps.length; i++) stamps[i] = (stamps[i] & ~1) * 1000 + (stamps[i] & 1)
 
 	let monthMidStamp =
 		stamps.length == 0 ? Date.now() : (stamps[0] + stamps[stamps.length - 1]) / 2
@@ -89,24 +107,13 @@ function setupActivityChart(wrap) {
 		}
 	}
 
-	function redraw() {
-		canvasExt.resize()
-		canvasExt.clear()
-		rect.update(canvasExt.cssWidth, canvasExt.cssHeight)
-		labelsRect.update(canvasExt.cssWidth, canvasExt.cssHeight)
-
-		let rc = canvasExt.rc
-		rc.save()
-		rc.scale(canvasExt.pixelRatio, canvasExt.pixelRatio)
-
+	const redraw = regularRedraw(canvasExt, [rect, labelsRect], function(rc) {
 		drawRegions(canvasExt, view, rect)
 		drawMonthDays(canvasExt, labelsRect, view)
 		rc.strokeStyle = 'rgba(0,0,0,0.05)'
 		rc.lineWidth = 0.5
 		rc.strokeRect(0.5, 0.5, canvasExt.cssWidth - 1, rect.top + rect.height)
-
-		rc.restore()
-	}
+	})
 
 	let zoomBoxCanvasExt = null
 	function showZoomBox(x, y, e, touch) {
@@ -159,15 +166,12 @@ function setupActivityChart(wrap) {
 		}
 	}
 
-	window.addEventListener('resize', function() {
-		hideZoomBox()
-		redraw()
-	})
+	window.addEventListener('resize', hideZoomBox)
 	hoverSingle({ elem: wrap, onHover: showZoomBox, onLeave: hideZoomBox })
-	redraw()
-}
+	return redraw
+})
 
-const setupDataHistoryChart = setupChart(function(wrap, canvasExt) {
+charts['node-data-history-chart'] = setupChart(function(wrap, canvasExt) {
 	let stamps = window.freeDataItems.stamps
 	let diskValues = window.freeDataItems.freeDiskDeltas
 	let bandValues = window.freeDataItems.freeBandwidthDeltas
@@ -190,12 +194,6 @@ const setupDataHistoryChart = setupChart(function(wrap, canvasExt) {
 		endStamp: monthEnd,
 		bottomValue: bottomValue,
 		topValue: topValue,
-	})
-	let effView = new View({
-		startStamp: monthStart,
-		endStamp: monthEnd,
-		bottomValue: 0,
-		topValue: 120,
 	})
 
 	function mbsLabel(value) {
@@ -220,7 +218,7 @@ const setupDataHistoryChart = setupChart(function(wrap, canvasExt) {
 	})
 })
 
-const setupDataHistoryCoeffChart = setupChart(function(wrap, canvasExt) {
+charts['node-data-history-coeff-chart'] = setupChart(function(wrap, canvasExt) {
 	let stamps = window.freeDataItems.stamps
 	let diskValues = window.freeDataItems.freeDiskDeltas
 	let bandValues = window.freeDataItems.freeBandwidthDeltas
@@ -257,8 +255,7 @@ const setupDataHistoryCoeffChart = setupChart(function(wrap, canvasExt) {
 	})
 })
 
-function setupGlobalNodeActivityCountsChart(wrap) {
-	wrap.classList.add('ready')
+charts['global-node-activity-counts-chart'] = setupChart(function(wrap, canvasExt) {
 	let startTime = Date.parse(window.globalHistoryData.startTime)
 	let endTime = Date.parse(window.globalHistoryData.endTime)
 	let stamps = window.globalHistoryData.stamps //Uint32Array.from
@@ -268,21 +265,16 @@ function setupGlobalNodeActivityCountsChart(wrap) {
 
 	let dailyIncs = getDailyIncs(startTime, endTime, stamps, countHours[24])
 
-	let [bottomValue0, topValue0] = minMaxPerc(countHours[hours[0]], 0.02)
-	let [bottomValue1, topValue1] = minMaxPerc(countHours[hours[hours.length - 1]], 0.02)
-	let bottomValue = Math.min(bottomValue0, bottomValue1)
-	let topValue = Math.max(topValue0, topValue1)
+	let borderArrays = [countHours[hours[0]], countHours[hours[hours.length - 1]]]
+	let [bottomValue, topValue] = minMaxPercMulti(borderArrays, 0.02)
 	let d = (topValue - bottomValue) * 0.01
 	bottomValue -= d
 	topValue += d
 
 	let barsTopValue = maxArrAbs(dailyIncs) * 1.5 //topValue - bottomValue
 
-	let canvasExt = CanvasExt.createIn(wrap, 'main-canvas')
-
 	let rect = new RectCenter({ left: 0, right: 0, top: 0, bottom: 11 })
 	let view = new View({ startStamp: startTime, endStamp: endTime, bottomValue, topValue })
-	let barsRect = rect
 	let barsView = new View({
 		startStamp: startTime,
 		endStamp: endTime,
@@ -293,61 +285,23 @@ function setupGlobalNodeActivityCountsChart(wrap) {
 	function hoursColor(hours) {
 		return 'hsl(240, 100%, ' + (50 + (1 - hours / 24) * 40) + '%)'
 	}
-	function redraw() {
-		canvasExt.resize()
-		canvasExt.clear()
-		rect.update(canvasExt.cssWidth, canvasExt.cssHeight)
-
-		let rc = canvasExt.rc
-		rc.save()
-		rc.scale(canvasExt.pixelRatio, canvasExt.pixelRatio)
-
-		drawDailyBars(canvasExt, barsRect, barsView, dailyIncs, '#D0F7D0', '#F7D0D0', '#CCC')
+	return regularRedraw(canvasExt, [rect], function(rc) {
+		drawDailyBars(canvasExt, rect, barsView, dailyIncs, '#D0F7D0', '#F7D0D0', '#CCC')
 
 		drawMonthDays(canvasExt, rect, view, { vLinesColor: null, hLineColor: '#555' })
 
 		hours.forEach(hours => {
 			let counts = countHours[hours]
-			drawLine(canvasExt, rect, view, stamps, counts, hoursColor(hours))
+			drawLine(canvasExt, rect, view, stamps, counts, hoursColor(hours), true)
 		})
 
 		drawVScalesLeft(canvasExt, rect, view, 'black', 'rgba(0,0,0,0.12)')
 
 		drawLegend(canvasExt, rect, revHours.map(h => ({ text: h + ' ч', color: hoursColor(h) })))
-
-		rc.restore()
-	}
-
-	window.addEventListener('resize', function() {
-		redraw()
 	})
-	redraw()
-}
+})
 
-function setupChart(setupFunc) {
-	return function(wrap) {
-		wrap.classList.add('ready')
-		let canvasExt = CanvasExt.createIn(wrap, 'main-canvas')
-		let redraw = setupFunc(wrap, canvasExt)
-		window.addEventListener('resize', redraw)
-		redraw()
-	}
-}
-function regularRedraw(canvasExt, rects, redrawFunc) {
-	return function() {
-		canvasExt.resize()
-		canvasExt.clear()
-		for (let i = 0; i < rects.length; i++)
-			rects[i].update(canvasExt.cssWidth, canvasExt.cssHeight)
-
-		let rc = canvasExt.rc
-		rc.save()
-		rc.scale(canvasExt.pixelRatio, canvasExt.pixelRatio)
-		redrawFunc(rc)
-		rc.restore()
-	}
-}
-const setupGlobalNodeVersionCountsChart = setupChart(function(wrap, canvasExt) {
+charts['global-node-version-counts-chart'] = setupChart(function(wrap, canvasExt) {
 	let startTime = Date.parse(window.globalHistoryData.startTime)
 	let endTime = Date.parse(window.globalHistoryData.endTime)
 	let stamps = window.globalHistoryData.stamps
@@ -387,40 +341,29 @@ const setupGlobalNodeVersionCountsChart = setupChart(function(wrap, canvasExt) {
 	})
 })
 
-document.querySelectorAll('.month-chart').forEach(wrap => {
-	function makeDataDeltas(stamps, values) {
-		let res = new Float64Array(values.length - 1)
-		for (let i = 0; i < values.length - 1; i++) {
-			if (values[i + 1] != 0 && values[i] != 0) {
-				let d = Math.min(values.length - i - 1, 2)
-				res[i] = ((values[i] - values[i + 1]) / (stamps[i + d] - stamps[i])) * 8000 * d
-			}
+function makeDataDeltas(stamps, values) {
+	let res = new Float64Array(values.length - 1)
+	for (let i = 0; i < values.length - 1; i++) {
+		if (values[i + 1] != 0 && values[i] != 0) {
+			let d = Math.min(values.length - i - 1, 2)
+			res[i] = ((values[i] - values[i + 1]) / (stamps[i + d] - stamps[i])) * 8000 * d
 		}
-		res[res.length - 2] = res[res.length - 1]
-		return res
 	}
+	res[res.length - 2] = res[res.length - 1]
+	return res
+}
 
-	if ('freeDataItems' in window) {
-		let di = window.freeDataItems
-		di.freeDiskDeltas = makeDataDeltas(di.stamps, di.freeDisk)
-		di.freeBandwidthDeltas = makeDataDeltas(di.stamps, di.freeBandwidth)
-	}
+if ('freeDataItems' in window) {
+	let di = window.freeDataItems
+	di.freeDiskDeltas = makeDataDeltas(di.stamps, di.freeDisk)
+	di.freeBandwidthDeltas = makeDataDeltas(di.stamps, di.freeBandwidth)
+}
 
-	switch (wrap.dataset.kind) {
-		case 'node-activity-chart':
-			setupActivityChart(wrap)
-			break
-		case 'node-data-history-chart':
-			setupDataHistoryChart(wrap)
-			break
-		case 'node-data-history-coeff-chart':
-			setupDataHistoryCoeffChart(wrap)
-			break
-		case 'global-node-activity-counts-chart':
-			setupGlobalNodeActivityCountsChart(wrap)
-			break
-		case 'global-node-version-counts-chart':
-			setupGlobalNodeVersionCountsChart(wrap)
-			break
-	}
+if ('nodeActivityStamps' in window) {
+	let stamps = window.nodeActivityStamps
+	for (let i = 0; i < stamps.length; i++) stamps[i] = (stamps[i] & ~1) * 1000 + (stamps[i] & 1)
+}
+
+document.querySelectorAll('.month-chart').forEach(wrap => {
+	charts[wrap.dataset.kind](wrap)
 })
