@@ -19,5 +19,5 @@ require (
 	golang.org/x/sys v0.0.0-20190626221950-04f50cda93cb // indirect
 	golang.org/x/tools v0.0.0-20190628222527-fb37f6ba8261 // indirect
 	google.golang.org/grpc v1.21.0
-	storj.io/storj v0.14.9
+	storj.io/storj v0.14.11
 )
