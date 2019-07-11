@@ -111,6 +111,23 @@ func StartNodesSelfDataFetcher(nodesInChan chan *SelfUpdate_Kad, nodesOutChan ch
 		return worker
 	}
 
+	var knownSelfErrors = []*struct {
+		Suffix string
+		Count  int64
+	}{
+		{`tlsopts error: peer ID did not match requested ID"`, 0},
+		{`connect: no route to host"`, 0},
+		{`connect: connection refused"`, 0},
+		{`transport error: context deadline exceeded"`, 0},
+		{`transport error: context deadline exceeded`, 0},
+		{`read: connection reset by peer"`, 0},
+		{`No address associated with hostname"`, 0},
+		{`: no such host"`, 0},
+		{`tls peer certificate verification error: certificate chain signature verification failed: signature verification error: signature is not valid"`, 0},
+		{`tls peer certificate verification error: not signed by any CA in the whitelist: CA cert"`, 0},
+		{`tls peer certificate verification error: tlsopts error: peer ID did not match requested ID"`, 0},
+	}
+
 	stamp := time.Now().Unix()
 	countTotal := int64(0)
 	countOk := int64(0)
@@ -127,10 +144,15 @@ func StartNodesSelfDataFetcher(nodesInChan chan *SelfUpdate_Kad, nodesOutChan ch
 
 				if err != nil {
 					if st, ok := status.FromError(err); ok {
-						if !strings.HasSuffix(st.Message(), `connect: connection refused"`) &&
-							!strings.HasSuffix(st.Message(), `connect: no route to host"`) &&
-							!strings.HasSuffix(st.Message(), `transport error: context deadline exceeded"`) &&
-							!strings.HasSuffix(st.Message(), `no such host"`) {
+						found := false
+						for _, item := range knownSelfErrors {
+							if strings.HasSuffix(st.Message(), item.Suffix) {
+								item.Count++
+								found = true
+								break
+							}
+						}
+						if !found {
 							logWarn("SELF-FETCH", "%s", err)
 						}
 					} else {
@@ -144,7 +166,17 @@ func StartNodesSelfDataFetcher(nodesInChan chan *SelfUpdate_Kad, nodesOutChan ch
 				}
 				nodesOutChan <- outNode
 
-				if atomic.AddInt64(&countTotal, 1)%10 == 0 {
+				newCount := atomic.AddInt64(&countTotal, 1)
+				if newCount%100 == 0 {
+					for _, item := range knownSelfErrors {
+						cut := len(item.Suffix) - 26
+						if cut < 0 {
+							cut = 0
+						}
+						logInfo("SELF-FETCH", "ERR: %26s %5d", item.Suffix[cut:], item.Count)
+					}
+				}
+				if newCount%10 == 0 {
 					logInfo("SELF-FETCH", "total: %d, ok: %d, err: %d; %.2f rpm",
 						countTotal, countOk, countErrTotal,
 						float64(countTotal)/float64(time.Now().Unix()-stamp)*60)
