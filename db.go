@@ -26,6 +26,14 @@ func StartNodesKadDataSaver(db *pg.DB, kadDataChan chan *KadDataExt, chunkSize i
 	go func() {
 		defer worker.Done()
 		err := saveChunked(db, chunkSize, kadDataChanI, func(tx *pg.Tx, items []interface{}) error {
+			ids := make([]storj.NodeID, len(items))
+			for i, nodeI := range items {
+				ids[i] = nodeI.(*KadDataExt).Node.Id
+			}
+			if _, err := tx.Exec("SELECT 1 FROM nodes WHERE id IN (?)", pg.In(ids)); err != nil {
+				return merry.Wrap(err)
+			}
+
 			for _, node := range items {
 				var xmax string
 				_, err := tx.QueryOne(&xmax, `
@@ -73,6 +81,14 @@ func StartNodesSelfDataSaver(db *pg.DB, selfDataChan chan *SelfUpdate_Self, chun
 	go func() {
 		defer worker.Done()
 		err := saveChunked(db, chunkSize, selfDataChanI, func(tx *pg.Tx, items []interface{}) error {
+			ids := make([]NodeIDExt, len(items))
+			for i, nodeI := range items {
+				ids[i] = nodeI.(*SelfUpdate_Self).ID
+			}
+			if _, err := tx.Exec("SELECT 1 FROM nodes WHERE id IN (?)", pg.In(ids)); err != nil {
+				return merry.Wrap(err)
+			}
+
 			for _, nodeI := range items {
 				node := nodeI.(*SelfUpdate_Self)
 				var xmax string
@@ -159,6 +175,7 @@ func StartOldKadDataLoader(db *pg.DB, nodeIDsChan chan storj.NodeID, chunkSize i
 					SELECT id FROM nodes
 					WHERE kad_updated_at IS NULL OR kad_updated_at < NOW() - INTERVAL '15 minutes'
 					ORDER BY kad_checked_at ASC NULLS FIRST LIMIT ?
+					FOR UPDATE
 				)
 				UPDATE nodes SET kad_checked_at = NOW() FROM cte WHERE nodes.id = cte.id
 				RETURNING nodes.id`, chunkSize)
@@ -197,6 +214,7 @@ func StartOldSelfDataLoader(db *pg.DB, kadDataChan chan *SelfUpdate_Kad, chunkSi
 					SELECT id FROM nodes
 					WHERE kad_params IS NOT NULL AND (self_updated_at IS NULL OR self_updated_at < NOW() - INTERVAL '5 minutes')
 					ORDER BY self_checked_at ASC NULLS FIRST LIMIT ?
+					FOR UPDATE
 				)
 				UPDATE nodes SET self_checked_at = NOW() FROM cte WHERE nodes.id = cte.id
 				RETURNING nodes.kad_params`, chunkSize)
