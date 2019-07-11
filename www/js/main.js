@@ -6,6 +6,7 @@ import {
 	RectBottom,
 	startOfMonth,
 	endOfMonth,
+	versionSortFunc,
 	roundedRect,
 	drawMonthDays,
 	drawDailyBars,
@@ -306,7 +307,7 @@ charts['global-node-version-counts-chart'] = setupChart(function(wrap, canvasExt
 	let endTime = Date.parse(window.globalHistoryData.endTime)
 	let stamps = window.globalHistoryData.stamps
 	let countVersions = window.globalHistoryData.countVersions
-	let versions = Object.keys(countVersions).sort()
+	let versions = Object.keys(countVersions).sort(versionSortFunc)
 
 	let topValue = maxArrs(Object.values(countVersions))
 

@@ -111,6 +111,16 @@ export function endOfMonth(date) {
 	return date
 }
 
+function version2num(v) {
+	let m = v.match(/v(\d+)\.(\d+)\.(\d+)/)
+	if (m === null) return Infinity
+	console.log(v, m[1] * 10000 + m[2] * 100 + +m[3])
+	return m[1] * 10000 + m[2] * 100 + +m[3]
+}
+export function versionSortFunc(a, b) {
+	return version2num(a) - version2num(b)
+}
+
 export function minMaxPerc(values, perc) {
 	let skipValue = 0
 	let valuesCount = 0
