@@ -30,7 +30,7 @@ func StartNodesKadDataSaver(db *pg.DB, kadDataChan chan *KadDataExt, chunkSize i
 			for i, nodeI := range items {
 				ids[i] = nodeI.(*KadDataExt).Node.Id
 			}
-			if _, err := tx.Exec("SELECT 1 FROM nodes WHERE id IN (?)", pg.In(ids)); err != nil {
+			if _, err := tx.Exec("SELECT 1 FROM nodes WHERE id IN (?) FOR UPDATE", pg.In(ids)); err != nil {
 				return merry.Wrap(err)
 			}
 
@@ -85,7 +85,7 @@ func StartNodesSelfDataSaver(db *pg.DB, selfDataChan chan *SelfUpdate_Self, chun
 			for i, nodeI := range items {
 				ids[i] = nodeI.(*SelfUpdate_Self).ID
 			}
-			if _, err := tx.Exec("SELECT 1 FROM nodes WHERE id IN (?)", pg.In(ids)); err != nil {
+			if _, err := tx.Exec("SELECT 1 FROM nodes WHERE id IN (?) FOR UPDATE", pg.In(ids)); err != nil {
 				return merry.Wrap(err)
 			}
 
