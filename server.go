@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"html/template"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -47,6 +48,11 @@ func pluralize(val int64, lang string, words ...string) string {
 
 var sizeIBNames = []string{"B", "KiB", "MiB", "GiB", "TiB", "PiB"}
 
+var monthNames = map[string][]string{
+	"en": []string{"january", "february", "march", "april", "may", "june", "july", "august", "september", "october", "november", "december"},
+	"ru": []string{"январь", "февраль", "март", "апрель", "май", "июнь", "июль", "август", "сентябрь", "октябрь", "ноябрь", "декабрь"},
+}
+
 func sizeIB(size int64) string {
 	i := 0
 	for ; i < len(sizeIBNames)-1 && 1<<uint(i*10+10) < size; i++ {
@@ -78,6 +84,15 @@ var templateFuncs = template.FuncMap{
 		default:
 			return t.Format("1/2/2006 15:04")
 		}
+	},
+	"formatDateISO": func(t time.Time) string {
+		return t.Format("2006-01-02")
+	},
+	"dateTimeMonth": func(t time.Time, lang string) string {
+		if names, ok := monthNames[lang]; ok {
+			return names[t.Month()-1]
+		}
+		return monthNames["en"][t.Month()-1]
 	},
 	"ago": func(t time.Time, lang string) string {
 		delta := time.Now().Sub(t)
@@ -165,6 +180,24 @@ var templateFuncs = template.FuncMap{
 		}
 		return res
 	},
+}
+
+type QueryExt struct {
+	url.Values
+}
+
+func (q QueryExt) EncodeWithParam(key, value string) template.URL {
+	q.Values.Set(key, value)
+	return template.URL(q.Values.Encode())
+}
+
+func extractMonthStartTimeUTC(query url.Values) time.Time {
+	startTime, err := time.ParseInLocation("2006-01-02", query.Get("stats_from"), time.UTC)
+	if err != nil {
+		startTime = time.Now().UTC()
+	}
+	year, month, _ := startTime.Date()
+	return time.Date(year, month, 1, 0, 0, 0, 0, time.UTC)
 }
 
 func getTemplate(path string) (*template.Template, error) {
@@ -319,23 +352,31 @@ func HandleNode(wr http.ResponseWriter, r *http.Request, ps httprouter.Params) e
 		return merry.Wrap(err)
 	}
 
+	query := r.URL.Query()
+	statsTimeFrom := extractMonthStartTimeUTC(query)
 	monthHistory := &NodeHistory{ActivityStamps: []int64{}, FreeDataItems: []DataHistoryItem{}}
-	err = db.Model(monthHistory).Where("month_date = date_trunc('month', now() at time zone 'utc')::date AND id = ?", node.ID).Select()
+	err = db.Model(monthHistory).Where("month_date = ? AND id = ?", statsTimeFrom, node.ID).Select()
 	if err != nil && err != pg.ErrNoRows {
 		return merry.Wrap(err)
 	}
 
+	statsPrevMonthTime := statsTimeFrom.AddDate(0, -1, 0)
+	statsNextMonthTime := statsTimeFrom.AddDate(0, 1, 0)
+
 	return render(wr, http.StatusOK, "node.html", "base", map[string]interface{}{
-		"Lang":             "ru",
-		"NodeIDStr":        node.ID.String(),
-		"Node":             node,
-		"MonthHistory":     monthHistory,
-		"NodeType_STORAGE": pb.NodeType_STORAGE,
+		"Lang":               "ru",
+		"NodeIDStr":          node.ID.String(),
+		"Node":               node,
+		"MonthHistory":       monthHistory,
+		"NodeType_STORAGE":   pb.NodeType_STORAGE,
+		"StatsTimeFrom":      statsTimeFrom,
+		"StatsPrevMonthTime": statsPrevMonthTime,
+		"StatsNextMonthTime": statsNextMonthTime,
+		"Query":              QueryExt{query},
 	})
 }
 
 func HandleSearch(wr http.ResponseWriter, r *http.Request, ps httprouter.Params) error {
-	println(ps.ByName("q"))
 	q := r.URL.Query().Get("q")
 	location := "/"
 	if q != "" {

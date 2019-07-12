@@ -114,33 +114,35 @@ export function endOfMonth(date) {
 function version2num(v) {
 	let m = v.match(/v(\d+)\.(\d+)\.(\d+)/)
 	if (m === null) return Infinity
-	console.log(v, m[1] * 10000 + m[2] * 100 + +m[3])
 	return m[1] * 10000 + m[2] * 100 + +m[3]
 }
 export function versionSortFunc(a, b) {
 	return version2num(a) - version2num(b)
 }
 
-export function minMaxPerc(values, perc) {
+export function minMaxPerc(values, perc, bottomCutValue, topCutValue) {
 	let skipValue = 0
 	let valuesCount = 0
-	for (let i = 0; i < values.length; i++) if (values[i] != skipValue) valuesCount++
+	for (let i = 0; i < values.length; i++)
+		if (values[i] != skipValue && values[i] >= bottomCutValue && values[i] <= topCutValue)
+			valuesCount++
 	if (valuesCount == 0) return [0, 0]
 
 	let max = -Infinity
 	let min = Infinity
 	for (let i = 0; i < values.length; i++) {
 		let v = values[i]
-		if (v != skipValue) {
+		if (v != skipValue && values[i] >= bottomCutValue && values[i] <= topCutValue) {
 			if (v > max) max = v
 			if (v < min) min = v
 		}
 	}
 
-	let counts = new Uint32Array(100)
+	let counts = new Uint32Array(1000)
 	for (let i = 0; i < values.length; i++) {
 		let v = values[i]
-		if (v != skipValue) counts[(((v - min) / (max - min)) * (counts.length - 1)) | 0]++
+		if (v != skipValue && values[i] >= bottomCutValue && values[i] <= topCutValue)
+			counts[(((v - min) / (max - min)) * (counts.length - 1)) | 0]++
 	}
 
 	let thresh = values.length * perc
@@ -166,11 +168,15 @@ export function minMaxPerc(values, perc) {
 	let delta = (maxPerc - minPerc) * 0.2
 	return minMaxArrCut(values, minPerc - delta, maxPerc + delta, skipValue)
 }
-export function minMaxPercMulti(arrays, perc) {
+export function minMaxPercMulti(arrays, perc, passes = 2) {
 	let min = Infinity
 	let max = -Infinity
 	for (let i = 0; i < arrays.length; i++) {
-		let [bottom, top] = minMaxPerc(arrays[i], perc)
+		let bottom = -Infinity
+		let top = Infinity
+		for (let j = 0; j < passes; j++) {
+			;[bottom, top] = minMaxPerc(arrays[i], perc, bottom, top)
+		}
 		if (bottom < min) min = bottom
 		if (top > max) max = top
 	}
@@ -228,7 +234,8 @@ export function maxArrAbs(values) {
 
 export function adjustZero(bottomValue, topValue) {
 	let height = topValue - bottomValue
-	if (bottomValue > 0 && bottomValue / height < 0.1) return [0, topValue]
+	let heightK = bottomValue / height
+	if (heightK > -0.05 && heightK < 0.1) return [0, topValue]
 	return [bottomValue, topValue]
 }
 
@@ -343,10 +350,8 @@ function drawHours(canvasExt, dateDrawFrom, dateDrawTo, curDayDate, nextDayDate,
 	}
 }
 
-function roundLabelValues(bottomValue, topValue) {
-	// let n = Math.ceil(Math.log10(Math.max(Math.abs(topValue), Math.abs(bottomValue)) / (topValue - bottomValue)))
-	// let k = Math.pow(10, Math.floor(Math.log10(Math.abs(topValue)) - n))
-	let k = Math.pow(10, Math.floor(Math.log10(topValue - bottomValue) - 1))
+function roundLabelValues(bottomValue, topValue, roundN) {
+	let k = Math.pow(10, roundN)
 
 	bottomValue = Math.ceil(bottomValue / k) * k
 	topValue = Math.floor(topValue / k) * k
@@ -356,7 +361,7 @@ function roundLabelValues(bottomValue, topValue) {
 	let bottomK = bottomValue / height
 	let topK = topValue / height
 
-	if (bottomK < -0.1 && topK > 0.1) {
+	if (bottomK < -0.2 && topK > 0.2) {
 		if (bottomK < -0.4 && topK > 0.4) {
 			let delta = Math.min(topValue, -bottomValue)
 			topValue = delta
@@ -364,10 +369,14 @@ function roundLabelValues(bottomValue, topValue) {
 		}
 		midValue = 0
 	}
+	if (bottomK < 0) {
+		bottomValue = 0
+		midValue = topValue / 2
+	}
 	return [bottomValue, midValue, topValue]
 }
-function drawLabeledVScaleLeftLine(rc, rect, view, value, textColor, lineColor, textFunc) {
-	let text = textFunc === null ? '' + value : textFunc(value)
+function drawLabeledVScaleLeftLine(rc, rect, view, value, textColor, lineColor, roundN, textFunc) {
+	let text = textFunc === null ? value.toFixed(Math.max(0, -roundN)) : textFunc(value)
 	let lineY = ((view.topValue - value) / view.height) * rect.height
 	rc.strokeStyle = 'rgba(255,255,255,0.75)'
 	rc.lineWidth = 2
@@ -379,12 +388,13 @@ function drawLabeledVScaleLeftLine(rc, rect, view, value, textColor, lineColor, 
 }
 export function drawVScalesLeft(canvasExt, rect, view, textColor, lineColor, textFunc = null) {
 	let rc = canvasExt.rc
+	let roundN = Math.floor(Math.log10(view.topValue - view.bottomValue) - 1)
 	let topOffset = (view.height / rect.height) * 11 //font height
-	let values = roundLabelValues(view.bottomValue, view.topValue - topOffset)
+	let values = roundLabelValues(view.bottomValue, view.topValue - topOffset, roundN)
 	rc.textAlign = 'left'
 	rc.textBaseline = 'bottom'
 	for (let i = 0; i < values.length; i++)
-		drawLabeledVScaleLeftLine(rc, rect, view, values[i], textColor, lineColor, textFunc)
+		drawLabeledVScaleLeftLine(rc, rect, view, values[i], textColor, lineColor, roundN, textFunc)
 }
 
 export function drawLegend(canvasExt, rect, items, lineWidth = 0.5) {

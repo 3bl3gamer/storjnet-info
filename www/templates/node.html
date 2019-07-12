@@ -31,22 +31,29 @@
 
 {{template "node_id_info" .Node.ID}}
 
-<h2>Месячный аптайм</h2>
-<div class="month-chart" data-kind="node-activity-chart"></div>
+<h2>Статистика</h2>
+
+<p>
+	{{$prevDate := formatDateISO .StatsPrevMonthTime}}
+	{{$nextDate := formatDateISO .StatsNextMonthTime}}
+	<a href="?{{.Query.EncodeWithParam "stats_from" $prevDate}}">← {{dateTimeMonth .StatsPrevMonthTime .Lang}}</a>
+	<b>{{dateTimeMonth .StatsTimeFrom .Lang}}</b>
+	<a href="?{{.Query.EncodeWithParam "stats_from" $nextDate}}">{{dateTimeMonth .StatsNextMonthTime .Lang}} →</a>
+</p>
+
+<h3>Месячный аптайм</h3>
+<div class="month-chart" {{if not .MonthHistory.ActivityStamps}}data-off="Нет данных"{{end}} data-kind="node-activity-chart"></div>
 {{if .MonthHistory.LastSelfParamsError}}
 <p>
 	Последняя ошибка: <code>{{.MonthHistory.LastSelfParamsError}}</code>
 </p>
 {{end}}
-{{if not .MonthHistory.ActivityStamps}}
-Данных пока нет.
-{{end}}
 
 {{if .Node.SelfParams}}
 {{if eq .Node.SelfParams.Type .NodeType_STORAGE}}
-<h2>Изменения данных</h2>
-<div class="month-chart" data-kind="node-data-history-chart"></div>
-<div class="month-chart" data-kind="node-data-history-coeff-chart"></div>
+<h3>Изменения лимитов</h3>
+<div class="month-chart" {{if not .MonthHistory.FreeDataItems}}data-off="Нет данных"{{end}} data-kind="node-data-history-chart"></div>
+<div class="month-chart" {{if not .MonthHistory.FreeDataItems}}data-off="Нет данных"{{end}} data-kind="node-data-history-coeff-chart"></div>
 {{end}}
 {{end}}
 

@@ -186,7 +186,7 @@ charts['node-data-history-chart'] = setupChart(function(wrap, canvasExt) {
 	let monthStart = startOfMonth(monthMidStamp)
 	let monthEnd = endOfMonth(monthStart)
 
-	let [bottomValue, topValue] = minMaxPercMulti([diskValues, bandValues], 0.05)
+	let [bottomValue, topValue] = minMaxPercMulti([diskValues, bandValues], 0.01)
 	;[bottomValue, topValue] = adjustZero(bottomValue, topValue)
 
 	let rect = new RectCenter({ left: 0, right: 0, top: 1, bottom: 11 })
@@ -208,7 +208,6 @@ charts['node-data-history-chart'] = setupChart(function(wrap, canvasExt) {
 
 		drawLine(canvasExt, rect, view, stamps, diskValues, 'red')
 		drawLine(canvasExt, rect, view, stamps, bandValues, 'green')
-		//drawLine(canvasExt, rect, effView, stamps, efficiencies, 'blue')
 
 		drawVScalesLeft(canvasExt, rect, view, 'black', 'rgba(0,0,0,0.12)', mbsLabel)
 
@@ -233,7 +232,7 @@ charts['node-data-history-coeff-chart'] = setupChart(function(wrap, canvasExt) {
 	let monthStart = startOfMonth(monthMidStamp)
 	let monthEnd = endOfMonth(monthStart)
 
-	let [bottomValue, topValue] = minMaxPercMulti([efficiencies], 0.05)
+	let [bottomValue, topValue] = minMaxPercMulti([efficiencies], 0.01, 3)
 	if (bottomValue > 0) bottomValue = 0
 	if (topValue < 1.2) topValue = 1.2
 
@@ -343,6 +342,7 @@ charts['global-node-version-counts-chart'] = setupChart(function(wrap, canvasExt
 })
 
 function makeDataDeltas(stamps, values) {
+	if (values.length <= 1) return new Float64Array(0)
 	let res = new Float64Array(values.length - 1)
 	for (let i = 0; i < values.length - 1; i++) {
 		if (values[i + 1] != 0 && values[i] != 0) {
@@ -365,6 +365,6 @@ if ('nodeActivityStamps' in window) {
 	for (let i = 0; i < stamps.length; i++) stamps[i] = (stamps[i] & ~1) * 1000 + (stamps[i] & 1)
 }
 
-document.querySelectorAll('.month-chart').forEach(wrap => {
+document.querySelectorAll('.month-chart:not([data-off])').forEach(wrap => {
 	charts[wrap.dataset.kind](wrap)
 })
