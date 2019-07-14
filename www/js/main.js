@@ -310,7 +310,7 @@ charts['global-node-version-counts-chart'] = setupChart(function(wrap, canvasExt
 
 	let topValue = maxArrs(Object.values(countVersions))
 
-	let rect = new RectCenter({ left: 0, right: 0, top: 0, bottom: 11 })
+	let rect = new RectCenter({ left: 0, right: 0, top: 1, bottom: 11 })
 	let view = new View({ startStamp: startTime, endStamp: endTime, bottomValue: 0, topValue })
 
 	function versionColor(version) {
@@ -320,7 +320,7 @@ charts['global-node-version-counts-chart'] = setupChart(function(wrap, canvasExt
 		return `hsl(${(b * 50) % 360},100%,${38 + ((c * 7) % 20) * 1.4}%)`
 	}
 
-	let stackAccum = new Int32Array(stamps.length)
+	let stackAccum = new Float64Array(stamps.length)
 	return regularRedraw(canvasExt, [rect], function(rc) {
 		rc.fillStyle = 'rgba(255,255,255,0.05)'
 		rc.fillRect(0, 0, canvasExt.cssWidth, canvasExt.cssHeight)
