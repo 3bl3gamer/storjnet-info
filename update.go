@@ -121,6 +121,7 @@ func StartNodesSelfDataFetcher(nodesInChan chan *SelfUpdate_Kad, nodesOutChan ch
 		{`transport error: context deadline exceeded"`, 0},
 		{`transport error: context deadline exceeded`, 0},
 		{`read: connection reset by peer"`, 0},
+		{`rpc error: code = Unavailable desc = transport is closing`, 0},
 		{`No address associated with hostname"`, 0},
 		{`: no such host"`, 0},
 		{`tls peer certificate verification error: certificate chain signature verification failed: signature verification error: signature is not valid"`, 0},
