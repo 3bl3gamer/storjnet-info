@@ -2,6 +2,7 @@ package main
 
 import (
 	"database/sql"
+	"fmt"
 	"hash/fnv"
 	"time"
 
@@ -94,11 +95,13 @@ func StartNodesSelfDataSaver(db *pg.DB, selfDataChan chan *SelfUpdate_Self, chun
 				var xmax string
 
 				var lastActivityStamp time.Time
-				var lastFreeDataStamp time.Time
-				_, err := tx.QueryOne(pg.Scan(&lastActivityStamp, &lastFreeDataStamp), `
+				var prevFreeDataStamp time.Time
+				var lastFreeData DataHistoryItem
+				_, err := tx.QueryOne(pg.Scan(&lastActivityStamp, &prevFreeDataStamp, &lastFreeData), `
 					SELECT
 						to_timestamp(activity_stamps[array_length(activity_stamps, 1)]),
-						(free_data_items[array_length(free_data_items, 1)]).stamp
+						(free_data_items[array_length(free_data_items, 1)-1]).Stamp,
+						(free_data_items[array_length(free_data_items, 1)])
 					FROM nodes_history
 					WHERE id = ? AND month_date = date_trunc('month', now() at time zone 'utc')::date
 					`, node.ID)
@@ -116,13 +119,25 @@ func StartNodesSelfDataSaver(db *pg.DB, selfDataChan chan *SelfUpdate_Self, chun
 						return merry.Wrap(err)
 					}
 
-					if time.Now().Sub(lastFreeDataStamp) >= 14*time.Minute {
+					capacity := node.SelfParams.Capacity
+					diskChanged := lastFreeData.FreeDisk != capacity.FreeDisk
+					bandChanged := lastFreeData.FreeBandwidth != capacity.FreeBandwidth
+					prevTimedelta := time.Now().Sub(prevFreeDataStamp)
+					lastTimedelta := time.Now().Sub(lastFreeData.Stamp)
+					fmt.Println(node.ID, prevTimedelta, lastTimedelta, lastFreeData.FreeDisk, capacity.FreeDisk, lastFreeData.FreeBandwidth, capacity.FreeBandwidth)
+					if diskChanged || bandChanged || lastTimedelta >= time.Hour {
+						var conflictAction string
+						if lastTimedelta < 14*time.Minute && prevTimedelta < 20*time.Minute {
+							conflictAction = "SET free_data_items[array_length(nodes_history.free_data_items, 1)] = EXCLUDED.free_data_items[1]"
+						} else {
+							conflictAction = "SET free_data_items = nodes_history.free_data_items || EXCLUDED.free_data_items"
+						}
+						fmt.Println(node.ID, lastFreeData, capacity, conflictAction)
 						_, err = tx.Exec(`
 						INSERT INTO nodes_history (id, month_date, free_data_items)
 						VALUES (?, date_trunc('month', now() at time zone 'utc')::date, ARRAY[(NOW(), ?, ?)::data_history_item])
 						ON CONFLICT (id, month_date) DO UPDATE
-						SET free_data_items = nodes_history.free_data_items || EXCLUDED.free_data_items
-						`, node.ID, node.SelfParams.Capacity.FreeDisk, node.SelfParams.Capacity.FreeBandwidth)
+						`+conflictAction, node.ID, capacity.FreeDisk, capacity.FreeBandwidth)
 						if err != nil {
 							return merry.Wrap(err)
 						}
@@ -173,7 +188,9 @@ func StartOldKadDataLoader(db *pg.DB, nodeIDsChan chan storj.NodeID, chunkSize i
 			_, err := db.Query(&idsBytes, `
 				WITH cte AS (
 					SELECT id FROM nodes
-					WHERE kad_updated_at IS NULL OR kad_updated_at < NOW() - INTERVAL '15 minutes'
+					WHERE (kad_updated_at IS NULL OR kad_updated_at < NOW() - INTERVAL '15 minutes')
+					  AND (kad_updated_at IS NULL OR kad_updated_at > NOW() - INTERVAL '3 days' OR
+					       self_updated_at IS NULL OR self_updated_at > NOW() - INTERVAL '3 days')
 					ORDER BY kad_checked_at ASC NULLS FIRST LIMIT ?
 					FOR UPDATE
 				)
@@ -212,7 +229,10 @@ func StartOldSelfDataLoader(db *pg.DB, kadDataChan chan *SelfUpdate_Kad, chunkSi
 			_, err := db.Query(&nodes, `
 				WITH cte AS (
 					SELECT id FROM nodes
-					WHERE kad_params IS NOT NULL AND (self_updated_at IS NULL OR self_updated_at < NOW() - INTERVAL '5 minutes')
+					WHERE kad_params IS NOT NULL
+					  AND (self_updated_at IS NULL OR self_updated_at < NOW() - INTERVAL '5 minutes')
+					  AND (kad_updated_at IS NULL OR kad_updated_at > NOW() - INTERVAL '3 days' OR
+					       self_updated_at IS NULL OR self_updated_at > NOW() - INTERVAL '3 days')
 					ORDER BY self_checked_at ASC NULLS FIRST LIMIT ?
 					FOR UPDATE
 				)

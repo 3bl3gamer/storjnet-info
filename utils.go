@@ -457,6 +457,9 @@ type DataHistoryItemsSeparated struct {
 }
 
 func (i *DataHistoryItem) Scan(val interface{}) error {
+	if val == nil {
+		return nil
+	}
 	str, a, b, c, err := scanCompositeTrioStr(val)
 	if err != nil {
 		return err
