@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"log"
@@ -67,16 +68,17 @@ func align(sql string) string {
 
 type dbLogger struct{}
 
-func (d dbLogger) BeforeQuery(event *pg.QueryEvent) {
-	event.Data["StartTime"] = time.Now()
+func (d dbLogger) BeforeQuery(ctx context.Context, event *pg.QueryEvent) (context.Context, error) {
+	return ctx, nil
 }
 
-func (d dbLogger) AfterQuery(event *pg.QueryEvent) {
+func (d dbLogger) AfterQuery(ctx context.Context, event *pg.QueryEvent) (context.Context, error) {
 	query, err := event.FormattedQuery()
 	if err != nil {
-		panic(err)
+		return ctx, err
 	}
-	log.Printf("\033[36m%s\n\033[34m%s\033[39m", time.Since(event.Data["StartTime"].(time.Time)), align(query))
+	log.Printf("\033[36m%s\n\033[34m%s\033[39m", time.Since(event.StartTime), align(query))
+	return ctx, nil
 }
 
 func main() {

@@ -80,9 +80,9 @@ var templateFuncs = template.FuncMap{
 	"formatDateTime": func(t time.Time, lang string) string {
 		switch lang {
 		case "ru":
-			return t.Format("02.01.2006 15:04")
+			return t.Format("02.01.2006 в 15:04")
 		default:
-			return t.Format("1/2/2006 15:04")
+			return t.Format("1/2/2006 at 15:04")
 		}
 	},
 	"formatDateISO": func(t time.Time) string {
@@ -354,8 +354,11 @@ func HandleNode(wr http.ResponseWriter, r *http.Request, ps httprouter.Params) e
 
 	query := r.URL.Query()
 	statsTimeFrom := extractMonthStartTimeUTC(query)
-	monthHistory := &NodeHistory{ActivityStamps: []int64{}, FreeDataItems: []DataHistoryItem{}}
-	err = db.Model(monthHistory).Where("month_date = ? AND id = ?", statsTimeFrom, node.ID).Select()
+	var dailyHistories []*NodeHistory
+	err = db.Model(&dailyHistories).
+		Where("id = ? AND date BETWEEN ?::date AND (?::date + INTERVAL '1 month')", node.ID, statsTimeFrom, statsTimeFrom).
+		Order("date").
+		Select()
 	if err != nil && err != pg.ErrNoRows {
 		return merry.Wrap(err)
 	}
@@ -367,7 +370,7 @@ func HandleNode(wr http.ResponseWriter, r *http.Request, ps httprouter.Params) e
 		"Lang":               "ru",
 		"NodeIDStr":          node.ID.String(),
 		"Node":               node,
-		"MonthHistory":       monthHistory,
+		"NodeHistory":        GroupNodeHistories(dailyHistories),
 		"NodeType_STORAGE":   pb.NodeType_STORAGE,
 		"StatsTimeFrom":      statsTimeFrom,
 		"StatsPrevMonthTime": statsPrevMonthTime,

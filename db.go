@@ -103,7 +103,7 @@ func StartNodesSelfDataSaver(db *pg.DB, selfDataChan chan *SelfUpdate_Self, chun
 						(free_data_items[array_length(free_data_items, 1)-1]).Stamp,
 						(free_data_items[array_length(free_data_items, 1)])
 					FROM nodes_history
-					WHERE id = ? AND month_date = date_trunc('month', now() at time zone 'utc')::date
+					WHERE id = ? AND date = (now() at time zone 'utc')::date
 					`, node.ID)
 				if err != nil && err != pg.ErrNoRows {
 					return merry.Wrap(err)
@@ -134,9 +134,9 @@ func StartNodesSelfDataSaver(db *pg.DB, selfDataChan chan *SelfUpdate_Self, chun
 						}
 						fmt.Println(node.ID, lastFreeData, capacity, conflictAction)
 						_, err = tx.Exec(`
-						INSERT INTO nodes_history (id, month_date, free_data_items)
-						VALUES (?, date_trunc('month', now() at time zone 'utc')::date, ARRAY[(NOW(), ?, ?)::data_history_item])
-						ON CONFLICT (id, month_date) DO UPDATE
+						INSERT INTO nodes_history (id, date, free_data_items)
+						VALUES (?, (now() at time zone 'utc')::date, ARRAY[(NOW(), ?, ?)::data_history_item])
+						ON CONFLICT (id, date) DO UPDATE
 						`+conflictAction, node.ID, capacity.FreeDisk, capacity.FreeBandwidth)
 						if err != nil {
 							return merry.Wrap(err)
@@ -150,9 +150,9 @@ func StartNodesSelfDataSaver(db *pg.DB, selfDataChan chan *SelfUpdate_Self, chun
 						lastErr = sql.NullString{node.SelfUpdateErr.Error(), true}
 					}
 					_, err := tx.Exec(`
-						INSERT INTO nodes_history (id, month_date, activity_stamps, last_self_params_error)
-						VALUES (?, date_trunc('month', now() at time zone 'utc')::date, ARRAY[(EXTRACT(EPOCH FROM NOW())/10)::int*10 + ?::int], ?)
-						ON CONFLICT (id, month_date) DO UPDATE
+						INSERT INTO nodes_history (id, date, activity_stamps, last_self_params_error)
+						VALUES (?, (now() at time zone 'utc')::date, ARRAY[(EXTRACT(EPOCH FROM NOW())/10)::int*10 + ?::int], ?)
+						ON CONFLICT (id, date) DO UPDATE
 						SET activity_stamps = nodes_history.activity_stamps || EXCLUDED.activity_stamps,
 							last_self_params_error = COALESCE(EXCLUDED.last_self_params_error, nodes_history.last_self_params_error)
 						`, node.ID, node.SelfUpdateErr != nil, lastErr)

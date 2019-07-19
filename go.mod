@@ -19,3 +19,5 @@ require (
 	google.golang.org/grpc v1.22.0
 	storj.io/storj v0.15.3
 )
+
+replace github.com/go-pg/pg => /home/zblzgamer/git/pg

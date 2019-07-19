@@ -346,11 +346,10 @@ function makeDataDeltas(stamps, values) {
 	let res = new Float64Array(values.length - 1)
 	for (let i = 0; i < values.length - 1; i++) {
 		if (values[i + 1] != 0 && values[i] != 0) {
-			let d = Math.min(values.length - i - 1, 2)
-			res[i] = ((values[i] - values[i + 1]) / (stamps[i + d] - stamps[i])) * 8000 * d
+			res[i+1] = ((values[i] - values[i + 1]) / (stamps[i + 1] - stamps[i])) * 8000
 		}
 	}
-	res[res.length - 2] = res[res.length - 1]
+	res[res] = res[1]
 	return res
 }
 

@@ -138,8 +138,6 @@ func (w SimpleWorker) CloseAndWait() error {
 	return w.PopError()
 }
 
-// лучше бы тут сделать структуру с анонимным полем аналогично NodeKadExt,
-// но пока https://github.com/go-pg/pg/issues/1237
 type NodeIDExt struct {
 	storj.NodeID
 }
@@ -161,10 +159,6 @@ func (id *NodeIDExt) Scan(val interface{}) error {
 func (id NodeIDExt) Value() (driver.Value, error) {
 	return id.NodeID[:], nil
 }
-
-// func (id NodeIDExt) String() string {
-// 	return storj.NodeID(id).String()
-// }
 
 type NodeKadExt struct {
 	pb.Node
@@ -450,12 +444,6 @@ type DataHistoryItem struct {
 }
 type DataHistoryItems []DataHistoryItem
 
-type DataHistoryItemsSeparated struct {
-	Stamps        []int64 `json:"stamps"`
-	FreeDisk      []int64 `json:"freeDisk"`
-	FreeBandwidth []int64 `json:"freeBandwidth"`
-}
-
 func (i *DataHistoryItem) Scan(val interface{}) error {
 	if val == nil {
 		return nil
@@ -483,30 +471,71 @@ func (i *DataHistoryItem) Scan(val interface{}) error {
 	return nil
 }
 
-func (items DataHistoryItems) SeparatedCompact() *DataHistoryItemsSeparated {
-	res := &DataHistoryItemsSeparated{
-		Stamps:        make([]int64, 0, len(items)/2),
-		FreeDisk:      make([]int64, 0, len(items)/2),
-		FreeBandwidth: make([]int64, 0, len(items)/2),
-	}
-	for _, item := range items {
-		// почему-то данные по объёмам в течение примерно часа приходят одни и те же
-		if len(res.Stamps) == 0 || item.FreeDisk != res.FreeDisk[len(res.FreeDisk)-1] && item.FreeBandwidth != res.FreeBandwidth[len(res.FreeBandwidth)-1] {
-			res.Stamps = append(res.Stamps, item.Stamp.Unix())
-			res.FreeDisk = append(res.FreeDisk, item.FreeDisk)
-			res.FreeBandwidth = append(res.FreeBandwidth, item.FreeBandwidth)
-		}
-	}
-	return res
+type ActivityStamp int64
+
+func (a ActivityStamp) Time() time.Time {
+	return time.Unix(int64(a)&^1, 0)
+}
+func (a ActivityStamp) IsError() bool {
+	return (int64(a) & 1) > 0
 }
 
 type NodeHistory struct {
 	tableName           struct{} `sql:"nodes_history"`
 	ID                  NodeIDExt
-	MonthDate           time.Time
+	Date                time.Time
 	FreeDataItems       DataHistoryItems `pg:",array"`
-	ActivityStamps      []int64          `pg:",array"`
+	ActivityStamps      []ActivityStamp  `pg:",array"`
 	LastSelfParamsError string
+}
+type NodeHistoryGroupFreeData struct {
+	Stamps        []int64 `json:"stamps"`
+	FreeDisk      []int64 `json:"freeDisk"`
+	FreeBandwidth []int64 `json:"freeBandwidth"`
+}
+type NodeHistoryGroup struct {
+	FreeData                NodeHistoryGroupFreeData
+	ActivityStamps          []ActivityStamp
+	LastSelfParamsError     string
+	LastSelfParamsErrorTime time.Time
+}
+
+func GroupNodeHistories(histories []*NodeHistory) *NodeHistoryGroup {
+	var maxDataLen, maxActivityLen int
+	for _, hist := range histories {
+		maxDataLen += len(hist.FreeDataItems)
+		maxActivityLen += len(hist.ActivityStamps)
+	}
+	group := &NodeHistoryGroup{
+		FreeData: NodeHistoryGroupFreeData{
+			Stamps:        make([]int64, 0, maxDataLen),
+			FreeDisk:      make([]int64, 0, maxDataLen),
+			FreeBandwidth: make([]int64, 0, maxDataLen),
+		},
+		ActivityStamps: make([]ActivityStamp, 0, maxActivityLen),
+	}
+	for _, hist := range histories {
+		for _, item := range hist.FreeDataItems {
+			l := len(group.FreeData.Stamps)
+			if true || l == 0 || group.FreeData.FreeDisk[l-1] != item.FreeDisk || group.FreeData.FreeBandwidth[l-1] != item.FreeBandwidth {
+				group.FreeData.Stamps = append(group.FreeData.Stamps, item.Stamp.Unix())
+				group.FreeData.FreeDisk = append(group.FreeData.FreeDisk, item.FreeDisk)
+				group.FreeData.FreeBandwidth = append(group.FreeData.FreeBandwidth, item.FreeBandwidth)
+			}
+		}
+		group.ActivityStamps = append(group.ActivityStamps, hist.ActivityStamps...)
+		if hist.LastSelfParamsError != "" {
+			group.LastSelfParamsError = hist.LastSelfParamsError
+			for i := len(hist.ActivityStamps) - 1; i >= 0; i-- {
+				stamp := hist.ActivityStamps[i]
+				if stamp.IsError() {
+					group.LastSelfParamsErrorTime = stamp.Time()
+					break
+				}
+			}
+		}
+	}
+	return group
 }
 
 func nextChar(str string, pos *int) (byte, error) {

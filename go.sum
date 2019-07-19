@@ -458,3 +458,5 @@ storj.io/storj v0.14.11 h1:sTCcqpauTBDvSKS/0a2T+yyNS7XyD9JFtZ/KoXO89aY=
 storj.io/storj v0.14.11/go.mod h1:3m1L0R6Ibup4bSKrcJFhrx431r3hUUBxneBsHPw70DI=
 storj.io/storj v0.15.2 h1:4FguJlGioV5cEKc6QJfPsdKjuTF8Bc20XsqBTpOLHlY=
 storj.io/storj v0.15.2/go.mod h1:WD1bJdHUV7WX7bOVMl2dLiOTM543X3xm0QO22mEawoU=
+storj.io/storj v0.15.3 h1:J8lEkZwAnH8+KKRr3E01z8EvpAqqznNgYCY6Hx5Btz8=
+storj.io/storj v0.15.3/go.mod h1:WD1bJdHUV7WX7bOVMl2dLiOTM543X3xm0QO22mEawoU=
