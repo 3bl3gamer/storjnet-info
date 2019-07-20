@@ -2,7 +2,6 @@ package main
 
 import (
 	"database/sql"
-	"fmt"
 	"hash/fnv"
 	"time"
 
@@ -124,15 +123,15 @@ func StartNodesSelfDataSaver(db *pg.DB, selfDataChan chan *SelfUpdate_Self, chun
 					bandChanged := lastFreeData.FreeBandwidth != capacity.FreeBandwidth
 					prevTimedelta := time.Now().Sub(prevFreeDataStamp)
 					lastTimedelta := time.Now().Sub(lastFreeData.Stamp)
-					fmt.Println(node.ID, prevTimedelta, lastTimedelta, lastFreeData.FreeDisk, capacity.FreeDisk, lastFreeData.FreeBandwidth, capacity.FreeBandwidth)
-					if diskChanged || bandChanged || lastTimedelta >= time.Hour {
+					// остаток местра и трафика кешируются нодой на час;
+					// если за два часа значение не поменялось, скорее всеготрафика всё-таки не было, и значение нужно сохранить
+					if diskChanged || bandChanged || lastTimedelta > 2*time.Hour {
 						var conflictAction string
 						if lastTimedelta < 14*time.Minute && prevTimedelta < 20*time.Minute {
 							conflictAction = "SET free_data_items[array_length(nodes_history.free_data_items, 1)] = EXCLUDED.free_data_items[1]"
 						} else {
 							conflictAction = "SET free_data_items = nodes_history.free_data_items || EXCLUDED.free_data_items"
 						}
-						fmt.Println(node.ID, lastFreeData, capacity, conflictAction)
 						_, err = tx.Exec(`
 						INSERT INTO nodes_history (id, date, free_data_items)
 						VALUES (?, (now() at time zone 'utc')::date, ARRAY[(NOW(), ?, ?)::data_history_item])

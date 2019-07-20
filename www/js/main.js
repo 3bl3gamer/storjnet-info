@@ -342,14 +342,13 @@ charts['global-node-version-counts-chart'] = setupChart(function(wrap, canvasExt
 })
 
 function makeDataDeltas(stamps, values) {
-	if (values.length <= 1) return new Float64Array(0)
-	let res = new Float64Array(values.length - 1)
+	let res = new Float64Array(values.length)
 	for (let i = 0; i < values.length - 1; i++) {
 		if (values[i + 1] != 0 && values[i] != 0) {
-			res[i+1] = ((values[i] - values[i + 1]) / (stamps[i + 1] - stamps[i])) * 8000
+			res[i + 1] = ((values[i] - values[i + 1]) / (stamps[i + 1] - stamps[i])) * 8000
 		}
 	}
-	res[res] = res[1]
+	if (res.length > 0) res[0] = res[1]
 	return res
 }
 

@@ -9,6 +9,8 @@ import (
 func init() {
 	migrations.MustRegisterTx(func(db migrations.DB) error {
 		return execSome(db, `
+			-- 112
+
 			INSERT INTO storjinfo.nodes_history (id, month_date, free_data_items) (
 				SELECT id, month_date, array_agg(item ORDER BY (item).stamp) AS free_data_items FROM (
 					SELECT DISTINCT ON (id, (item).free_disk, (item).free_bandwidth, hstamp) id, date_trunc('month', (item).stamp AT TIME ZONE 'UTC')::date as month_date, item FROM (
@@ -33,6 +35,8 @@ func init() {
 			)
 			ON CONFLICT (id, month_date) DO UPDATE SET free_data_items = EXCLUDED.free_data_items;
 
+			-- 87
+
 			INSERT INTO storjinfo.nodes_history (id, month_date, free_data_items) (
 				SELECT id, month_date, array_agg(item ORDER BY (item).stamp) FROM (
 					SELECT id, month_date,
@@ -45,8 +49,8 @@ func init() {
 						) AS item
 						FROM (
 						SELECT id, month_date, item,
-							lag((item).stamp, 1, (item).stamp) OVER (PARTITION BY id, month_date ORDER BY (item).stamp) AS prev,
-							lead((item).stamp, 1, (item).stamp) OVER (PARTITION BY id, month_date ORDER BY (item).stamp) AS next
+							lag((item).stamp, 1, (item).stamp - INTERVAL '60 minutes') OVER (PARTITION BY id, month_date ORDER BY (item).stamp) AS prev,
+							lead((item).stamp, 1, (item).stamp + INTERVAL '60 minutes') OVER (PARTITION BY id, month_date ORDER BY (item).stamp) AS next
 						FROM (
 							SELECT id, month_date, unnest(free_data_items) AS item FROM nodes_history
 						) AS t
@@ -55,6 +59,8 @@ func init() {
 				GROUP BY (id, month_date)
 			)
 			ON CONFLICT (id, month_date) DO UPDATE SET free_data_items = EXCLUDED.free_data_items;
+
+			-- 87
 
 			ALTER TABLE storjinfo.nodes_history RENAME TO nodes_history_old;
 
@@ -68,12 +74,16 @@ func init() {
 				PRIMARY KEY (id, date)
 			);
 
+			-- 11 (4 index)
+
 			INSERT INTO storjinfo.nodes_history (id, date, free_data_items) (
 				SELECT id, ((item).stamp AT TIME ZONE 'UTC')::date as date, array_agg(item ORDER BY (item).stamp) AS free_data_items FROM (
 					SELECT id, unnest(free_data_items) AS item FROM nodes_history_old
 				) AS t
 				GROUP BY (id, date)
 			);
+
+			-- 64 (11+26=37 ? 27)
 
 			INSERT INTO storjinfo.nodes_history (id, date, activity_stamps) (
 				SELECT id, date, array_agg(stamp ORDER BY stamp) AS activity_stamps FROM (
@@ -85,6 +95,8 @@ func init() {
 			)
 			ON CONFLICT (id, date) DO UPDATE SET activity_stamps = EXCLUDED.activity_stamps;
 
+			-- 104 (11+26+58=95 ? 9)
+
 			INSERT INTO storjinfo.nodes_history (id, date, last_self_params_error) (
 				SELECT DISTINCT ON (id, date) id, date, last_self_params_error FROM (
 					SELECT id, last_self_params_error, (to_timestamp(stamp & ~1) AT TIME ZONE 'UTC')::date as date FROM (
@@ -94,6 +106,8 @@ func init() {
 				ORDER BY id, date, date DESC
 			)
 			ON CONFLICT (id, date) DO UPDATE SET last_self_params_error = EXCLUDED.last_self_params_error;
+
+			-- 114
 
 			DROP TABLE storjinfo.nodes_history_old;
 			`)

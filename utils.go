@@ -515,9 +515,10 @@ func GroupNodeHistories(histories []*NodeHistory) *NodeHistoryGroup {
 		ActivityStamps: make([]ActivityStamp, 0, maxActivityLen),
 	}
 	for _, hist := range histories {
-		for _, item := range hist.FreeDataItems {
+		for dayIndex, item := range hist.FreeDataItems {
 			l := len(group.FreeData.Stamps)
-			if true || l == 0 || group.FreeData.FreeDisk[l-1] != item.FreeDisk || group.FreeData.FreeBandwidth[l-1] != item.FreeBandwidth {
+			// dayIndex > 0 - значение в первой отметке дня может совпадать со значением в последней отметке предыдущего дня
+			if dayIndex > 0 || l == 0 || group.FreeData.FreeDisk[l-1] != item.FreeDisk || group.FreeData.FreeBandwidth[l-1] != item.FreeBandwidth {
 				group.FreeData.Stamps = append(group.FreeData.Stamps, item.Stamp.Unix())
 				group.FreeData.FreeDisk = append(group.FreeData.FreeDisk, item.FreeDisk)
 				group.FreeData.FreeBandwidth = append(group.FreeData.FreeBandwidth, item.FreeBandwidth)
