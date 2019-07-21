@@ -120,6 +120,19 @@ export function versionSortFunc(a, b) {
 	return version2num(a) - version2num(b)
 }
 
+export function getIndexBinary(values, x, indexFrom = 0, indexTo = null) {
+	if (indexTo === null) indexTo = values.length
+	while (indexFrom < indexTo - 1) {
+		let indexMid = (indexFrom + indexTo) >> 1
+		if (x < values[indexMid]) {
+			indexTo = indexMid
+		} else {
+			indexFrom = indexMid
+		}
+	}
+	return indexFrom
+}
+
 export function minMaxPerc(values, perc, bottomCutValue, topCutValue) {
 	let skipValue = 0
 	let valuesCount = 0
@@ -241,13 +254,9 @@ export function adjustZero(bottomValue, topValue) {
 
 export function getDailyIncs(startDate, endDate, stamps, values) {
 	let dailyIncs = []
-	let startStamp = stamps[0]
-	let duration = stamps[stamps.length - 1] - startStamp
 	for (let [, dayDate, nextDayDate] of iterateDays(startDate, endDate)) {
-		let iFrom = Math.round(((dayDate - startStamp) / duration) * values.length)
-		let iTo = Math.round(((nextDayDate - startStamp) / duration) * values.length)
-		iFrom = Math.max(iFrom, 0)
-		iTo = Math.min(iTo, values.length - 1)
+		let iFrom = getIndexBinary(stamps, dayDate)
+		let iTo = getIndexBinary(stamps, nextDayDate)
 		dailyIncs.push(values[iTo] - values[iFrom])
 	}
 	return dailyIncs
