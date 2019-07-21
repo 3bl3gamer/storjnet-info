@@ -183,27 +183,31 @@ func StartOldKadDataLoader(db *pg.DB, nodeIDsChan chan storj.NodeID, chunkSize i
 	go func() {
 		defer worker.Done()
 		for {
+			var ids storj.NodeIDList
 			idsBytes := make([][]byte, chunkSize)
-			_, err := db.Query(&idsBytes, `
-				WITH cte AS (
+			err := db.RunInTransaction(func(tx *pg.Tx) error {
+				_, err := tx.Query(&idsBytes, `
 					SELECT id FROM nodes
 					WHERE (kad_updated_at IS NULL OR kad_updated_at < NOW() - INTERVAL '15 minutes')
-					  AND (kad_updated_at IS NULL OR kad_updated_at > NOW() - INTERVAL '3 days' OR
-					       self_updated_at IS NULL OR self_updated_at > NOW() - INTERVAL '3 days')
-					ORDER BY kad_checked_at ASC NULLS FIRST LIMIT ?
-					FOR UPDATE
-				)
-				UPDATE nodes SET kad_checked_at = NOW() FROM cte WHERE nodes.id = cte.id
-				RETURNING nodes.id`, chunkSize)
+					  AND (GREATEST(kad_updated_at, self_updated_at, created_at) > NOW() - INTERVAL '3 days')
+					ORDER BY kad_checked_at ASC NULLS FIRST
+					LIMIT ?
+					FOR UPDATE`, chunkSize)
+				if err != nil {
+					return merry.Wrap(err)
+				}
+				ids, err = storj.NodeIDsFromBytes(idsBytes)
+				if err != nil {
+					return merry.Wrap(err)
+				}
+				_, err = tx.Exec(`UPDATE nodes SET kad_checked_at = NOW() WHERE id IN (?)`, pg.In(ids))
+				return merry.Wrap(err)
+			})
 			if err != nil {
 				worker.AddError(err)
 				return
 			}
-			ids, err := storj.NodeIDsFromBytes(idsBytes)
-			if err != nil {
-				worker.AddError(err)
-				return
-			}
+
 			if len(ids) > 0 {
 				logInfo("DB-IDS", "old %s - %s (%d)", ids[0], ids[len(ids)-1], len(ids))
 			} else {
@@ -225,18 +229,25 @@ func StartOldSelfDataLoader(db *pg.DB, kadDataChan chan *SelfUpdate_Kad, chunkSi
 		defer worker.Done()
 		for {
 			nodes := make([]*SelfUpdate_Kad, chunkSize)
-			_, err := db.Query(&nodes, `
-				WITH cte AS (
-					SELECT id FROM nodes
-					WHERE kad_params IS NOT NULL
-					  AND (self_updated_at IS NULL OR self_updated_at < NOW() - INTERVAL '5 minutes')
-					  AND (kad_updated_at IS NULL OR kad_updated_at > NOW() - INTERVAL '3 days' OR
-					       self_updated_at IS NULL OR self_updated_at > NOW() - INTERVAL '3 days')
-					ORDER BY self_checked_at ASC NULLS FIRST LIMIT ?
-					FOR UPDATE
-				)
-				UPDATE nodes SET self_checked_at = NOW() FROM cte WHERE nodes.id = cte.id
-				RETURNING nodes.kad_params`, chunkSize)
+			err := db.RunInTransaction(func(tx *pg.Tx) error {
+				_, err := tx.Query(&nodes, `
+					SELECT id, kad_params FROM nodes
+					WHERE (self_updated_at IS NULL OR self_updated_at < NOW() - INTERVAL '5 minutes')
+					  AND (GREATEST(kad_updated_at, self_updated_at, created_at) > NOW() - INTERVAL '3 days')
+					ORDER BY self_checked_at ASC NULLS FIRST
+					LIMIT ?
+					FOR UPDATE`, chunkSize)
+				if err != nil {
+					return merry.Wrap(err)
+				}
+				idsBytes := make([]NodeIDExt, len(nodes))
+				for i, node := range nodes {
+					idsBytes[i] = node.ID
+				}
+				_, err = tx.Exec(`UPDATE nodes SET self_checked_at = NOW() WHERE id IN (?)`, pg.In(idsBytes))
+				return merry.Wrap(err)
+			})
+
 			if err != nil {
 				worker.AddError(err)
 				return
