@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"html/template"
+	"log"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -405,5 +406,6 @@ func StartHTTPServer(address string) error {
 	router.NotFound = http.HandlerFunc(func(wr http.ResponseWriter, r *http.Request) {
 		wrapped404(wr, r, httprouter.Params{{}})
 	})
+	log.Print("starting HTTP server on " + address)
 	return merry.Wrap(http.ListenAndServe(address, router))
 }

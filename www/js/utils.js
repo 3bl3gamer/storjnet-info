@@ -134,6 +134,7 @@ export function getIndexBinary(values, x, indexFrom = 0, indexTo = null) {
 }
 
 export function minMaxPerc(values, perc, bottomCutValue, topCutValue) {
+	// если все значения пропущены, считать нечего
 	let skipValue = 0
 	let valuesCount = 0
 	for (let i = 0; i < values.length; i++)
@@ -141,6 +142,7 @@ export function minMaxPerc(values, perc, bottomCutValue, topCutValue) {
 			valuesCount++
 	if (valuesCount == 0) return [0, 0]
 
+	// ман/макс по текущим значениям (с обрезкой)
 	let max = -Infinity
 	let min = Infinity
 	for (let i = 0; i < values.length; i++) {
@@ -151,13 +153,28 @@ export function minMaxPerc(values, perc, bottomCutValue, topCutValue) {
 		}
 	}
 
-	let counts = new Uint32Array(1000)
+	// подсчёт повторяемости значений (округлённых, в counts будет подобие гистограммы)
+	let counts = new Uint32Array(100)
 	for (let i = 0; i < values.length; i++) {
 		let v = values[i]
 		if (v != skipValue && values[i] >= bottomCutValue && values[i] <= topCutValue)
 			counts[(((v - min) / (max - min)) * (counts.length - 1)) | 0]++
 	}
 
+	// "зачистка" гистограммы: удаление с неё редких всплесков
+	let n = 3
+	let sum = 0
+	for (let i = 0; i < n; i++) sum += counts[i]
+	for (let i = 0; i < counts.length; i++) {
+		if (i + n < counts.length - 1) sum += counts[i + n]
+		if (counts[i] > 0 && sum < values.length*0.1) {
+			counts[i]--
+			sum--
+		}
+		if (i - n >= 0) sum -= counts[i - n]
+	}
+
+	// поиск нового мин/макса (сверху и снизу пропускается perc*100% значений)
 	let thresh = values.length * perc
 	let minPerc = min
 	let maxPerc = max
@@ -178,6 +195,7 @@ export function minMaxPerc(values, perc, bottomCutValue, topCutValue) {
 		}
 	}
 
+	// немножко расширяем интервал
 	let delta = (maxPerc - minPerc) * 0.2
 	return minMaxArrCut(values, minPerc - delta, maxPerc + delta, skipValue)
 }
@@ -371,14 +389,17 @@ function roundLabelValues(bottomValue, topValue, roundN) {
 	let topK = topValue / height
 
 	if (bottomK < -0.2 && topK > 0.2) {
+		// если мин и макс в 20%+ от нуля, отображаем ноль
+		midValue = 0
 		if (bottomK < -0.4 && topK > 0.4) {
+			// если они в 40%+ от нуля (ноль почти в середине),
+			// корректируем одно из значений так, чтоб ноль был ровно между значениями
 			let delta = Math.min(topValue, -bottomValue)
 			topValue = delta
 			bottomValue = -delta
 		}
-		midValue = 0
-	}
-	if (bottomK < 0) {
+	} else if (bottomK < 0 && bottomK > -0.2 && topK > 0) {
+		// если нижняя граница немного ниже нуля, сдвигаем её к нулю
 		bottomValue = 0
 		midValue = topValue / 2
 	}

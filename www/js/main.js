@@ -188,6 +188,7 @@ charts['node-data-history-chart'] = setupChart(function(wrap, canvasExt) {
 
 	let [bottomValue, topValue] = minMaxPercMulti([diskValues, bandValues], 0.01)
 	;[bottomValue, topValue] = adjustZero(bottomValue, topValue)
+	if (bottomValue > 0) bottomValue = 0
 
 	let rect = new RectCenter({ left: 0, right: 0, top: 1, bottom: 11 })
 	let view = new View({
@@ -199,7 +200,7 @@ charts['node-data-history-chart'] = setupChart(function(wrap, canvasExt) {
 
 	function mbsLabel(value) {
 		if (value == 0) return '0'
-		let prefixes = ['b', 'Kib', 'Mib']
+		let prefixes = ['b', 'Kib', 'Mib', 'Gib']
 		let n = Math.min(Math.floor(Math.log2(Math.abs(value)) / 10), prefixes.length - 1)
 		return (value / (1 << (n * 10))).toFixed(1) + ' ' + prefixes[n] + '/s'
 	}
@@ -348,6 +349,10 @@ function makeDataDeltas(stamps, values) {
 			res[i + 1] = ((values[i] - values[i + 1]) / (stamps[i + 1] - stamps[i])) * 8000
 		}
 	}
+	// При переходе через месяц сбрасывается лимт трафика, и в первый час получается резкий всплеск.
+	// Данных при этом ещё мало, и он нормально не образается. Так что просто затираем его.
+	// TODO: как-то получше фильтровать такое
+	if (res.length > 1) res[1] = res[2]
 	if (res.length > 0) res[0] = res[1]
 	return res
 }

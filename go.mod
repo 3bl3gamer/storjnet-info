@@ -14,6 +14,7 @@ require (
 	github.com/spf13/cobra v0.0.3
 	github.com/zeebo/errs v1.2.1-0.20190617123220-06a113fed680
 	google.golang.org/grpc v1.22.0
-	mellium.im/sasl v0.2.1 // indirect
 	storj.io/storj v0.16.1
 )
+
+replace github.com/go-pg/pg => /home/zblzgamer/git/pg
