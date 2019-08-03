@@ -167,7 +167,7 @@ export function minMaxPerc(values, perc, bottomCutValue, topCutValue) {
 	for (let i = 0; i < n; i++) sum += counts[i]
 	for (let i = 0; i < counts.length; i++) {
 		if (i + n < counts.length - 1) sum += counts[i + n]
-		if (counts[i] > 0 && sum < values.length*0.1) {
+		if (counts[i] > 0 && sum < values.length * 0.1) {
 			counts[i]--
 			sum--
 		}
@@ -427,33 +427,24 @@ export function drawVScalesLeft(canvasExt, rect, view, textColor, lineColor, tex
 		drawLabeledVScaleLeftLine(rc, rect, view, values[i], textColor, lineColor, roundN, textFunc)
 }
 
-export function drawLegend(canvasExt, rect, items, lineWidth = 0.5) {
-	let rc = canvasExt.rc
-	let x = rect.left + 48
-	let y = rect.top + 1
-	let lineLength = 12
-	let lineSep = 3
-	let itemSep = 8
-
-	let totalWidth = items.length * (lineLength + lineSep) + (items.length - 1) * itemSep
-	for (let i = 0; i < items.length; i++) totalWidth += rc.measureText(items[i].text).width
-	rc.fillStyle = 'rgba(255,255,255,0.5)'
-	rc.fillRect(x - 2, y - 1, totalWidth + 4, 8 + 2)
-
-	rc.textAlign = 'left'
-	rc.textBaseline = 'top'
+export function addLegend(wrap, items, lineWidth = 1) {
+	let legendBox = document.createElement('div')
+	legendBox.className = 'legend'
 	for (let i = 0; i < items.length; i++) {
 		let item = items[i]
-		if (x > rect.left + rect.width - 100) {
-			x = rect.left + 48
-			y += 10
-		}
-		rc.fillStyle = item.color
-		rc.fillRect(x, y + 4.5 - lineWidth, lineLength, lineWidth * 2)
-		x += lineLength + lineSep
-		rc.fillText(item.text, x, y)
-		x += rc.measureText(item.text).width + itemSep
+		let itemWrap = document.createElement('div')
+		itemWrap.className = 'item'
+		itemWrap.dataset.width = lineWidth
+		itemWrap.style.color = item.color
+		let example = document.createElement('div')
+		example.className = 'example'
+		example.style.height = lineWidth + 0.4 + 'px'
+		example.style.backgroundColor = item.color
+		itemWrap.appendChild(example)
+		itemWrap.appendChild(document.createTextNode(item.text))
+		legendBox.appendChild(itemWrap)
 	}
+	wrap.appendChild(legendBox)
 }
 
 function stamp2x(rect, view, stamp) {

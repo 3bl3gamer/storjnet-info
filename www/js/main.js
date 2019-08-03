@@ -11,7 +11,7 @@ import {
 	drawMonthDays,
 	drawDailyBars,
 	drawVScalesLeft,
-	drawLegend,
+	addLegend,
 	drawLine,
 	drawStacked,
 	minMaxPercMulti,
@@ -198,6 +198,8 @@ charts['node-data-history-chart'] = setupChart(function(wrap, canvasExt) {
 		topValue: topValue,
 	})
 
+	addLegend(wrap, [{ text: 'диск', color: 'red' }, { text: 'трафик', color: 'green' }])
+
 	function mbsLabel(value) {
 		if (value == 0) return '0'
 		let prefixes = ['b', 'Kib', 'Mib', 'Gib']
@@ -211,11 +213,6 @@ charts['node-data-history-chart'] = setupChart(function(wrap, canvasExt) {
 		drawLine(canvasExt, rect, view, stamps, bandValues, 'green')
 
 		drawVScalesLeft(canvasExt, rect, view, 'black', 'rgba(0,0,0,0.12)', mbsLabel)
-
-		drawLegend(canvasExt, rect, [
-			{ text: 'диск', color: 'red' },
-			{ text: 'трафик', color: 'green' },
-		])
 	})
 })
 
@@ -245,14 +242,14 @@ charts['node-data-history-coeff-chart'] = setupChart(function(wrap, canvasExt) {
 		topValue: topValue,
 	})
 
+	addLegend(wrap, [{ text: 'диск/трафик', color: 'blue' }])
+
 	return regularRedraw(canvasExt, [rect], function(rc) {
 		drawMonthDays(canvasExt, rect, view, { vLinesColor: null, hLineColor: '#555' })
 
 		drawLine(canvasExt, rect, view, stamps, efficiencies, 'blue')
 
 		drawVScalesLeft(canvasExt, rect, view, 'black', 'rgba(0,0,0,0.12)')
-
-		drawLegend(canvasExt, rect, [{ text: 'диск/трафик', color: 'blue' }])
 	})
 })
 
@@ -283,6 +280,8 @@ charts['global-node-activity-counts-chart'] = setupChart(function(wrap, canvasEx
 		topValue: barsTopValue,
 	})
 
+	addLegend(wrap, revHours.map(h => ({ text: h + ' ч', color: hoursColor(h) })))
+
 	function hoursColor(hours) {
 		return 'hsl(240, 100%, ' + (50 + (1 - hours / 24) * 40) + '%)'
 	}
@@ -297,8 +296,6 @@ charts['global-node-activity-counts-chart'] = setupChart(function(wrap, canvasEx
 		})
 
 		drawVScalesLeft(canvasExt, rect, view, 'black', 'rgba(0,0,0,0.12)')
-
-		drawLegend(canvasExt, rect, revHours.map(h => ({ text: h + ' ч', color: hoursColor(h) })))
 	})
 })
 
@@ -314,12 +311,23 @@ charts['global-node-version-counts-chart'] = setupChart(function(wrap, canvasExt
 	let rect = new RectCenter({ left: 0, right: 0, top: 1, bottom: 11 })
 	let view = new View({ startStamp: startTime, endStamp: endTime, bottomValue: 0, topValue })
 
+	function pos(from, to, offset, x) {
+		let mid = (to - from + offset * 2) / 2
+		let clamped = Math.max(0, Math.min(x, to + offset) - (from - offset))
+		return Math.min(1, (mid - Math.abs(clamped - mid)) / offset)
+	}
+
 	function versionColor(version) {
 		let m = version.match(/v(\d+)\.(\d+)\.(\d+)/)
 		if (m === null) return 'gray'
 		let [, , b, c] = m
-		return `hsl(${(b * 50) % 360},100%,${38 + ((c * 7) % 20) * 1.4}%)`
+		let h = (b * 50) % 360
+		let lk = 1 - pos(60, 180, 15, h) * 0.3 //диапазон 60-180 получается слишком ярким, затемняем его
+		let l = 38 + Math.pow(((c * 7) % 20) * 1.4, lk)
+		return `hsl(${h},100%,${l}%)`
 	}
+
+	addLegend(wrap, versions.map(v => ({ text: v, color: versionColor(v) })), 7)
 
 	let stackAccum = new Float64Array(stamps.length)
 	return regularRedraw(canvasExt, [rect], function(rc) {
@@ -337,8 +345,6 @@ charts['global-node-version-counts-chart'] = setupChart(function(wrap, canvasExt
 		rc.globalCompositeOperation = 'source-over'
 
 		drawVScalesLeft(canvasExt, rect, view, 'black', 'rgba(0,0,0,0.12)')
-
-		drawLegend(canvasExt, rect, versions.map(v => ({ text: v, color: versionColor(v) })), 3.5)
 	})
 })
 
