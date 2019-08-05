@@ -66,70 +66,93 @@ func sizeIB(size int64) string {
 	return strconv.FormatFloat(value, 'g', prec, 64) + " " + sizeIBNames[i]
 }
 
-var templateFuncs = template.FuncMap{
-	"loc": func(lang string, en string, special ...string) string {
-		if lang == "en" {
-			return en
-		}
-		for i := 0; i < len(special)-1; i += 2 {
-			if lang == special[i] {
-				return special[i+1]
-			}
-		}
+type L10nUtls struct {
+	Lang string
+}
+
+type L10nUtlsWithVal struct {
+	L L10nUtls
+	V interface{}
+}
+
+func (l L10nUtls) Is(lang string) bool {
+	return l.Lang == lang
+}
+
+func (l L10nUtls) With(val interface{}) L10nUtlsWithVal {
+	return L10nUtlsWithVal{L: l, V: val}
+}
+
+func (l L10nUtls) Loc(en string, special ...string) string {
+	if l.Lang == "en" {
 		return en
-	},
-	"formatDateTime": func(t time.Time, lang string) string {
-		switch lang {
-		case "ru":
-			return t.Format("02.01.2006 в 15:04")
-		default:
-			return t.Format("1/2/2006 at 15:04")
+	}
+	for i := 0; i < len(special)-1; i += 2 {
+		if l.Lang == special[i] {
+			return special[i+1]
 		}
-	},
+	}
+	return en
+}
+
+func (l L10nUtls) FormatDateTime(t time.Time) string {
+	//t = t.In(time.UTC)
+	switch l.Lang {
+	case "ru":
+		return t.Format("02.01.2006 в 15:04")
+	default:
+		return t.Format("2006.01.02 at 15:04")
+	}
+}
+
+func (l L10nUtls) DateTimeMonth(t time.Time) string {
+	if names, ok := monthNames[l.Lang]; ok {
+		return names[t.Month()-1]
+	}
+	return monthNames["en"][t.Month()-1]
+}
+
+func (l L10nUtls) Ago(t time.Time) string {
+	delta := time.Now().Sub(t)
+	days := int64(delta / (24 * time.Hour))
+	hours := int64((delta / time.Hour) % 24)
+	minutes := int64((delta / time.Minute) % 60)
+	switch l.Lang {
+	case "ru":
+		res := fmt.Sprintf("%d мин", minutes)
+		if hours != 0 {
+			res = fmt.Sprintf("%d ч %s", hours, res)
+		}
+		if days != 0 {
+			res = fmt.Sprintf("%d д %s", days, res)
+		}
+		return res
+	default:
+		res := fmt.Sprintf("%d min", minutes)
+		if hours != 0 {
+			res = fmt.Sprintf("%d h %s", hours, res)
+		}
+		if days != 0 {
+			res = fmt.Sprintf("%d d %s", days, res)
+		}
+		return res
+	}
+}
+
+func (l L10nUtls) Pluralize(valI interface{}, words ...string) string {
+	var val int64
+	switch v := valI.(type) {
+	case int:
+		val = int64(v)
+	default:
+		val = v.(int64)
+	}
+	return pluralize(val, l.Lang, words...)
+}
+
+var templateFuncs = template.FuncMap{
 	"formatDateISO": func(t time.Time) string {
 		return t.Format("2006-01-02")
-	},
-	"dateTimeMonth": func(t time.Time, lang string) string {
-		if names, ok := monthNames[lang]; ok {
-			return names[t.Month()-1]
-		}
-		return monthNames["en"][t.Month()-1]
-	},
-	"ago": func(t time.Time, lang string) string {
-		delta := time.Now().Sub(t)
-		days := int64(delta / (24 * time.Hour))
-		hours := int64((delta / time.Hour) % 24)
-		minutes := int64((delta / time.Minute) % 60)
-		switch lang {
-		case "ru":
-			res := fmt.Sprintf("%d мин", minutes)
-			if hours != 0 {
-				res = fmt.Sprintf("%d ч %s", hours, res)
-			}
-			if days != 0 {
-				res = fmt.Sprintf("%d д %s", days, res)
-			}
-			return res
-		default:
-			res := fmt.Sprintf("%d min", minutes)
-			if hours != 0 {
-				res = fmt.Sprintf("%d h %s", hours, res)
-			}
-			if days != 0 {
-				res = fmt.Sprintf("%d d %s", days, res)
-			}
-			return res
-		}
-	},
-	"pluralize": func(valI interface{}, lang string, words ...string) string {
-		var val int64
-		switch v := valI.(type) {
-		case int:
-			val = int64(v)
-		default:
-			val = v.(int64)
-		}
-		return pluralize(val, lang, words...)
 	},
 	"sub": func(a, b int64) int64 {
 		return a - b
@@ -245,7 +268,7 @@ func render(wr http.ResponseWriter, r *http.Request, statusCode int, tmplName, b
 	if data == nil {
 		data = map[string]interface{}{}
 	}
-	data["Lang"] = langFromRequest(r)
+	data["L"] = L10nUtls{Lang: langFromRequest(r)}
 	tmpl, err := getTemplate(tmplName)
 	if err != nil {
 		return merry.Wrap(err)

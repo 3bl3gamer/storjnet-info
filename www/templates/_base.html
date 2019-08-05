@@ -1,6 +1,6 @@
 {{define "base" -}}
 <!DOCTYPE html>
-<html lang={{.Lang}}>
+<html lang={{.L.Lang}}>
 	<head>
 		<meta charset="utf-8">
 		<meta name="viewport" content="width=device-width, initial-scale=1">
@@ -11,10 +11,10 @@
 		<div class="header">
 			<a class="logo" href="/">
 				<div class="logo-main">Storj Net Info</div>
-				<div class="logo-sub">Статистика сети v3</div>
+				<div class="logo-sub">{{.L.Loc "Network v3 stats" "ru" "Статистика сети v3"}}</div>
 			</a>
 			<form class="nodes-search" method="GET" action="/search">
-				<input type="text" name="q" placeholder="Поиск нод по ID">
+				<input type="text" name="q" placeholder='{{.L.Loc "Search nodes by ID" "ru" "Поиск нод по ID"}}'>
 				<button type="submit">
 					<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24">
 						<path
@@ -29,8 +29,8 @@
 					</path>
 				</svg>
 				<select name="lang" onchange="this.form.submit()" autocomplete="off">
-					<option value="en" {{if eq .Lang "en"}}selected{{end}}>EN</option>
-					<option value="ru" {{if eq .Lang "ru"}}selected{{end}}>RU</option>
+					<option value="en" {{if .L.Is "en"}}selected{{end}}>EN</option>
+					<option value="ru" {{if .L.Is "ru"}}selected{{end}}>RU</option>
 				</select>
 				<noscript>
 					<input type="submit" value="OK">
@@ -41,10 +41,18 @@
 			{{block "content" .}}...{{end}}
 		</div>
 		<div class="footer">
+			{{if .L.Is "ru"}}
 			По багам, фичам и вообще писать можно в
-			<a href="tg://zblzgamer">tg://zblzgamer</a> или на
+			{{else}}
+			You can report bugs and suggest features via
+			{{end}}
+			<a href="tg://zblzgamer">tg://zblzgamer</a> {{.L.Loc "or" "ru" "или на"}}
 			<a href="mailto:zblzgamer@yandex.ru">zblzgamer@yandex.ru</a>,
+			{{if .L.Is "ru"}}
 			задонатить на вкусняшку можно через
+			{{else}}
+			donate on some yummies via
+			{{end}}
 			<a href="https://money.yandex.ru/to/410013340187763">money.yandex.ru/to/410013340187763</a>
 		</div>
 		{{block "js_payload" .}}{{end}}

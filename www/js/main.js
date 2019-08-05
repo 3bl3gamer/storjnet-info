@@ -198,7 +198,9 @@ charts['node-data-history-chart'] = setupChart(function(wrap, canvasExt) {
 		topValue: topValue,
 	})
 
-	addLegend(wrap, [{ text: 'диск', color: 'red' }, { text: 'трафик', color: 'green' }])
+	var diskLabel = wrap.dataset.diskLabel
+	var bandLabel = wrap.dataset.bandwidthLabel
+	addLegend(wrap, [{ text: diskLabel, color: 'red' }, { text: bandLabel, color: 'green' }])
 
 	function mbsLabel(value) {
 		if (value == 0) return '0'
@@ -242,7 +244,8 @@ charts['node-data-history-coeff-chart'] = setupChart(function(wrap, canvasExt) {
 		topValue: topValue,
 	})
 
-	addLegend(wrap, [{ text: 'диск/трафик', color: 'blue' }])
+	var coeffLabel = wrap.dataset.coeffLabel
+	addLegend(wrap, [{ text: coeffLabel, color: 'blue' }])
 
 	return regularRedraw(canvasExt, [rect], function(rc) {
 		drawMonthDays(canvasExt, rect, view, { vLinesColor: null, hLineColor: '#555' })
@@ -280,7 +283,8 @@ charts['global-node-activity-counts-chart'] = setupChart(function(wrap, canvasEx
 		topValue: barsTopValue,
 	})
 
-	addLegend(wrap, revHours.map(h => ({ text: h + ' ч', color: hoursColor(h) })))
+	let hourLabel = wrap.dataset.hourLabel
+	addLegend(wrap, revHours.map(h => ({ text: h + ' ' + hourLabel, color: hoursColor(h) })))
 
 	function hoursColor(hours) {
 		return 'hsl(240, 100%, ' + (50 + (1 - hours / 24) * 40) + '%)'

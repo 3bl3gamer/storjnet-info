@@ -1,9 +1,17 @@
 .dim {
 	color: darkgray;
+	transition: color ease 0.2s;
+}
+.dim:hover {
+	color: inherit;
 }
 
 .small {
 	font-size: 85%;
+}
+
+.warn {
+	background-color: #ff9;
 }
 
 table {

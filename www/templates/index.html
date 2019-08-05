@@ -1,5 +1,5 @@
 {{define "title"}}
-{{if eq .Lang "ru"}}
+{{if .L.Is "ru"}}
 Общая статистика
 {{else}}
 Overall stats
@@ -8,45 +8,45 @@ Overall stats
 
 {{define "content"}}
 
-<h1>
-	{{if eq .Lang "ru"}}
-	Общая статистика
-	{{else}}
-	Overall stats
-	{{end}}
-</h1>
-
-<p class="dim small">
-	{{if eq .Lang "ru"}}
-	обновлена
-	{{else}}
-	last update at
-	{{end}}
-	{{formatDateTime .LastStat.CreatedAt .Lang}},
-	<span>
-		{{ago .LastStat.CreatedAt .Lang}}
-		{{if eq .Lang "ru"}}
-		назад
-		{{- else}}
-		ago
-		{{- end}}
+<h1>{{.L.Loc "Overall stats" "ru" "Общая статистика" }}</h1>
+<p class="small">
+	<span class="dim">
+		{{if .L.Is "ru"}}
+		обновлена
+		{{else}}
+		last update at
+		{{end}}
+		{{.L.FormatDateTime .LastStat.CreatedAt}},
+		<span>
+			{{.L.Ago .LastStat.CreatedAt}} {{.L.Loc "ago" "ru" "назад"}}
+		</span>
 	</span>
 </p>
 
-<h2>Размер сети</h2>
+<h2>{{.L.Loc "Network size" "ru" "Размер сети" }}</h2>
 <p>
 	{{$countNow := .LastStat.CountHours.At 24}}
 	{{$countDayAgo := .DayAgoStat.CountHours.At 24}}
 	{{$countInc := sub $countNow $countDayAgo}}
-	Всего в сети {{$countNow}} {{pluralize $countNow .Lang "живая нода" "живые ноды" "живых нод"}},
+
+	{{if .L.Is "ru"}}
+	Всего в сети {{$countNow}} {{.L.Pluralize $countNow "живая нода" "живые ноды" "живых нод"}},
 	{{signed $countInc}} за последний день
+	{{else}}
+	There are {{$countNow}} active {{.L.Pluralize $countNow "node" "nodes"}},
+	{{signed $countInc}} during the last day
+	{{end}}
 	<span class="dim small">
+		{{if .L.Is "ru"}}
 		(живыми считаются ноды, к которым удалось подключиться за последние 24 часа)
+		{{else}}
+		(node is considered active if it was reachable within the last 24 hours)
+		{{end}}
 	</span>
 </p>
-<div class="month-chart" data-kind="global-node-activity-counts-chart"></div>
+<div class="month-chart" data-kind="global-node-activity-counts-chart" data-hour-label='{{.L.Loc "h" "ru" "ч"}}'></div>
 
-<h2>Свободное место и трафик</h2>
+<h2>{{.L.Loc "Free space and traffic" "ru" "Свободное место и трафик" }}</h2>
 <p>
 	{{$freeSize := .LastStat.FreeDisk.At 0.5}}
 	{{$freeBand := .LastStat.FreeBandwidth.At 0.5}}
@@ -58,8 +58,8 @@ Overall stats
 		<thead>
 			<tr>
 				<td></td>
-				<td>Медиана</td>
-				<td>За день</td>
+				<td>{{.L.Loc "Median" "ru" "Медиана"}}</td>
+				<td>{{.L.Loc "Per day" "ru" "За день"}}</td>
 			</tr>
 		</thead>
 		<tr>
@@ -75,52 +75,78 @@ Overall stats
 	</table>
 </p>
 <p class="dim">
-	<b>freeDisk</b> — не особо надёжный показатель, т.к. он зависит не только от Сторжа, но и, например, от
-	качающегося на тот же диск торрента.
+	{{if .L.Is "ru"}}
+	<b>freeDisk</b> — не особо надёжный показатель, т.к. он зависит не только от Сторжа,
+	но и, например, от качающегося на тот же диск торрента.
+	{{else}}
+	<b>freeDisk</b> — not a very reliable indicator, as it depends not only on Storj,
+	but also, for example, on a torrent downloading onto the same drive.
+	{{end}}
 </p>
 <p class="dim">
+	{{if .L.Is "ru"}}
 	Другое дело с <b>freeBandwidth</b>: он зависит только от Сторжа, так что дневное изменение можно использовать
 	для примерной оценки входящего+исходящего трафика на обычную, среднюю ноду.
+	{{else}}
+	On the other hand, <b>freeBandwidth</b> depends only on Storj, so the daily change can be used
+	for an approximate estimation of incoming + outgoing traffic to an average node.
+	{{end}}
 </p>
 <p>
 	{{$perc := 0.995}}
 	{{$sizeTotal := .LastStat.FreeDiskTotal.At $perc}}
 	{{$sizeTotalDayAgo := .DayAgoStat.FreeDiskTotal.At $perc}}
 	{{$sizeDelta := sub $sizeTotal $sizeTotalDayAgo}}
+
+	{{if .L.Is "ru"}}
 	Суммарный незанятый объём сети: более {{sizeIB $sizeTotal}}, {{sizeIBSign $sizeDelta}} за последний день
+	{{else}}
+	Remaining network capacity: over {{sizeIB $sizeTotal}}, {{sizeIBSign $sizeDelta}} during the last day
+	{{end}}
 	<span class="dim small">
+		{{if .L.Is "ru"}}
 		(по {{percents $perc}}% нод. Самые объёмные не учитываются:
 		они могли наколдовать себе огромный виртуальный диск)
+		{{else}}
+		(by {{percents $perc}}% nodes. The largest ones are not taken into account:
+		they could fake a huge virtual disk)
+		{{end}}
 	</span>
 </p>
 
-<h2>Версии</h2>
+<h2>{{.L.Loc "Versions" "ru" "Версии" }}</h2>
 <p>
 	<table>
 		<thead>
 			<tr>
-				<td>Версия</td>
-				<td>Кол-во</td>
+				<td>{{.L.Loc "Version" "ru" "Версия" }}</td>
+				<td>{{.L.Loc "Nodes" "ru" "Кол-во" }}</td>
 			</tr>
 		</thead>
 		{{range .LastStat.Versions}}
 		<tr>
-			<td>{{if .Version}}{{.Version}}{{else}}{{loc $.Lang "N/a" "ru" "Н/д"}}{{end}}</td>
+			<td>{{if .Version}}{{.Version}}{{else}}{{$.L.Loc "N/a" "ru" "Н/д"}}{{end}}</td>
 			<td>{{.Count}}</td>
 		</tr>
 		{{end}}
 	</table>
-	<span class="dim small">Кто забыл обновиться?</span>
+	<span class="dim small">
+		{{if .L.Is "ru"}}
+		Кто забыл обновиться?
+		{{else}}
+		Who forgot to update?
+		{{end}}
+	</span>
 </p>
 <div class="month-chart" data-kind="global-node-version-counts-chart"></div>
 
-<h2>Страны</h2>
+<h2>{{.L.Loc "Countries" "ru" "Страны"}}</h2>
 <p>
 	<table>
 		<thead>
 			<tr>
-				<td>Страна</td>
-				<td>Кол-во</td>
+				<td>{{.L.Loc "Country" "ru" "Страна"}}</td>
+				<td>{{.L.Loc "Nodes" "ru" "Кол-во"}}</td>
 			</tr>
 		</thead>
 		{{range .LastStat.Countries.Top 10}}
@@ -130,30 +156,40 @@ Overall stats
 		</tr>
 		{{end}}
 	</table>
-	<span class="dim small">топ-10 стран по кол-ву нод</span>
+	<span class="dim small">
+		{{if .L.Is "ru"}}
+		топ-10 стран по кол-ву нод
+		{{else}}
+		top 10 countries by nodes number
+		{{end}}
+	</span>
 </p>
 <p>
 	{{$count := len .LastStat.Countries}}
-	Ноды запущены в {{$count}} {{pluralize $count "стране" "странах" "странах"}},
-	для {{.LastStat.Countries.UnknownCount}} {{pluralize .LastStat.Countries.UnknownCount "ноды" "нод" "нод"}}
+	{{if .L.Is "ru"}}
+	Ноды запущены в {{$count}} {{.L.Pluralize $count "стране" "странах" "странах"}},
+	для {{.LastStat.Countries.UnknownCount}} {{.L.Pluralize .LastStat.Countries.UnknownCount "ноды" "нод" "нод"}}
 	местоположение определить не удалось.
+	{{else}}
+	Nodes are running in {{$count}} {{.L.Pluralize $count "country" "countries"}},
+	{{.LastStat.Countries.UnknownCount}} {{.L.Pluralize .LastStat.Countries.UnknownCount "node" "nodes"}} could not be located.
+	{{end}}
 </p>
 
-<h2>Сложности идентификаторов</h2>
+<h2>{{.L.Loc "IDs difficulties" "ru" "Сложности идентификаторов"}}</h2>
 <p>
 	<table style="font-size:75%">
 		<thead>
 			<tr>
-				<td>Сложность</td>
-				<td>Кол-во нод</td>
+				<td>{{.L.Loc "Difficulty" "ru" "Сложность"}}</td>
+				<td>{{.L.Loc "Nodes number" "ru" "Кол-во нод"}}</td>
 			</tr>
 		</thead>
 		{{range .LastStat.Difficulties}}
 		<tr style="border-bottom:1px solid white">
 			<td style="padding: 0 15px">{{.Difficulty}}</td>
 			<td style="padding: 0 0; text-align:left; position: relative;">
-				<div
-					style="background: gray; display:inline-block; text-align:right; color: white; width:{{div .Count 2}}px; min-width: 1px">
+				<div style="background: gray; display:inline-block; text-align:right; color: white; width:{{div .Count 2}}px; min-width: 1px">
 					{{if lt .Count 45}}&nbsp;{{else}}{{.Count}}&thinsp;{{end}}
 				</div>
 				{{if lt .Count 45}}{{.Count}}{{end}}
@@ -163,23 +199,23 @@ Overall stats
 	</table>
 </p>
 
-<h2>Виды нод</h2>
+<h2>{{.L.Loc "Node types" "ru" "Виды нод"}}</h2>
 {{range .NodeIDsWithType}}
 <h3>{{.NodeType}}</h3>
-{{if .IDs}}
 <ol>
 	{{range .IDs}}
 	<li><a href="/@{{.}}">{{.}}</a></li>
 	{{end}}
 </ol>
-{{else}}
-Таких нет.
-{{end}}
 {{end}}
 <h3>STORAGE</h3>
 <p>
 	{{$count := .LastStat.Types.OfType .NodeType_STORAGE}}
+	{{if .L.Is "ru"}}
 	Всего их {{$count}}: слишком много, чтобы вывести сюда списком.
+	{{else}}
+	There are {{$count}} of them: too many to list here.
+	{{end}}
 </p>
 {{end}}
 

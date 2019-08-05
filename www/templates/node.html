@@ -2,10 +2,10 @@
 
 {{define "node_id_info"}}
 <p class="node-id-info">
-	<b>Айди в base58:</b> {{.String}}<br>
-	<b>Айди в HEX:</b> {{nodeIDHex .}}<br>
-	<b>Айди побитно:</b> {{nodeIDBin .}}<br>
-	<b>Сложность:</b> {{.Difficulty}}
+	<b>Base58:</b> {{.V.String}}<br>
+	<b>HEX:</b> {{nodeIDHex .V}}<br>
+	<b>{{.L.Loc "Binary" "ru" "Побитно"}}:</b> {{nodeIDBin .V}}<br>
+	<b>{{.L.Loc "Difficulty" "ru" "Сложность"}}:</b> {{.V.Difficulty}}
 </p>
 {{end}}
 
@@ -16,49 +16,88 @@
 
 {{if .NodeIDIsInvalid}}
 <p>
+	{{if .L.Is "ru"}}
 	Неправильный ID ноды, ошибка: <code>{{.NodeIDDecodeErr}}</code>
+	{{else}}
+	Wrong node ID, error: <code>{{.NodeIDDecodeErr}}</code>
+	{{end}}
 </p>
 <p>
+	{{if .L.Is "ru"}}
 	Идентификатор должен быть в виде base58-сроки (например
 	<code>118UWpMCHzs6CvSgWd9BfFVjw5K9pZbJjkfZJexMtSkmKxvvAW</code>).
+	{{else}}
+	Node ID must be a byte58-encoded string (for example
+	<code>118UWpMCHzs6CvSgWd9BfFVjw5K9pZbJjkfZJexMtSkmKxvvAW</code>).
+	{{end}}
 </p>
 {{else if .NodeIDNotFound}}
 <p>
-	Такого айди нет в базе статистики. Возможно, эта нода — новая, и не вся сеть ещё о ней знает?
+	<span class="warn">
+		{{if .L.Is "ru"}}
+		Такого айди нет в базе статистики. Возможно, эта нода — новая, и не вся сеть ещё о ней знает?
+		{{else}}
+		This ID was not found in the statistics database. Perhaps this node is new and the whole network doesn't know about it yet?
+		{{end}}
+	</span>
 </p>
-{{template "node_id_info" .Node.ID}}
+{{template "node_id_info" .L.With .Node.ID}}
 {{else}}
 
-{{template "node_id_info" .Node.ID}}
+{{template "node_id_info" .L.With .Node.ID}}
 
-<h2>Статистика</h2>
+<h2>{{.L.Loc "Statistics" "ru" "Статистика"}}</h2>
 
 <p>
 	{{$prevDate := formatDateISO .StatsPrevMonthTime}}
 	{{$nextDate := formatDateISO .StatsNextMonthTime}}
-	<a href="?{{.Query.EncodeWithParam "stats_from" $prevDate}}">← {{dateTimeMonth .StatsPrevMonthTime .Lang}}</a>
-	<b>{{dateTimeMonth .StatsTimeFrom .Lang}}</b>
-	<a href="?{{.Query.EncodeWithParam "stats_from" $nextDate}}">{{dateTimeMonth .StatsNextMonthTime .Lang}} →</a>
+	<a href="?{{.Query.EncodeWithParam "stats_from" $prevDate}}">← {{.L.DateTimeMonth .StatsPrevMonthTime}}</a>
+	<b>{{.L.DateTimeMonth .StatsTimeFrom}}</b>
+	<a href="?{{.Query.EncodeWithParam "stats_from" $nextDate}}">{{.L.DateTimeMonth .StatsNextMonthTime}} →</a>
 </p>
 
-<h3>Месячный аптайм</h3>
-<div class="month-chart" {{if not .NodeHistory.ActivityStamps}}data-off="Нет данных"{{end}} data-kind="node-activity-chart"></div>
+<h3>{{.L.Loc "Month uptime" "ru" "Месячный аптайм"}}</h3>
+<div class="month-chart" {{if not .NodeHistory.ActivityStamps}}data-off='{{.L.Loc "No data" "ru" "Нет данных"}}' {{end}}
+	data-kind="node-activity-chart"></div>
 {{if .NodeHistory.LastSelfParamsError}}
 <p>
-	Последняя ошибка {{formatDateTime .NodeHistory.LastSelfParamsErrorTime .Lang}}: <code>{{.NodeHistory.LastSelfParamsError}}</code>
+	{{.L.Loc "Last error" "ru" "Последняя ошибка"}}
+	{{.L.FormatDateTime .NodeHistory.LastSelfParamsErrorTime}}:
+	<code>{{.NodeHistory.LastSelfParamsError}}</code>
 </p>
 {{end}}
 
 {{if .Node.SelfParams}}
 {{if eq .Node.SelfParams.Type .NodeType_STORAGE}}
-<h3>Изменения лимитов</h3>
-<div class="month-chart" {{if not .NodeHistory.FreeData.Stamps}}data-off="Нет данных"{{end}} data-kind="node-data-history-chart"></div>
-<div class="month-chart" {{if not .NodeHistory.FreeData.Stamps}}data-off="Нет данных"{{end}} data-kind="node-data-history-coeff-chart"></div>
+<h3>{{.L.Loc "Limits changes" "ru" "Изменения лимитов"}}</h3>
+<div class="month-chart" {{if not .NodeHistory.FreeData.Stamps}}data-off='{{.L.Loc "No data" "ru" "Нет данных"}}' {{end}}
+	data-kind="node-data-history-chart" data-disk-label='{{.L.Loc "disk" "ru" "диск"}}' data-bandwidth-label='{{.L.Loc "bandwidth" "ru" "трафик"}}'>
+</div>
+<div class="month-chart" {{if not .NodeHistory.FreeData.Stamps}}data-off='{{.L.Loc "No data" "ru" "Нет данных"}}' {{end}}
+	data-kind="node-data-history-coeff-chart" data-coeff-label='{{.L.Loc "disk/bandwidth" "ru" "диск/трафик"}}'></div>
+
+<p class="dim small">
+	{{if .L.Is "ru"}}
+	Последний график показывает (скорость заполнения диска) / (скорость трафика).
+	В общем случае в этом графике мало смысла. Но во время теста
+	(когда трафик в основном входящий, а загруженные данные редко удаляются)
+	это что-то вроде эффективности загрузки: если все входящие данные сохраняются на диск, на графике будет 1.
+	Если половина входящих кусочков отменяется
+	(потмоу что нода не успевает достаточно быстро скачать и сохранять их все), будет 0.5, и т.д.
+	{{else}}
+	The last chart shows (disk filling speed) / (traffic speed).
+	Generally, this chart has little meaning. But during test
+	(when most of traffic is ingress and all uploaded data almost never deleted)
+	it's kind of node upload efficiency: if all incoming traffic is actually got saved on disk, it'll be 1.
+	If half of incoming pieces are cancelled
+	(because node is not fast enough to get and save them all), it will be 0.5, etc.
+	{{end}}
+</p>
 {{end}}
 {{end}}
 
-<h2>Местоположение</h2>
-<p class="dim small">по базе GeoIP</p>
+<h2>{{.L.Loc "Location" "ru" "Местоположение"}}</h2>
+<p><span class="dim small">{{.L.Loc "Based on GeoIP" "ru" "По базе GeoIP"}}</span></p>
 <p>
 	{{if .Node.Location}}
 	{{$lon := .Node.Location.Longitude}}
@@ -77,24 +116,36 @@
 	{{end}}
 </p>
 
-<h2>Параметры ноды (из Kademlia)</h2>
+<h2>{{.L.Loc "Node params (from Kademlia)" "ru" "Параметры ноды (из Kademlia)"}}</h2>
 {{if .Node.KadParams}}
 <pre>{{formattedJSON .Node.KadParams}}</pre>
 <span class="dim small">
-	обновлено {{formatDateTime .Node.KadUpdatedAt .Lang}}, {{ago .Node.KadUpdatedAt .Lang}} назад
+	{{.L.Loc "updated" "ru" "обновлено"}}
+	{{.L.FormatDateTime .Node.KadUpdatedAt}}, {{.L.Ago .Node.KadUpdatedAt}}
+	{{.L.Loc "ago" "ru" "назад"}}
 </span>
 {{else}}
+{{if .L.Is "ru"}}
 Нет данных (нода ещё не была найдена в DHT).
+{{else}}
+No data (node has not yet been found in DHT).
+{{end}}
 {{end}}
 
-<h2>Параметры ноды (запрошенные напрямую)</h2>
+<h2>{{.L.Loc "Node params (directly requested)" "ru" "Параметры ноды (запрошенные напрямую)"}}</h2>
 {{if .Node.SelfParams}}
 <pre>{{formattedJSON .Node.SelfParams}}</pre>
 <span class="dim small">
-	обновлено {{formatDateTime .Node.SelfUpdatedAt .Lang}}, {{ago .Node.SelfUpdatedAt .Lang}} назад
+	{{.L.Loc "updated" "ru" "обновлено"}}
+	{{.L.FormatDateTime .Node.SelfUpdatedAt}}, {{.L.Ago .Node.SelfUpdatedAt}}
+	{{.L.Loc "ago" "ru" "назад"}}
 </span>
 {{else}}
+{{if .L.Is "ru"}}
 Нет данных (пока не получилось связаться с нодой).
+{{else}}
+No data (has not connected to the node yet).
+{{end}}
 {{end}}
 
 <script>
