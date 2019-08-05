@@ -224,7 +224,28 @@ func getTemplate(path string) (*template.Template, error) {
 	return tmpl, nil
 }
 
-func render(wr http.ResponseWriter, statusCode int, tmplName, blockName string, data interface{}) error {
+func langOrDefault(lang string) string {
+	if lang == "en" || lang == "ru" {
+		return lang
+	}
+	return "en"
+}
+func langFromRequest(r *http.Request) string {
+	if c, err := r.Cookie("lang"); err == nil {
+		return langOrDefault(c.Value)
+	}
+	if langs := r.Header.Get("Accept-Language"); len(langs) > 2 {
+		// TODO: maybe support smth like "Accept-Language: fr-CH, fr;q=0.9, en;q=0.8, de;q=0.7, *;q=0.5"
+		return langOrDefault(langs[:2])
+	}
+	return "en"
+}
+
+func render(wr http.ResponseWriter, r *http.Request, statusCode int, tmplName, blockName string, data map[string]interface{}) error {
+	if data == nil {
+		data = map[string]interface{}{}
+	}
+	data["Lang"] = langFromRequest(r)
 	tmpl, err := getTemplate(tmplName)
 	if err != nil {
 		return merry.Wrap(err)
@@ -265,11 +286,11 @@ func wrap(db *pg.DB, handle HandleExt) httprouter.Handle {
 }
 
 func Handle404(wr http.ResponseWriter, r *http.Request, ps httprouter.Params) error {
-	return render(wr, http.StatusNotFound, "404.html", "base", nil)
+	return render(wr, r, http.StatusNotFound, "404.html", "base", nil)
 }
 
 func Handle500(wr http.ResponseWriter, r *http.Request, ps httprouter.Params) error {
-	return render(wr, http.StatusInternalServerError, "500.html", "500.html", nil)
+	return render(wr, r, http.StatusInternalServerError, "500.html", "500.html", nil)
 }
 
 func HandleExplode(wr http.ResponseWriter, r *http.Request, ps httprouter.Params) error {
@@ -314,8 +335,7 @@ func HandleIndex(wr http.ResponseWriter, r *http.Request, ps httprouter.Params) 
 		return merry.Wrap(err)
 	}
 
-	return render(wr, http.StatusOK, "index.html", "base", map[string]interface{}{
-		"Lang":              "ru",
+	return render(wr, r, http.StatusOK, "index.html", "base", map[string]interface{}{
 		"LastStat":          lastStat,
 		"DayAgoStat":        dayAgoStat,
 		"NodeIDsWithType":   nodeIDsWithType,
@@ -330,8 +350,7 @@ func HandleNode(wr http.ResponseWriter, r *http.Request, ps httprouter.Params) e
 	nodeIDStr := ps.ByName("nodeID")
 	nodeID, err := storj.NodeIDFromString(nodeIDStr)
 	if err != nil {
-		return render(wr, http.StatusBadRequest, "node.html", "base", map[string]interface{}{
-			"Lang":            "ru",
+		return render(wr, r, http.StatusBadRequest, "node.html", "base", map[string]interface{}{
 			"NodeIDStr":       nodeIDStr,
 			"NodeIDIsInvalid": true,
 			"NodeIDDecodeErr": err.Error(),
@@ -342,8 +361,7 @@ func HandleNode(wr http.ResponseWriter, r *http.Request, ps httprouter.Params) e
 	err = db.Model(node).Column("created_at", "kad_params", "kad_updated_at", "self_updated_at", "self_params", "location").Where("id = ?", nodeID).Select()
 	if err == pg.ErrNoRows {
 		appendFileString("unknown_nodes_log.txt", time.Now().Format("2006-01-02 15:04:05")+" "+node.ID.String()+"\n")
-		return render(wr, http.StatusBadRequest, "node.html", "base", map[string]interface{}{
-			"Lang":           "ru",
+		return render(wr, r, http.StatusBadRequest, "node.html", "base", map[string]interface{}{
 			"NodeIDStr":      node.ID.String(),
 			"NodeIDNotFound": true,
 			"Node":           node,
@@ -367,8 +385,7 @@ func HandleNode(wr http.ResponseWriter, r *http.Request, ps httprouter.Params) e
 	statsPrevMonthTime := statsTimeFrom.AddDate(0, -1, 0)
 	statsNextMonthTime := statsTimeFrom.AddDate(0, 1, 0)
 
-	return render(wr, http.StatusOK, "node.html", "base", map[string]interface{}{
-		"Lang":               "ru",
+	return render(wr, r, http.StatusOK, "node.html", "base", map[string]interface{}{
 		"NodeIDStr":          node.ID.String(),
 		"Node":               node,
 		"NodeHistory":        GroupNodeHistories(dailyHistories),
@@ -390,6 +407,27 @@ func HandleSearch(wr http.ResponseWriter, r *http.Request, ps httprouter.Params)
 	return nil
 }
 
+func HandleLang(wr http.ResponseWriter, r *http.Request, ps httprouter.Params) error {
+	if err := r.ParseForm(); err != nil {
+		return merry.Wrap(err)
+	}
+	if lang := r.Form.Get("lang"); lang != "" {
+		cookie := &http.Cookie{
+			Name:    "lang",
+			Value:   lang,
+			Path:    "/",
+			Expires: time.Now().Add(365 * time.Hour),
+		}
+		wr.Header().Add("Set-Cookie", cookie.String())
+	}
+	ref := r.Header.Get("Referer")
+	if ref == "" {
+		ref = "/"
+	}
+	http.Redirect(wr, r, ref, 303)
+	return nil
+}
+
 func StartHTTPServer(address string) error {
 	db := makePGConnection()
 
@@ -397,6 +435,7 @@ func StartHTTPServer(address string) error {
 	router.Handle("GET", "/", wrap(db, HandleIndex))
 	router.Handle("GET", "/@:nodeID", wrap(db, HandleNode))
 	router.Handle("GET", "/search", wrap(db, HandleSearch))
+	router.Handle("POST", "/lang", wrap(db, HandleLang))
 	router.Handle("GET", "/explode", wrap(db, HandleExplode))
 
 	router.ServeFiles("/js/*filepath", http.Dir("www/js"))

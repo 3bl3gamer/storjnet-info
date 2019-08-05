@@ -79,20 +79,68 @@ body {
 	display: flex;
 	flex-grow: 100;
 }
-.header .nodes-search input {
-	padding: 3px 10px;
+.header .nodes-search input,
+.header .nodes-search button {
 	border: 1px solid;
 	border-color: #cdc7c2 #cdc7c2 #bfb8b1;
 	border-radius: 3px;
+	box-sizing: border-box;
+	height: 25px;
 }
 .header .nodes-search input[type='text'] {
+	padding: 3px 10px;
 	flex-grow: 100;
 	max-width: 410px;
 	margin-left: auto;
+	width: 140px;
 }
-.header .nodes-search input[type='submit'] {
-	background: linear-gradient(white 2%, #f6f5f3 4%, #edebe9);
+.header .nodes-search button[type='submit'] {
+	display: flex;
+	align-items: center;
 	margin-left: 4px;
+	padding: 0px 10px;
+	background: linear-gradient(white 2%, #f6f5f3 4%, #edebe9);
+}
+
+.header .lang-switch {
+	display: flex;
+	align-items: center;
+}
+.header .lang-switch select {
+	border: none;
+	-webkit-appearance: none;
+	-moz-appearance: none;
+	appearance: none;
+	background: none;
+	/* padding-right: 7px;
+	background: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' height='5' width='8'><polyline points='1,1 4,4 7,1' fill='none' stroke='black' stroke-width='1.3' stroke-linecap='round'/></svg>");
+	background-repeat: no-repeat;
+	background-position: 100% 50%; */
+	cursor: pointer;
+	margin-left: 4px;
+}
+@-moz-document url-prefix() {
+	/* костыль для ФФшного select'а: он рисует справа и слева от элемента лишние отступы */
+	.header .lang-switch select {
+		margin-left: 0;
+		margin-right: -4px;
+	}
+}
+.header .lang-switch select:hover {
+	text-decoration: underline;
+}
+@media (max-width: 479px) {
+	.header {
+		flex-direction: column;
+	}
+	.header .nodes-search {
+		align-self: stretch;
+	}
+	.header .lang-switch {
+		position: absolute;
+		top: 10px;
+		right: 0;
+	}
 }
 
 .footer {
