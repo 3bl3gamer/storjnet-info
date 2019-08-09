@@ -55,6 +55,18 @@
 			{{end}}
 			<a href="https://money.yandex.ru/to/410013340187763">money.yandex.ru/to/410013340187763</a>
 		</div>
+		<script>
+			(function () {
+				let lang = document.documentElement.lang
+				let dateFmt = new Intl.DateTimeFormat(lang, { year: 'numeric', month: '2-digit', day: '2-digit' })
+				let timeFmt = new Intl.DateTimeFormat(undefined, { hour: '2-digit', minute: '2-digit', hour12: false })
+				let sep = lang == 'ru' ? ' в ' : ' at '
+				Array.from(document.getElementsByTagName('time')).forEach(elem => {
+					let d = new Date(elem.dateTime)
+					elem.textContent = dateFmt.format(d) + sep + timeFmt.format(d)
+				})
+			})()
+		</script>
 		{{block "js_payload" .}}{{end}}
 		<script type="module" src="/js/main.js"></script>
 		{{block "local_html_content" .}}{{end}}

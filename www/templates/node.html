@@ -62,7 +62,7 @@
 {{if .NodeHistory.LastSelfParamsError}}
 <p>
 	{{.L.Loc "Last error" "ru" "Последняя ошибка"}}
-	{{.L.FormatDateTime .NodeHistory.LastSelfParamsErrorTime}}:
+	{{.L.DateTimeTag .NodeHistory.LastSelfParamsErrorTime}}:
 	<code>{{.NodeHistory.LastSelfParamsError}}</code>
 </p>
 {{end}}
@@ -121,7 +121,7 @@
 <pre>{{formattedJSON .Node.KadParams}}</pre>
 <span class="dim small">
 	{{.L.Loc "updated" "ru" "обновлено"}}
-	{{.L.FormatDateTime .Node.KadUpdatedAt}}, {{.L.Ago .Node.KadUpdatedAt}}
+	{{.L.DateTimeTag .Node.KadUpdatedAt}}, {{.L.Ago .Node.KadUpdatedAt}}
 	{{.L.Loc "ago" "ru" "назад"}}
 </span>
 {{else}}
@@ -137,7 +137,7 @@ No data (node has not yet been found in DHT).
 <pre>{{formattedJSON .Node.SelfParams}}</pre>
 <span class="dim small">
 	{{.L.Loc "updated" "ru" "обновлено"}}
-	{{.L.FormatDateTime .Node.SelfUpdatedAt}}, {{.L.Ago .Node.SelfUpdatedAt}}
+	{{.L.DateTimeTag .Node.SelfUpdatedAt}}, {{.L.Ago .Node.SelfUpdatedAt}}
 	{{.L.Loc "ago" "ru" "назад"}}
 </span>
 {{else}}

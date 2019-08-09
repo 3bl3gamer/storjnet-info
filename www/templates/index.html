@@ -14,9 +14,9 @@ Overall stats
 		{{if .L.Is "ru"}}
 		обновлена
 		{{else}}
-		last update at
+		last update
 		{{end}}
-		{{.L.FormatDateTime .LastStat.CreatedAt}},
+		{{.L.DateTimeTag .LastStat.CreatedAt}},
 		<span>
 			{{.L.Ago .LastStat.CreatedAt}} {{.L.Loc "ago" "ru" "назад"}}
 		</span>

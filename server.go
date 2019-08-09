@@ -96,13 +96,19 @@ func (l L10nUtls) Loc(en string, special ...string) string {
 }
 
 func (l L10nUtls) FormatDateTime(t time.Time) string {
-	//t = t.In(time.UTC)
+	t = t.In(time.UTC)
 	switch l.Lang {
 	case "ru":
-		return t.Format("02.01.2006 в 15:04")
+		return t.Format("02.01.2006 в 15:04 UTC")
 	default:
-		return t.Format("2006.01.02 at 15:04")
+		return t.Format("2006.01.02 at 15:04 UTC")
 	}
+}
+
+func (l L10nUtls) DateTimeTag(t time.Time) template.HTML {
+	dt := template.HTMLEscapeString(l.FormatDateTime(t))
+	stamp := t.In(time.UTC).Format(time.RFC3339)
+	return template.HTML(`<time datetime="` + stamp + `">` + dt + `</time>`)
 }
 
 func (l L10nUtls) DateTimeMonth(t time.Time) string {
