@@ -203,14 +203,14 @@ Overall stats
 <h2>{{.L.Loc "Node types" "ru" "Виды нод"}}</h2>
 {{range .NodeIDsWithType}}
 <h3>{{.NodeType}}</h3>
-<ol>
+<ol class="wide-block">
 	{{range .IDs}}
 	<li><a href="/@{{.}}">{{.}}</a></li>
 	{{end}}
 </ol>
 {{end}}
 <h3>STORAGE</h3>
-<p>
+<p class="wide-block">
 	{{$count := .LastStat.Types.OfType .NodeType_STORAGE}}
 	{{if .L.Is "ru"}}
 	Всего их {{$count}}: слишком много, чтобы вывести сюда списком.

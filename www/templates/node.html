@@ -118,7 +118,7 @@
 
 <h2>{{.L.Loc "Node params (from Kademlia)" "ru" "Параметры ноды (из Kademlia)"}}</h2>
 {{if .Node.KadParams}}
-<pre class="wide-json">{{formattedJSON .Node.KadParams}}</pre>
+<pre class="wide-block">{{formattedJSON .Node.KadParams}}</pre>
 <span class="dim small">
 	{{.L.Loc "updated" "ru" "обновлено"}}
 	{{.L.DateTimeTag .Node.KadUpdatedAt}}, {{.L.Ago .Node.KadUpdatedAt}}
@@ -134,7 +134,7 @@ No data (node has not yet been found in DHT).
 
 <h2>{{.L.Loc "Node params (directly requested)" "ru" "Параметры ноды (запрошенные напрямую)"}}</h2>
 {{if .Node.SelfParams}}
-<pre class="wide-json">{{formattedJSON .Node.SelfParams}}</pre>
+<pre class="wide-block">{{formattedJSON .Node.SelfParams}}</pre>
 <span class="dim small">
 	{{.L.Loc "updated" "ru" "обновлено"}}
 	{{.L.DateTimeTag .Node.SelfUpdatedAt}}, {{.L.Ago .Node.SelfUpdatedAt}}
