@@ -390,6 +390,16 @@ func (i *DifficultyStatItem) Scan(val interface{}) (err error) {
 	return merry.Wrap(err)
 }
 
+func (items DifficultyStatItems) MaxCount() int64 {
+	var maxCount int64
+	for _, item := range items {
+		if item.Count > maxCount {
+			maxCount = item.Count
+		}
+	}
+	return maxCount
+}
+
 type TypesStatItem struct {
 	Type, Count int64
 }

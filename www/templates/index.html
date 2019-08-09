@@ -178,18 +178,19 @@ Overall stats
 
 <h2>{{.L.Loc "IDs difficulties" "ru" "Сложности идентификаторов"}}</h2>
 <p>
-	<table style="font-size:75%">
+	<table style="font-size:75%; max-width:512px">
 		<thead>
 			<tr>
 				<td>{{.L.Loc "Difficulty" "ru" "Сложность"}}</td>
 				<td>{{.L.Loc "Nodes number" "ru" "Кол-во нод"}}</td>
 			</tr>
 		</thead>
+		{{$maxCount := .LastStat.Difficulties.MaxCount}}
 		{{range .LastStat.Difficulties}}
 		<tr style="border-bottom:1px solid white">
 			<td style="padding: 0 15px">{{.Difficulty}}</td>
-			<td style="padding: 0 0; text-align:left; position: relative;">
-				<div style="background: gray; display:inline-block; text-align:right; color: white; width:{{div .Count 2}}px; min-width: 1px">
+			<td style="padding: 0 0; text-align:left; position: relative; width: 100%">
+				<div style="background: gray; display:inline-block; text-align:right; color: white; width:{{percent .Count $maxCount}}%; min-width: 1px">
 					{{if lt .Count 45}}&nbsp;{{else}}{{.Count}}&thinsp;{{end}}
 				</div>
 				{{if lt .Count 45}}{{.Count}}{{end}}

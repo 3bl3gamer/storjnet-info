@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"html/template"
 	"log"
+	"math"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -163,8 +164,11 @@ var templateFuncs = template.FuncMap{
 	"sub": func(a, b int64) int64 {
 		return a - b
 	},
-	"div": func(a, b int64) int64 {
-		return a / b
+	// "div": func(a, b int64) int64 {
+	// 	return a / b
+	// },
+	"percent": func(a, b int64) float64 {
+		return math.Round(float64(a)/float64(b)*1000) / 10
 	},
 	"signed": func(a int64) string {
 		res := strconv.FormatInt(a, 10)
