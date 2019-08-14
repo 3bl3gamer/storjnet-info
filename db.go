@@ -112,33 +112,41 @@ func StartNodesSelfDataSaver(db *pg.DB, selfDataChan chan *SelfUpdate_Self, chun
 					_, err := tx.QueryOne(&xmax, `
 						INSERT INTO nodes (id, self_params, self_updated_at)
 						VALUES (?, ?, NOW())
-						ON CONFLICT (id) DO UPDATE SET self_params = EXCLUDED.self_params, self_updated_at = NOW()
-						RETURNING xmax`, node.ID, node.SelfParams)
+						ON CONFLICT (id) DO UPDATE SET
+							self_params = CASE
+								WHEN ?
+								THEN jsonb_set(nodes.self_params, '{version}', '{"version": "v0.17.0"}')
+								ELSE COALESCE(nodes.self_params, EXCLUDED.self_params)
+							END,
+							self_updated_at = NOW()
+						RETURNING xmax`, node.ID, node.SelfParams, node.AccessIsDenied)
 					if err != nil {
 						return merry.Wrap(err)
 					}
 
-					capacity := node.SelfParams.Capacity
-					diskChanged := lastFreeData.FreeDisk != capacity.FreeDisk
-					bandChanged := lastFreeData.FreeBandwidth != capacity.FreeBandwidth
-					prevTimedelta := time.Now().Sub(prevFreeDataStamp)
-					lastTimedelta := time.Now().Sub(lastFreeData.Stamp)
-					// остаток местра и трафика кешируются нодой на час;
-					// если за два часа значение не поменялось, скорее всеготрафика всё-таки не было, и значение нужно сохранить
-					if diskChanged || bandChanged || lastTimedelta > 2*time.Hour {
-						var conflictAction string
-						if lastTimedelta < 14*time.Minute && prevTimedelta < 20*time.Minute {
-							conflictAction = "SET free_data_items[array_length(nodes_history.free_data_items, 1)] = EXCLUDED.free_data_items[1]"
-						} else {
-							conflictAction = "SET free_data_items = nodes_history.free_data_items || EXCLUDED.free_data_items"
-						}
-						_, err = tx.Exec(`
-						INSERT INTO nodes_history (id, date, free_data_items)
-						VALUES (?, (now() at time zone 'utc')::date, ARRAY[(NOW(), ?, ?)::data_history_item])
-						ON CONFLICT (id, date) DO UPDATE
-						`+conflictAction, node.ID, capacity.FreeDisk, capacity.FreeBandwidth)
-						if err != nil {
-							return merry.Wrap(err)
+					if !node.AccessIsDenied {
+						capacity := node.SelfParams.Capacity
+						diskChanged := lastFreeData.FreeDisk != capacity.FreeDisk
+						bandChanged := lastFreeData.FreeBandwidth != capacity.FreeBandwidth
+						prevTimedelta := time.Now().Sub(prevFreeDataStamp)
+						lastTimedelta := time.Now().Sub(lastFreeData.Stamp)
+						// остаток места и трафика кешируются нодой на час;
+						// если за два часа значение не поменялось, скорее всеготрафика всё-таки не было, и значение нужно сохранить
+						if diskChanged || bandChanged || lastTimedelta > 2*time.Hour {
+							var conflictAction string
+							if lastTimedelta < 14*time.Minute && prevTimedelta < 20*time.Minute {
+								conflictAction = "SET free_data_items[array_length(nodes_history.free_data_items, 1)] = EXCLUDED.free_data_items[1]"
+							} else {
+								conflictAction = "SET free_data_items = nodes_history.free_data_items || EXCLUDED.free_data_items"
+							}
+							_, err = tx.Exec(`
+								INSERT INTO nodes_history (id, date, free_data_items)
+								VALUES (?, (now() at time zone 'utc')::date, ARRAY[(NOW(), ?, ?)::data_history_item])
+								ON CONFLICT (id, date) DO UPDATE
+								`+conflictAction, node.ID, capacity.FreeDisk, capacity.FreeBandwidth)
+							if err != nil {
+								return merry.Wrap(err)
+							}
 						}
 					}
 				}
@@ -196,6 +204,9 @@ func StartOldKadDataLoader(db *pg.DB, nodeIDsChan chan storj.NodeID, chunkSize i
 				if err != nil {
 					return merry.Wrap(err)
 				}
+				if len(idsBytes) == 0 {
+					return nil
+				}
 				ids, err = storj.NodeIDsFromBytes(idsBytes)
 				if err != nil {
 					return merry.Wrap(err)
@@ -239,6 +250,9 @@ func StartOldSelfDataLoader(db *pg.DB, kadDataChan chan *SelfUpdate_Kad, chunkSi
 					FOR UPDATE`, chunkSize)
 				if err != nil {
 					return merry.Wrap(err)
+				}
+				if len(nodes) == 0 {
+					return nil
 				}
 				idsBytes := make([]NodeIDExt, len(nodes))
 				for i, node := range nodes {
@@ -320,7 +334,7 @@ func SaveGlobalNodesStats(db *pg.DB) error {
 			) AS t
 		), (
 			SELECT array_agg((type, cnt)::type_stat_item ORDER BY type) FROM (
-				SELECT self_params->>'type' AS type, count(*) AS cnt FROM active_nodes GROUP BY type
+				SELECT COALESCE((self_params->'type')::int, 0) AS type, count(*) AS cnt FROM active_nodes GROUP BY type
 			) AS t
 		), (
 			SELECT array_agg((country, cnt)::country_stat_item ORDER BY cnt) FROM (

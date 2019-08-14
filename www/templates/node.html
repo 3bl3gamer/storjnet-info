@@ -66,10 +66,18 @@
 	<code>{{.NodeHistory.LastSelfParamsError}}</code>
 </p>
 {{end}}
+<p>
+	<span class="dim small">
+		{{.L.Loc "updated" "ru" "обновлено"}}
+		{{.L.DateTimeTag .Node.SelfUpdatedAt}}, {{.L.Ago .Node.SelfUpdatedAt}}
+		{{.L.Loc "ago" "ru" "назад"}}
+	</span>
+</p>
 
 {{if .Node.SelfParams}}
 {{if eq .Node.SelfParams.Type .NodeType_STORAGE}}
 <h3>{{.L.Loc "Limits changes" "ru" "Изменения лимитов"}}</h3>
+{{template "feature_disabled" .L.With nil}}
 <div class="month-chart" {{if not .NodeHistory.FreeData.Stamps}}data-off='{{.L.Loc "No data" "ru" "Нет данных"}}' {{end}}
 	data-kind="node-data-history-chart" data-disk-label='{{.L.Loc "disk" "ru" "диск"}}' data-bandwidth-label='{{.L.Loc "bandwidth" "ru" "трафик"}}'>
 </div>
@@ -129,22 +137,6 @@
 Нет данных (нода ещё не была найдена в DHT).
 {{else}}
 No data (node has not yet been found in DHT).
-{{end}}
-{{end}}
-
-<h2>{{.L.Loc "Node params (directly requested)" "ru" "Параметры ноды (запрошенные напрямую)"}}</h2>
-{{if .Node.SelfParams}}
-<pre class="wide-block">{{formattedJSON .Node.SelfParams}}</pre>
-<span class="dim small">
-	{{.L.Loc "updated" "ru" "обновлено"}}
-	{{.L.DateTimeTag .Node.SelfUpdatedAt}}, {{.L.Ago .Node.SelfUpdatedAt}}
-	{{.L.Loc "ago" "ru" "назад"}}
-</span>
-{{else}}
-{{if .L.Is "ru"}}
-Нет данных (пока не получилось связаться с нодой).
-{{else}}
-No data (has not connected to the node yet).
 {{end}}
 {{end}}
 

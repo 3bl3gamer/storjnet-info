@@ -144,23 +144,29 @@ func StartNodesSelfDataFetcher(nodesInChan chan *SelfUpdate_Kad, nodesOutChan ch
 				outNode := &SelfUpdate_Self{SelfUpdate_Kad: *node}
 
 				if err != nil {
-					if st, ok := status.FromError(err); ok {
-						found := false
-						for _, item := range knownSelfErrors {
-							if strings.HasSuffix(st.Message(), item.Suffix) {
-								item.Count++
-								found = true
-								break
-							}
-						}
-						if !found {
-							logWarn("SELF-FETCH", "%s", err)
-						}
+					st, ok := status.FromError(err)
+					if ok && strings.HasSuffix(st.Message(), "info requested from untrusted peer") {
+						outNode.AccessIsDenied = true
+						atomic.AddInt64(&countOk, 1)
 					} else {
-						logWarn("SELF-FETCH", "strange reason: %s", err)
+						if ok {
+							found := false
+							for _, item := range knownSelfErrors {
+								if strings.HasSuffix(st.Message(), item.Suffix) {
+									item.Count++
+									found = true
+									break
+								}
+							}
+							if !found {
+								logWarn("SELF-FETCH", "%s", err)
+							}
+						} else {
+							logWarn("SELF-FETCH", "strange reason: %s", err)
+						}
+						outNode.SelfUpdateErr = err
+						atomic.AddInt64(&countErrTotal, 1)
 					}
-					outNode.SelfUpdateErr = err
-					atomic.AddInt64(&countErrTotal, 1)
 				} else {
 					outNode.SelfParams = info
 					atomic.AddInt64(&countOk, 1)

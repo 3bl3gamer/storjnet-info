@@ -74,3 +74,17 @@
 	</body>
 </html>
 {{ end }}
+
+{{define "feature_disabled"}}
+<p class="warn">
+	{{if .L.Is "ru"}}
+	С версии v0.17.0 ноды <a href="https://github.com/storj/storj/releases/tag/v0.17.0">перестали</a>
+	отдавать информацию о себе недоверенным сателлитам, поэтому статистику
+	по версиям, объёмам и типам нод обновлять больше не получится.
+	{{else}}
+	Since version v0.17.0 nodes <a href="https://github.com/storj/storj/releases/tag/v0.17.0">have restriced</a>
+	information access to untrusted satellites,
+	therefore, statistics on versions, volumes and node types can no longer be updated.
+	{{end}}
+</p>
+{{end}}

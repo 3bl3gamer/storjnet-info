@@ -13,8 +13,6 @@ require (
 	github.com/lib/pq v1.0.0
 	github.com/spf13/cobra v0.0.3
 	github.com/zeebo/errs v1.2.1-0.20190617123220-06a113fed680
-	google.golang.org/grpc v1.22.0
-	storj.io/storj v0.16.1
+	google.golang.org/grpc v1.22.1
+	storj.io/storj v0.17.0
 )
-
-replace github.com/go-pg/pg => /home/zblzgamer/git/pg

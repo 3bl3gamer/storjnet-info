@@ -175,8 +175,9 @@ type SelfUpdate_Kad struct {
 
 type SelfUpdate_Self struct {
 	SelfUpdate_Kad
-	SelfParams    *pb.NodeInfoResponse
-	SelfUpdateErr error
+	AccessIsDenied bool
+	SelfParams     *pb.NodeInfoResponse
+	SelfUpdateErr  error
 }
 
 type NodeLocation struct {
@@ -232,6 +233,7 @@ func scanCompositeTrioStr(val interface{}) (string, string, string, string, erro
 func scanCompositeItemInt64(itemStr, str string) (int64, error) {
 	val, err := strconv.ParseInt(itemStr, 10, 64)
 	if err != nil {
+		panic("we")
 		return 0, merry.Errorf("wrong int '%s' in %s", itemStr, str)
 	}
 	return val, nil
