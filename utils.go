@@ -176,6 +176,7 @@ type SelfUpdate_Kad struct {
 type SelfUpdate_Self struct {
 	SelfUpdate_Kad
 	AccessIsDenied bool
+	VersionHint    string
 	SelfParams     *pb.NodeInfoResponse
 	SelfUpdateErr  error
 }

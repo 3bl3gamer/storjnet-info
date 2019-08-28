@@ -147,6 +147,12 @@ func StartNodesSelfDataFetcher(nodesInChan chan *SelfUpdate_Kad, nodesOutChan ch
 					st, ok := status.FromError(err)
 					if ok && strings.HasSuffix(st.Message(), "info requested from untrusted peer") {
 						outNode.AccessIsDenied = true
+						outNode.VersionHint = "v0.17.0"
+						atomic.AddInt64(&countOk, 1)
+					} else
+					if ok && strings.Index(st.Message(), "rpc error: code = PermissionDenied desc = untrusted peer") != -1 {
+						outNode.AccessIsDenied = true
+						outNode.VersionHint = "v0.19.0"
 						atomic.AddInt64(&countOk, 1)
 					} else {
 						if ok {

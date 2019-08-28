@@ -115,11 +115,12 @@ func StartNodesSelfDataSaver(db *pg.DB, selfDataChan chan *SelfUpdate_Self, chun
 						ON CONFLICT (id) DO UPDATE SET
 							self_params = CASE
 								WHEN ?
-								THEN jsonb_set(COALESCE(nodes.self_params, '{"version":null}'), '{version}', '{"version": "v0.17.0"}')
+								THEN jsonb_set(COALESCE(nodes.self_params, '{"version":null}'), '{version}', ?)
 								ELSE COALESCE(nodes.self_params, EXCLUDED.self_params)
 							END,
 							self_updated_at = NOW()
-						RETURNING xmax`, node.ID, node.SelfParams, node.AccessIsDenied)
+						RETURNING xmax`,
+						node.ID, node.SelfParams, node.AccessIsDenied, `{"version": "`+node.VersionHint+`"}`)
 					if err != nil {
 						return merry.Wrap(err)
 					}
