@@ -9,8 +9,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/go-pg/migrations"
-	"github.com/go-pg/pg"
+	"github.com/go-pg/migrations/v7"
+	"github.com/go-pg/pg/v9"
 )
 
 const usageText = `This program runs command on the db. Supported commands are:
@@ -72,13 +72,13 @@ func (d dbLogger) BeforeQuery(ctx context.Context, event *pg.QueryEvent) (contex
 	return ctx, nil
 }
 
-func (d dbLogger) AfterQuery(ctx context.Context, event *pg.QueryEvent) (context.Context, error) {
+func (d dbLogger) AfterQuery(ctx context.Context, event *pg.QueryEvent) error {
 	query, err := event.FormattedQuery()
 	if err != nil {
-		return ctx, err
+		return err
 	}
 	log.Printf("\033[36m%s\n\033[34m%s\033[39m", time.Since(event.StartTime), align(query))
-	return ctx, nil
+	return nil
 }
 
 func main() {

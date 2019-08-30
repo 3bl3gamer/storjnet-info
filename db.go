@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/ansel1/merry"
-	"github.com/go-pg/pg"
+	"github.com/go-pg/pg/v9"
 	"storj.io/storj/pkg/storj"
 )
 

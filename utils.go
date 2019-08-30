@@ -13,8 +13,8 @@ import (
 
 	"github.com/abh/geoip"
 	"github.com/ansel1/merry"
-	"github.com/go-pg/pg"
-	"github.com/go-pg/pg/types"
+	"github.com/go-pg/pg/v9/types"
+	"github.com/go-pg/pg/v9"
 	"github.com/gogo/protobuf/jsonpb"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
