@@ -11,5 +11,5 @@ require (
 	github.com/julienschmidt/httprouter v1.2.0
 	github.com/spf13/cobra v0.0.3
 	google.golang.org/grpc v1.23.0
-	storj.io/storj v0.19.5
+	storj.io/storj v0.19.7
 )

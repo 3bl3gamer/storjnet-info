@@ -366,5 +366,5 @@ honnef.co/go/tools v0.0.0-20190102054323-c2f93a96b099/go.mod h1:rf3lG4BRIbNafJWh
 honnef.co/go/tools v0.0.0-20190523083050-ea95bdfd59fc/go.mod h1:rf3lG4BRIbNafJWhAfAdb/ePZxsR/4RtNHQocxwk9r4=
 mellium.im/sasl v0.2.1 h1:nspKSRg7/SyO0cRGY71OkfHab8tf9kCts6a6oTDut0w=
 mellium.im/sasl v0.2.1/go.mod h1:ROaEDLQNuf9vjKqE1SrAfnsobm2YKXT1gnN1uDp1PjQ=
-storj.io/storj v0.19.5 h1:uOKARwv+KzgQh4OgGEcA1D5XzUBCgWou/26iujVQHCA=
-storj.io/storj v0.19.5/go.mod h1:0FL2L6RULLvO+iiVUSzV4FKVaBvoyY67p5LB4sS7Vvk=
+storj.io/storj v0.19.7 h1:9/UBu1y050i6uaAC2OsJ/jb97y10QGbPNg7Ikn29lCg=
+storj.io/storj v0.19.7/go.mod h1:0FL2L6RULLvO+iiVUSzV4FKVaBvoyY67p5LB4sS7Vvk=
