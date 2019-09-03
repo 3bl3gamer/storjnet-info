@@ -9,6 +9,9 @@ May go down after upcoming [Kademlia removal](https://storj.io/blog/2019/08/so-y
 createuser storjinfo -P
 createdb storjinfo_db -O storjinfo --echo
 psql -U storjinfo storjinfo_db -c "CREATE SCHEMA storjinfo"
+
+go run migrations/*.go init
+go run migrations/*.go
 ```
 
 ## Building
