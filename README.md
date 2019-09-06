@@ -22,5 +22,5 @@ Start storj node listening on `--server.private-address 127.0.0.1:7778` (it's de
 
 Then do `./storj3stat run`.
 
-# Start HTTP server
+## Start HTTP server
 `./storj3stat start-http-server`

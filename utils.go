@@ -13,8 +13,8 @@ import (
 
 	"github.com/abh/geoip"
 	"github.com/ansel1/merry"
-	"github.com/go-pg/pg/v9/types"
 	"github.com/go-pg/pg/v9"
+	"github.com/go-pg/pg/v9/types"
 	"github.com/gogo/protobuf/jsonpb"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
@@ -234,7 +234,6 @@ func scanCompositeTrioStr(val interface{}) (string, string, string, string, erro
 func scanCompositeItemInt64(itemStr, str string) (int64, error) {
 	val, err := strconv.ParseInt(itemStr, 10, 64)
 	if err != nil {
-		panic("we")
 		return 0, merry.Errorf("wrong int '%s' in %s", itemStr, str)
 	}
 	return val, nil
