@@ -267,7 +267,7 @@ charts['global-node-activity-counts-chart'] = setupChart(function(wrap, canvasEx
 	let dailyIncs = getDailyIncs(startTime, endTime, stamps, countHours[24])
 
 	let borderArrays = [countHours[hours[0]], countHours[hours[hours.length - 1]]]
-	let [bottomValue, topValue] = minMaxPercMulti(borderArrays, 0.02)
+	let [bottomValue, topValue] = minMaxPercMulti(borderArrays, 0.03)
 	let d = (topValue - bottomValue) * 0.01
 	bottomValue -= d
 	topValue += d
