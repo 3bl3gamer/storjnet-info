@@ -55,9 +55,9 @@
 	{{else}}
 	<span class="warn">
 		{{if .L.Is "ru"}}
-		ещё {{.SubnetNeighborsCount}} {{.L.Pluralize .SubnetNeighborsCount "нода" "ноды" "нод"}} находятся в той же /24-подсети
+		ещё {{.SubnetNeighborsCount}} {{.L.Pluralize .SubnetNeighborsCount "нода находится" "ноды находятся" "нод нахоятся"}} в той же /24-подсети
 		{{else}}
-		{{.SubnetNeighborsCount}} more {{.L.Pluralize .SubnetNeighborsCount "node" "nodes"}} are in the same /24-subnet
+		{{.SubnetNeighborsCount}} more {{.L.Pluralize .SubnetNeighborsCount "node is" "nodes are"}} in the same /24-subnet
 		{{end}}
 	</span>
 	{{end}}
