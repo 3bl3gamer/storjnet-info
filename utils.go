@@ -200,7 +200,7 @@ func (l *NodeLocation) Value() (driver.Value, error) {
 
 type KadDataExt struct {
 	Node      *pb.Node
-	IPAddress string
+	IPAddress net.IP
 	Location  *NodeLocation `sql:"composite:node_Location"`
 }
 

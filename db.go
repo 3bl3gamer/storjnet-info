@@ -36,6 +36,10 @@ func StartNodesKadDataSaver(db *pg.DB, kadDataChan chan *KadDataExt, chunkSize i
 
 			for _, nodeI := range items {
 				node := nodeI.(*KadDataExt)
+				ip := sql.NullString{Valid: false} //go-pg пытается вставить айпи как строку и иногда пытется вставить "<nil>"
+				if node.IPAddress != nil {
+					ip = sql.NullString{String: node.IPAddress.String(), Valid: true}
+				}
 				var xmax string
 				_, err := tx.QueryOne(&xmax, `
 					INSERT INTO nodes (id, kad_params, last_ip, location, kad_updated_at, kad_checked_at)
@@ -46,7 +50,7 @@ func StartNodesKadDataSaver(db *pg.DB, kadDataChan chan *KadDataExt, chunkSize i
 						location = COALESCE(nodes.location, EXCLUDED.location),
 						kad_updated_at = NOW(),
 						kad_checked_at = GREATEST(nodes.kad_checked_at, EXCLUDED.kad_checked_at)
-					RETURNING xmax`, node.Node.Id, node.Node, node.IPAddress, node.Location)
+					RETURNING xmax`, node.Node.Id, node.Node, ip, node.Location)
 				if err != nil {
 					return merry.Wrap(err)
 				}
