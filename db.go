@@ -46,8 +46,8 @@ func StartNodesKadDataSaver(db *pg.DB, kadDataChan chan *KadDataExt, chunkSize i
 					VALUES (?, ?, ?, ?, NOW(), NOW())
 					ON CONFLICT (id) DO UPDATE SET
 						kad_params = EXCLUDED.kad_params,
-						last_ip = COALESCE(nodes.last_ip, EXCLUDED.last_ip),
-						location = COALESCE(nodes.location, EXCLUDED.location),
+						last_ip = COALESCE(EXCLUDED.last_ip, nodes.last_ip),
+						location = COALESCE(EXCLUDED.location, nodes.location),
 						kad_updated_at = NOW(),
 						kad_checked_at = GREATEST(nodes.kad_checked_at, EXCLUDED.kad_checked_at)
 					RETURNING xmax`, node.Node.Id, node.Node, ip, node.Location)

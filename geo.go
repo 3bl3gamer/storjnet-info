@@ -30,13 +30,15 @@ func StartLocationSearcher(gdb *geoip.GeoIP, kadDataRawChan chan *pb.Node, kadDa
 					// пытаемся найти IPv4-адрес
 					for _, ipStr := range ips {
 						ip := net.ParseIP(ipStr)
-						if ip != nil && len(ip) == net.IPv4len {
+						if ip != nil && ip.To4() != nil {
 							node.IPAddress = ip
 							break
 						}
 					}
 					// если такого нет, берём первый попавшися
-					node.IPAddress = net.ParseIP(ips[0])
+					if node.IPAddress == nil {
+						node.IPAddress = net.ParseIP(ips[0])
+					}
 				} else {
 					logWarn("GEO-LOOKUP", "addr '%s' lookup error: %s", nodeRaw.Address.Address, err)
 				}

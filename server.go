@@ -411,9 +411,9 @@ func HandleNode(wr http.ResponseWriter, r *http.Request, ps httprouter.Params) e
 		_, err = db.QueryOne(&subnetNeighborsCount, `
 			SELECT count(*) FROM nodes
 			WHERE node_last_ip_subnet(last_ip) = node_last_ip_subnet(?)
-			  AND last_ip != ?
+			  AND id != ?
 			  AND self_updated_at > NOW() - INTERVAL '24 hours'
-			`, node.LastIP, node.LastIP)
+			`, node.LastIP, node.ID)
 		if err != nil {
 			return merry.Wrap(err)
 		}
