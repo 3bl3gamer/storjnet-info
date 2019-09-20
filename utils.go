@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"math"
+	"net"
 	"os"
 	"strconv"
 	"strings"
@@ -198,8 +199,9 @@ func (l *NodeLocation) Value() (driver.Value, error) {
 }
 
 type KadDataExt struct {
-	Node     *pb.Node
-	Location *NodeLocation `sql:"composite:node_Location"`
+	Node      *pb.Node
+	IPAddress string
+	Location  *NodeLocation `sql:"composite:node_Location"`
 }
 
 func scanCompositePairStr(val interface{}) (string, string, string, error) {
@@ -446,6 +448,7 @@ type Node struct {
 	SelfParams    *pb.NodeInfoResponse
 	KadUpdatedAt  time.Time
 	SelfUpdatedAt time.Time
+	LastIP        net.IP
 	Location      *NodeLocation `sql:"composite:node_Location"`
 }
 

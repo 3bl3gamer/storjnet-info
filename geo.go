@@ -22,19 +22,18 @@ func StartLocationSearcher(gdb *geoip.GeoIP, kadDataRawChan chan *pb.Node, kadDa
 	go func() {
 		defer worker.Done()
 		for nodeRaw := range kadDataRawChan {
-			node := &KadDataExt{Node: nodeRaw, Location: nil}
-			ip := nodeRaw.LastIp
-			if ip == "" {
+			node := &KadDataExt{Node: nodeRaw, IPAddress: nodeRaw.LastIp, Location: nil}
+			if node.IPAddress == "" {
 				host, _ := splitToHostAndPort(nodeRaw.Address.Address)
 				ips, err := net.LookupHost(host)
 				if err == nil {
-					ip = ips[0]
+					node.IPAddress = ips[0]
 				} else {
 					logWarn("GEO-LOOKUP", "addr '%s' lookup error: %s", nodeRaw.Address.Address, err)
 				}
 			}
-			if ip != "" {
-				if rec := gdb.GetRecord(ip); rec != nil {
+			if node.IPAddress != "" {
+				if rec := gdb.GetRecord(node.IPAddress); rec != nil {
 					// fmt.Printf("%#v\n", rec)
 					node.Location = &NodeLocation{
 						Country:   rec.CountryName,

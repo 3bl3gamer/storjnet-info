@@ -34,17 +34,19 @@ func StartNodesKadDataSaver(db *pg.DB, kadDataChan chan *KadDataExt, chunkSize i
 				return merry.Wrap(err)
 			}
 
-			for _, node := range items {
+			for _, nodeI := range items {
+				node := nodeI.(*KadDataExt)
 				var xmax string
 				_, err := tx.QueryOne(&xmax, `
-					INSERT INTO nodes (id, kad_params, location, kad_updated_at, kad_checked_at)
-					VALUES (?, ?, ?, NOW(), NOW())
+					INSERT INTO nodes (id, kad_params, last_ip, location, kad_updated_at, kad_checked_at)
+					VALUES (?, ?, ?, ?, NOW(), NOW())
 					ON CONFLICT (id) DO UPDATE SET
 						kad_params = EXCLUDED.kad_params,
+						last_ip = COALESCE(nodes.last_ip, EXCLUDED.last_ip),
 						location = COALESCE(nodes.location, EXCLUDED.location),
 						kad_updated_at = NOW(),
 						kad_checked_at = GREATEST(nodes.kad_checked_at, EXCLUDED.kad_checked_at)
-					RETURNING xmax`, node.(*KadDataExt).Node.Id, node.(*KadDataExt).Node, node.(*KadDataExt).Location)
+					RETURNING xmax`, node.Node.Id, node.Node, node.IPAddress, node.Location)
 				if err != nil {
 					return merry.Wrap(err)
 				}

@@ -391,7 +391,9 @@ func HandleNode(wr http.ResponseWriter, r *http.Request, ps httprouter.Params) e
 	}
 
 	node := &Node{ID: nodeID}
-	err = db.Model(node).Column("created_at", "kad_params", "kad_updated_at", "self_updated_at", "self_params", "location").Where("id = ?", nodeID).Select()
+	err = db.Model(node).
+		Column("created_at", "kad_params", "kad_updated_at", "self_updated_at", "self_params", "last_ip", "location").
+		WherePK().Select()
 	if err == pg.ErrNoRows {
 		appendFileString("unknown_nodes_log.txt", time.Now().Format("2006-01-02 15:04:05")+" "+node.ID.String()+"\n")
 		return render(wr, r, http.StatusBadRequest, "node.html", "base", map[string]interface{}{
@@ -402,6 +404,19 @@ func HandleNode(wr http.ResponseWriter, r *http.Request, ps httprouter.Params) e
 	}
 	if err != nil {
 		return merry.Wrap(err)
+	}
+
+	subnetNeighborsCount := -1
+	if node.LastIP != nil {
+		_, err = db.QueryOne(&subnetNeighborsCount, `
+			SELECT count(*) FROM nodes
+			WHERE node_last_ip_subnet(last_ip) = node_last_ip_subnet(?)
+			  AND last_ip != ?
+			  AND self_updated_at > NOW() - INTERVAL '24 hours'
+			`, node.LastIP, node.LastIP)
+		if err != nil {
+			return merry.Wrap(err)
+		}
 	}
 
 	query := r.URL.Query()
@@ -419,14 +434,15 @@ func HandleNode(wr http.ResponseWriter, r *http.Request, ps httprouter.Params) e
 	statsNextMonthTime := statsTimeFrom.AddDate(0, 1, 0)
 
 	return render(wr, r, http.StatusOK, "node.html", "base", map[string]interface{}{
-		"NodeIDStr":          node.ID.String(),
-		"Node":               node,
-		"NodeHistory":        GroupNodeHistories(dailyHistories),
-		"NodeType_STORAGE":   pb.NodeType_STORAGE,
-		"StatsTimeFrom":      statsTimeFrom,
-		"StatsPrevMonthTime": statsPrevMonthTime,
-		"StatsNextMonthTime": statsNextMonthTime,
-		"Query":              QueryExt{query},
+		"NodeIDStr":            node.ID.String(),
+		"Node":                 node,
+		"NodeHistory":          GroupNodeHistories(dailyHistories),
+		"NodeType_STORAGE":     pb.NodeType_STORAGE,
+		"StatsTimeFrom":        statsTimeFrom,
+		"StatsPrevMonthTime":   statsPrevMonthTime,
+		"StatsNextMonthTime":   statsNextMonthTime,
+		"SubnetNeighborsCount": subnetNeighborsCount,
+		"Query":                QueryExt{query},
 	})
 }
 
