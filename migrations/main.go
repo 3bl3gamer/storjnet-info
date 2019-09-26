@@ -86,7 +86,7 @@ func main() {
 	dbname := flag.String("dbname", "storjinfo_db", "database name")
 	flag.Parse()
 
-	db := pg.Connect(&pg.Options{User: "storjinfo", Password: "storjinfo", Database: *dbname})
+	db := pg.Connect(&pg.Options{User: "storjinfo", Password: "storj", Database: *dbname})
 	db.AddQueryHook(dbLogger{})
 
 	migrations.SetTableName("storjinfo.gopg_migrations")
