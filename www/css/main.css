@@ -16,7 +16,8 @@
 .warn {
 	background-color: #ff9;
 }
-.ok, .warn {
+.ok,
+.warn {
 	padding: 1px;
 	border-radius: 2px;
 }
@@ -238,4 +239,11 @@ h1.node-id,
 }
 .month-chart[data-kind='node-activity-chart'] .zoom-box-canvas.touch {
 	height: 96px;
+}
+
+#mapWrap {
+	position: relative;
+	width: 100%;
+	height: 384px;
+	background-color: #eee;
 }

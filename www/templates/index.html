@@ -46,33 +46,9 @@ Overall stats
 </p>
 <div class="month-chart" data-kind="global-node-activity-counts-chart" data-hour-label='{{.L.Loc "h" "ru" "ч"}}'></div>
 
-<h2>{{.L.Loc "Versions" "ru" "Версии" }}</h2>
-<p>
-	<table>
-		<thead>
-			<tr>
-				<td>{{.L.Loc "Version" "ru" "Версия" }}</td>
-				<td>{{.L.Loc "Nodes" "ru" "Кол-во" }}</td>
-			</tr>
-		</thead>
-		{{range .LastStat.Versions}}
-		<tr>
-			<td>{{if eq .Version "v0.19.0"}}v0.19.0+{{else if .Version}}{{.Version}}{{else}}{{$.L.Loc "N/a" "ru" "Н/д"}}{{end}}</td>
-			<td>{{.Count}}</td>
-		</tr>
-		{{end}}
-	</table>
-	<span class="dim small">
-		{{if .L.Is "ru"}}
-		Кто забыл обновиться?
-		{{else}}
-		Who forgot to update?
-		{{end}}
-	</span>
-</p>
-<div class="month-chart" data-kind="global-node-version-counts-chart"></div>
-
-<h2>{{.L.Loc "Countries" "ru" "Страны"}}</h2>
+<h2>{{.L.Loc "Nodes location" "ru" "Расположение нод"}}</h2>
+<div id="mapWrap" data-hint-control-text='{{.L.Loc "hold Ctrl to zoom" "ru" "зажмите Ctrl для зума"}}'
+	data-hint-two-fingers-text='{{.L.Loc "use two fingers to drag" "ru" "для перетаскивания жмите двумя пальцами"}}'></div>
 <p>
 	<table>
 		<thead>
@@ -108,6 +84,32 @@ Overall stats
 	{{end}}
 </p>
 
+<h2>{{.L.Loc "Versions" "ru" "Версии" }}</h2>
+<p>
+	<table>
+		<thead>
+			<tr>
+				<td>{{.L.Loc "Version" "ru" "Версия" }}</td>
+				<td>{{.L.Loc "Nodes" "ru" "Кол-во" }}</td>
+			</tr>
+		</thead>
+		{{range .LastStat.Versions}}
+		<tr>
+			<td>{{if eq .Version "v0.19.0"}}v0.19.0+{{else if .Version}}{{.Version}}{{else}}{{$.L.Loc "N/a" "ru" "Н/д"}}{{end}}</td>
+			<td>{{.Count}}</td>
+		</tr>
+		{{end}}
+	</table>
+	<span class="dim small">
+		{{if .L.Is "ru"}}
+		Кто забыл обновиться?
+		{{else}}
+		Who forgot to update?
+		{{end}}
+	</span>
+</p>
+<div class="month-chart" data-kind="global-node-version-counts-chart"></div>
+
 <h2>{{.L.Loc "IDs difficulties" "ru" "Сложности идентификаторов"}}</h2>
 <p>
 	<table style="font-size:75%; max-width:512px">
@@ -122,7 +124,8 @@ Overall stats
 		<tr style="border-bottom:1px solid white">
 			<td style="padding: 0 15px">{{.Difficulty}}</td>
 			<td style="padding: 0 0; text-align:left; position: relative; width: 100%">
-				<div style="background: gray; display:inline-block; text-align:right; color: white; width:{{percent .Count $maxCount}}%; min-width: 1px">
+				<div
+					style="background: gray; display:inline-block; text-align:right; color: white; width:{{percent .Count $maxCount}}%; min-width: 1px">
 					{{if lt .Count 45}}&nbsp;{{else}}{{.Count}}&thinsp;{{end}}
 				</div>
 				{{if lt .Count 45}}{{.Count}}{{end}}
@@ -227,4 +230,18 @@ Overall stats
 	var globalHistoryData = {{.GlobalHistoryData }}
 	for (let i = 0; i < globalHistoryData.stamps.length; i++) globalHistoryData.stamps[i] *= 1000
 </script>
+{{end}}
+
+{{define "extra_scripts"}}
+<!-- these map sources remain almost untouched from my old project; don't blame me much for them; they'll be refactored... one day -->
+<script src="js/map/core/control.js"></script>
+<script src="js/map/core/control_layer.js"></script>
+<script src="js/map/core/tile_layer.js"></script>
+<script src="js/map/core/tile_container.js"></script>
+<!-- <script src="js/map/location_layer.js"></script>
+<script src="js/map/url_layer.js"></script> -->
+<script src="js/map/core/map.js"></script>
+<script src="js/map/glMatrix_extracted.js"></script>
+<script src="js/map/points_layer.js"></script>
+<script src="js/map/map_main.js"></script>
 {{end}}

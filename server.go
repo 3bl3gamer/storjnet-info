@@ -235,6 +235,7 @@ func extractMonthStartTimeUTC(query url.Values) time.Time {
 }
 
 func getTemplate(path string) (*template.Template, error) {
+	// TODO: concurrency
 	if envMode == "prod" {
 		if tmpl, ok := templateCache[path]; ok {
 			return tmpl, nil
@@ -477,6 +478,28 @@ func HandleLang(wr http.ResponseWriter, r *http.Request, ps httprouter.Params) e
 	return nil
 }
 
+func HandleNodeLocations(wr http.ResponseWriter, r *http.Request, ps httprouter.Params) error {
+	db := r.Context().Value(ctxKey("db")).(*pg.DB)
+
+	var nodeLocations []struct{ Lon, Lat float32 }
+	_, err := db.Query(&nodeLocations, "SELECT (location).longitude AS lon, (location).latitude AS lat FROM nodes WHERE location IS NOT NULL")
+	if err != nil {
+		return merry.Wrap(err)
+	}
+
+	buf := make([]byte, len(nodeLocations)*4)
+	for i, loc := range nodeLocations {
+		lon := uint16((180 + loc.Lon) / 360 * 65536)
+		lat := uint16((90 + loc.Lat) / 180 * 65536)
+		buf[i*4+0] = byte(lon % 256)
+		buf[i*4+1] = byte(lon >> 8)
+		buf[i*4+2] = byte(lat % 256)
+		buf[i*4+3] = byte(lat >> 8)
+	}
+	_, err = wr.Write(buf)
+	return merry.Wrap(err)
+}
+
 func StartHTTPServer(address string) error {
 	db := makePGConnection()
 
@@ -485,6 +508,7 @@ func StartHTTPServer(address string) error {
 	router.Handle("GET", "/@:nodeID", wrap(db, HandleNode))
 	router.Handle("GET", "/search", wrap(db, HandleSearch))
 	router.Handle("POST", "/lang", wrap(db, HandleLang))
+	router.Handle("GET", "/node_locations.bin", wrap(db, HandleNodeLocations))
 	router.Handle("GET", "/explode", wrap(db, HandleExplode))
 
 	router.ServeFiles("/js/*filepath", http.Dir("www/js"))

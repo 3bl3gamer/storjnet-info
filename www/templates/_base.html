@@ -70,6 +70,7 @@
 		</script>
 		{{block "js_payload" .}}{{end}}
 		<script type="module" src="/js/main.js"></script>
+		{{block "extra_scripts" .}}{{end}}
 		{{block "local_html_content" .}}{{end}}
 	</body>
 </html>
