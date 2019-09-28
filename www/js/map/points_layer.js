@@ -1,4 +1,5 @@
 function PointsLayer() {
+	this.map = null
 	this.locs = null
 	this.canvas = null
 	this.gl = null
@@ -66,6 +67,7 @@ PointsLayer.prototype.setLocations = function(locs) {
 		this.locs[i][0] += r*Math.cos(a)*2
 		this.locs[i][1] += r*Math.sin(a)
 	}
+	this.map.requestRedraw()
 }
 
 PointsLayer.prototype._initShader = function() {
@@ -115,6 +117,7 @@ PointsLayer.prototype._resizeIfNeed = function(map) {
 }
 
 PointsLayer.prototype.onregister = function(map) {
+	this.map = map
 	this.canvas = document.createElement('canvas')
 	this.canvas.style.position = 'absolute'
 	this.canvas.style.width = '100%'
@@ -122,6 +125,7 @@ PointsLayer.prototype.onregister = function(map) {
 	map.div.appendChild(this.canvas)
 }
 PointsLayer.prototype.onunregister = function(map) {
+	this.map = null
 	map.div.removeChild(this.canvas)
 	this.canvas = null
 }
