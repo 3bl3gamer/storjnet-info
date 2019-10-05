@@ -382,13 +382,12 @@ type GlobalNodesHistoryData struct {
 	CountVersions map[string][]int64 `json:"countVersions"`
 }
 
-func LoadGlobalNodesHistoryData(db *pg.DB) (*GlobalNodesHistoryData, error) {
-	// anchorTime := time.Now().In(time.UTC)
-	// year, month, _ := anchorTime.Date()
-	// monthStart := time.Date(year, month, 1, 0, 0, 0, 0, time.UTC)
-	// monthEnd := monthStart.AddDate(0, 1, 0)
-	endTime := time.Now().In(time.UTC)
+func LoadGlobalNodesHistoryData(db *pg.DB, daysBack int) (*GlobalNodesHistoryData, error) {
+	endTime := time.Date(2019, 10, 6, 0, 0, 0, 0, time.UTC) //time.Now().In(time.UTC)
 	startTime := endTime.AddDate(0, -1, 0)
+	if daysBack > 0 {
+		startTime = endTime.AddDate(0, 0, -daysBack)
+	}
 
 	var globalStats []*GlobalStat
 	err := db.Model(&globalStats).Where("created_at >= ? AND created_at < ?", startTime, endTime).Order("id").Select()

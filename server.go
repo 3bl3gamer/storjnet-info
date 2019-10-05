@@ -345,7 +345,8 @@ func HandleIndex(wr http.ResponseWriter, r *http.Request, ps httprouter.Params) 
 		return merry.Wrap(err)
 	}
 
-	globalHistoryData, err := LoadGlobalNodesHistoryData(db)
+	days, _ := strconv.Atoi(r.URL.Query().Get("days"))
+	globalHistoryData, err := LoadGlobalNodesHistoryData(db, days)
 	if err != nil {
 		return merry.Wrap(err)
 	}
@@ -359,7 +360,7 @@ func HandleIndex(wr http.ResponseWriter, r *http.Request, ps httprouter.Params) 
 		SELECT node_type, ids FROM (
 			SELECT (self_params->'type')::int AS node_type, array_agg(id ORDER BY id) AS ids
 			FROM nodes
-			WHERE self_updated_at > NOW() - INTERVAL '24 hours'
+			WHERE self_updated_at > '2019-10-06T00:00Z'::timestamptz - INTERVAL '24 hours' --NOW()
 			AND self_params->'type' IS NOT NULL AND (self_params->'type')::int != ?
 			GROUP BY (self_params->'type')::int
 		) AS tt
@@ -375,6 +376,7 @@ func HandleIndex(wr http.ResponseWriter, r *http.Request, ps httprouter.Params) 
 		"NodeIDsWithType":   nodeIDsWithType,
 		"NodeType_STORAGE":  pb.NodeType_STORAGE,
 		"GlobalHistoryData": globalHistoryData,
+		"ShowChartsClose":   days == 125,
 	})
 }
 

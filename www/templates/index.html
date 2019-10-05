@@ -46,6 +46,7 @@ Overall stats
 </p>
 <div class="month-chart" data-kind="global-node-activity-counts-chart" data-hour-label='{{.L.Loc "h" "ru" "ч"}}'></div>
 
+{{if not .ShowChartsClose}}
 <h2>{{.L.Loc "Nodes location" "ru" "Расположение нод"}}</h2>
 <div id="mapWrap" data-hint-control-text='{{.L.Loc "hold Ctrl to zoom" "ru" "зажмите Ctrl для зума"}}'
 	data-hint-two-fingers-text='{{.L.Loc "use two fingers to drag" "ru" "для перетаскивания жмите двумя пальцами"}}'></div>
@@ -83,8 +84,10 @@ Overall stats
 	{{.LastStat.Countries.UnknownCount}} {{.L.Pluralize .LastStat.Countries.UnknownCount "node" "nodes"}} could not be located.
 	{{end}}
 </p>
+{{end}}
 
 <h2>{{.L.Loc "Versions" "ru" "Версии" }}</h2>
+{{if not .ShowChartsClose}}
 <p>
 	<table>
 		<thead>
@@ -108,8 +111,10 @@ Overall stats
 		{{end}}
 	</span>
 </p>
+{{end}}
 <div class="month-chart" data-kind="global-node-version-counts-chart"></div>
 
+{{if not .ShowChartsClose}}
 <h2>{{.L.Loc "IDs difficulties" "ru" "Сложности идентификаторов"}}</h2>
 <p>
 	<table style="font-size:75%; max-width:512px">
@@ -224,6 +229,7 @@ Overall stats
 	{{end}}
 </p>
 {{end}}
+{{end}}
 
 {{define "js_payload"}}
 <script>
@@ -233,6 +239,7 @@ Overall stats
 {{end}}
 
 {{define "extra_scripts"}}
+{{if not .ShowChartsClose}}
 <!-- these map sources remain almost untouched from my old project; don't blame me much for them; they'll be refactored... one day -->
 <script src="js/map/core/control.js"></script>
 <script src="js/map/core/control_layer.js"></script>
@@ -244,4 +251,5 @@ Overall stats
 <script src="js/map/glMatrix_extracted.js"></script>
 <script src="js/map/points_layer.js"></script>
 <script src="js/map/map_main.js"></script>
+{{end}}
 {{end}}
