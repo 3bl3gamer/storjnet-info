@@ -8,10 +8,13 @@ import (
 	"html/template"
 	"log"
 	"math"
+	"net"
 	"net/http"
 	"net/url"
+	"os"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/ansel1/merry"
@@ -286,7 +289,17 @@ func render(wr http.ResponseWriter, r *http.Request, statusCode int, tmplName, b
 	}
 	wr.Header().Set("Content-Type", "text/html")
 	wr.WriteHeader(statusCode)
-	return merry.Wrap(tmpl.ExecuteTemplate(wr, blockName, data))
+
+	err = merry.Wrap(tmpl.ExecuteTemplate(wr, blockName, data))
+	if opErr, ok := merry.Unwrap(err).(*net.OpError); ok {
+		if ssyErr, ok := opErr.Err.(*os.SyscallError); ok {
+			if ssyErr.Err == syscall.EPIPE {
+				logWarn("SERVER", "broken pipe from "+opErr.Addr.String()) //1.13 errors.Is(err, syscall.EPIPE) ?
+				return nil
+			}
+		}
+	}
+	return err
 }
 
 type HandleExt func(wr http.ResponseWriter, r *http.Request, ps httprouter.Params) error
