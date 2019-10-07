@@ -7,7 +7,6 @@ Pingdom.
 {{end}}
 
 {{define "content"}}
-
 <style>
 	.node-ping-form {
 		display: flex;
@@ -41,25 +40,39 @@ Pingdom.
 		display: flex;
 	}
 
-	.remembered-nodes-list .item .node-id {
+	.remembered-nodes-list .item .node {
+		display: flex;
+		overflow: hidden;
+	}
+
+	.remembered-nodes-list .item .node .node-id {
 		overflow: hidden;
 		text-overflow: ellipsis;
 		margin-right: 4px;
 	}
 
-	.remembered-nodes-list .item .node-id:hover {
+	.remembered-nodes-list .item .node:hover .node-id {
 		overflow: visible;
 		background-color: white;
 		word-break: break-all;
 	}
 
-	.remembered-nodes-list .item .node-address {
-		margin-right: 4px;
+	.remembered-nodes-list .item .node .node-address {
+		margin: 0 8px;
 	}
 
 	.remembered-nodes-list .item .remove {
 		color: darkred;
 		text-decoration: none;
+		border: none;
+		background: none;
+		margin: 0;
+		padding: 0 8px;
+	}
+
+	.remembered-nodes-list .item .remove:hover {
+		/* border: 1px solid darkred; */
+		background-color: #FDD;
 	}
 
 	.log-box {
@@ -84,16 +97,33 @@ Pingdom.
 		}
 	}
 </style>
+
+<div class="remembered-nodes-list"></div>
 <p>
-	<div class="remembered-nodes-list"></div>
-	<form class="node-ping-form">
-		<input class="node-id-input" placeholder="Node ID">
-		<input class="node-address-input" placeholder="1.2.3.4:28967">
-		<input class="node-dial-button" type="button" value="Dial">
-		<input class="node-ping-button" type="button" value="Ping">
-	</form>
-	<pre class="log-box"></pre>
+	<b>Dial</b> —
+	{{if .L.Is "ru"}}
+	просто попытаться подключиться к ноде.
+	{{else}}
+	just try to connect to node.
+	{{end}}
 </p>
+<p>
+	<b>Ping</b> —
+	{{if .L.Is "ru"}}
+	подключиться и отправить пинг. Обновит <code>Last Contact</code>.
+	{{else}}
+	connect and send ping. Will update <code>Last Contact</code>.
+	{{end}}
+</p>
+<form class="node-ping-form">
+	<input class="node-id-input" placeholder="Node ID">
+	<input class="node-address-input" placeholder="1.2.3.4:28967">
+	<input class="node-dial-button" type="button" value="Dial">
+	<input class="node-ping-button" type="button" value="Ping">
+</form>
+<pre class="log-box"></pre>
+
+
 <script type="module">
 	const logBox = document.querySelector('.log-box')
 	const nodeIDInput = document.querySelector('.node-id-input')
@@ -180,22 +210,25 @@ Pingdom.
 	function updateRememberedNodesList() {
 		rememberedNodesList.innerHTML = ''
 		getRememberedNodes().forEach(node => {
-			let elem = document.createElement('a')
+			let elem = document.createElement('div')
 			elem.className = 'item'
-			elem.href = 'javascript:void(0)'
 			elem.dataset.id = node.id
 			elem.dataset.address = node.address
-			let idElem = document.createElement('div')
+			let applyElem = document.createElement('a')
+			applyElem.className = 'node'
+			applyElem.href = 'javascript:void(0)'
+			let idElem = document.createElement('span')
 			idElem.className = 'node-id'
 			idElem.textContent = node.id
-			let addressElem = document.createElement('div')
+			let addressElem = document.createElement('span')
 			addressElem.className = 'node-address'
 			addressElem.textContent = node.address
-			let removeElem = document.createElement('div')
+			applyElem.appendChild(idElem)
+			applyElem.appendChild(addressElem)
+			let removeElem = document.createElement('button')
 			removeElem.className = 'remove'
 			removeElem.textContent = '✕'
-			elem.appendChild(idElem)
-			elem.appendChild(addressElem)
+			elem.appendChild(applyElem)
 			elem.appendChild(removeElem)
 			rememberedNodesList.appendChild(elem)
 		})

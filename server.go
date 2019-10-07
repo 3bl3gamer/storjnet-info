@@ -151,12 +151,50 @@ func (l L10nUtls) Pluralize(valI interface{}, words ...string) string {
 	return pluralize(val, l.Lang, words...)
 }
 
+func langOrDefault(lang string) string {
+	if lang == "en" || lang == "ru" {
+		return lang
+	}
+	return "en"
+}
+func langFromRequest(r *http.Request) string {
+	if c, err := r.Cookie("lang"); err == nil {
+		return langOrDefault(c.Value)
+	}
+	if langs := r.Header.Get("Accept-Language"); len(langs) > 2 {
+		// TODO: maybe support smth like "Accept-Language: fr-CH, fr;q=0.9, en;q=0.8, de;q=0.7, *;q=0.5"
+		return langOrDefault(langs[:2])
+	}
+	return "en"
+}
+
 func HandleIndex(wr http.ResponseWriter, r *http.Request, ps httprouter.Params) (httputils.TemplateCtx, error) {
 	return map[string]interface{}{"FPath": "index.html"}, nil
 }
 
 func HandlePingMyNode(wr http.ResponseWriter, r *http.Request, ps httprouter.Params) (httputils.TemplateCtx, error) {
 	return map[string]interface{}{"FPath": "ping_my_node.html"}, nil
+}
+
+func HandleLang(wr http.ResponseWriter, r *http.Request, ps httprouter.Params) error {
+	if err := r.ParseForm(); err != nil {
+		return merry.Wrap(err)
+	}
+	if lang := r.Form.Get("lang"); lang != "" {
+		cookie := &http.Cookie{
+			Name:    "lang",
+			Value:   lang,
+			Path:    "/",
+			Expires: time.Now().Add(365 * time.Hour),
+		}
+		wr.Header().Add("Set-Cookie", cookie.String())
+	}
+	ref := r.Header.Get("Referer")
+	if ref == "" {
+		ref = "/"
+	}
+	http.Redirect(wr, r, ref, 303)
+	return nil
 }
 
 func HandlePingMyNodeAPI(wr http.ResponseWriter, r *http.Request, ps httprouter.Params) (interface{}, error) {
@@ -174,8 +212,11 @@ func HandlePingMyNodeAPI(wr http.ResponseWriter, r *http.Request, ps httprouter.
 		return httputils.JsonError{Code: 400, Error: "NODE_ID_DECODE_ERROR", Description: err.Error()}, nil
 	}
 
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
 	stt := time.Now()
-	conn, err := sat.Dial(params.Address, id)
+	conn, err := sat.Dial(ctx, params.Address, id)
 	if err != nil {
 		return httputils.JsonError{Code: 400, Error: "NODE_DIAL_ERROR", Description: err.Error()}, nil
 	}
@@ -185,7 +226,7 @@ func HandlePingMyNodeAPI(wr http.ResponseWriter, r *http.Request, ps httprouter.
 	var pingDuration float64
 	if !params.DialOnly {
 		stt := time.Now()
-		if err := sat.Ping(conn); err != nil {
+		if err := sat.Ping(ctx, conn); err != nil {
 			return httputils.JsonError{Code: 400, Error: "NODE_PING_ERROR", Description: err.Error()}, nil
 		}
 		pingDuration = time.Now().Sub(stt).Seconds()
@@ -210,6 +251,7 @@ func StartHTTPServer(address string) error {
 		return merry.Wrap(err)
 	}
 
+	// Config
 	wrapper := &httputils.Wrapper{
 		ShowErrorDetails: envMode == "dev",
 		ExtraChainItem: func(handle httputils.HandlerExt) httputils.HandlerExt {
@@ -224,14 +266,18 @@ func StartHTTPServer(address string) error {
 			BasePath:    baseDir + "/www/templates",
 			FuncMap:     template.FuncMap{},
 			ParamsFunc: func(r *http.Request, ctx *httputils.MainCtx, params httputils.TemplateCtx) error {
-				params["L"] = L10nUtls{"ru"}
+				params["L"] = L10nUtls{Lang: langFromRequest(r)}
 				return nil
 			},
 			LogBuild: func(path string) { log.Info().Str("path", path).Msg("building template") },
 		},
 		HandleHtml500: HandleHtml500,
 		LogError: func(err error, r *http.Request) {
+			// if errors.Is(err, syscall.EPIPE) {
+			// 	log.Warn().Str("method", r.Method).Str("path", r.URL.Path).Msg("broken pipe")
+			// } else {
 			log.Error().Stack().Err(err).Str("method", r.Method).Str("path", r.URL.Path).Msg("")
+			// }
 		},
 	}
 
@@ -243,6 +289,7 @@ func StartHTTPServer(address string) error {
 	// Routes
 	route("GET", "/", HandleIndex)
 	route("GET", "/ping_my_node", HandlePingMyNode)
+	route("POST", "/lang", HandleLang)
 	route("POST", "/api/ping_my_node", HandlePingMyNodeAPI)
 	route("GET", "/api/explode", func(wr http.ResponseWriter, r *http.Request, ps httprouter.Params) (interface{}, error) {
 		return nil, merry.New("test API error")
@@ -253,6 +300,7 @@ func StartHTTPServer(address string) error {
 	router.ServeFiles("/js/*filepath", http.Dir(baseDir+"/www/js"))
 	router.ServeFiles("/css/*filepath", http.Dir(baseDir+"/www/css"))
 
+	// Server
 	log.Info().Msg("starting server on " + address)
 	return merry.Wrap(http.ListenAndServe(address, router))
 }

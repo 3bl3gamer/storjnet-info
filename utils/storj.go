@@ -33,24 +33,24 @@ func (sat *Satellite) SetUp() error {
 	return nil
 }
 
-func (sat *Satellite) Dial(address string, id storj.NodeID) (*rpc.Conn, error) {
-	conn, err := sat.Dialer.DialAddressID(context.Background(), address, id)
+func (sat *Satellite) Dial(ctx context.Context, address string, id storj.NodeID) (*rpc.Conn, error) {
+	conn, err := sat.Dialer.DialAddressID(ctx, address, id)
 	if err != nil {
 		return nil, merry.Wrap(err)
 	}
 	return conn, nil
 }
 
-func (sat *Satellite) DialAndClose(address string, id storj.NodeID) error {
-	conn, err := sat.Dial(address, id)
+func (sat *Satellite) DialAndClose(ctx context.Context, address string, id storj.NodeID) error {
+	conn, err := sat.Dial(ctx, address, id)
 	if err != nil {
 		return merry.Wrap(err)
 	}
 	return merry.Wrap(conn.Close())
 }
 
-func (sat *Satellite) Ping(conn *rpc.Conn) error {
+func (sat *Satellite) Ping(ctx context.Context, conn *rpc.Conn) error {
 	client := conn.ContactClient()
-	_, err := client.PingNode(context.Background(), &pb.ContactPingRequest{})
+	_, err := client.PingNode(ctx, &pb.ContactPingRequest{})
 	return merry.Wrap(err)
 }
