@@ -1,0 +1,205 @@
+{{define "title"}}
+{{if .L.Is "ru"}}
+Пинговальня.
+{{else}}
+Pingdom.
+{{end}}
+{{end}}
+
+{{define "content"}}
+
+<style>
+	.node-ping-form {
+		display: flex;
+		flex-direction: row;
+		width: 100%;
+		max-width: 620px;
+	}
+
+	.node-ping-form .node-address-input,
+	.node-ping-form .node-id-input {
+		width: 64px;
+	}
+
+	.node-ping-form>*:not(.node-id-input) {
+		margin-left: 8px;
+	}
+
+	.node-ping-form .node-address-input {
+		flex-grow: 1;
+	}
+
+	.node-ping-form .node-id-input {
+		flex-grow: 3;
+	}
+
+	.remembered-nodes-list {
+		margin-bottom: 16px
+	}
+
+	.remembered-nodes-list .item {
+		display: flex;
+	}
+
+	.remembered-nodes-list .item .node-id {
+		overflow: hidden;
+		text-overflow: ellipsis;
+		margin-right: 4px;
+	}
+
+	.remembered-nodes-list .item .node-id:hover {
+		overflow: visible;
+		background-color: white;
+		word-break: break-all;
+	}
+
+	.remembered-nodes-list .item .node-address {
+		margin-right: 4px;
+	}
+
+	.remembered-nodes-list .item .remove {
+		color: darkred;
+		text-decoration: none;
+	}
+
+	.log-box {
+		white-space: pre-line;
+	}
+
+	@media (max-width: 479px) {
+		.node-ping-form {
+			flex-wrap: wrap;
+		}
+
+		.node-ping-form .node-id-input {
+			width: 100%;
+		}
+
+		.node-ping-form>*:not(.node-id-input) {
+			margin-top: 4px;
+		}
+
+		.node-ping-form .node-address-input {
+			margin-left: 0;
+		}
+	}
+</style>
+<p>
+	<div class="remembered-nodes-list"></div>
+	<form class="node-ping-form">
+		<input class="node-id-input" placeholder="Node ID">
+		<input class="node-address-input" placeholder="1.2.3.4:28967">
+		<input class="node-dial-button" type="button" value="Dial">
+		<input class="node-ping-button" type="button" value="Ping">
+	</form>
+	<pre class="log-box"></pre>
+</p>
+<script type="module">
+	const logBox = document.querySelector('.log-box')
+	const nodeIDInput = document.querySelector('.node-id-input')
+	const nodeAddressInput = document.querySelector('.node-address-input')
+	const rememberedNodesList = document.querySelector('.remembered-nodes-list')
+	updateRememberedNodesList()
+
+	rememberedNodesList.onclick = function (e) {
+		let itemElem = e.target.closest('.item')
+		if (!itemElem) return
+		if (e.target.closest('.remove')) {
+			forgetNode(itemElem.dataset.id, itemElem.dataset.address)
+			updateRememberedNodesList()
+		} else {
+			nodeIDInput.value = itemElem.dataset.id
+			nodeAddressInput.value = itemElem.dataset.address
+		}
+	}
+
+	document.querySelector('.node-ping-button').onclick = () => ping(false)
+	document.querySelector('.node-dial-button').onclick = () => ping(true)
+
+	function log(msg) {
+		logBox.textContent += '- ' + msg + '\n'
+	}
+	let pingAbortController = null
+	function ping(dialOnly) {
+		let id = nodeIDInput.value.trim()
+		let address = nodeAddressInput.value.trim()
+		if (id == '' || address == '') return
+
+		if (pingAbortController !== null) pingAbortController.abort()
+		pingAbortController = new AbortController()
+
+		logBox.textContent = ''
+		fetch('/api/ping_my_node', { method: 'POST', body: JSON.stringify({ id, address, dialOnly }), signal: pingAbortController.signal })
+			.then(r => r.json())
+			.then(resp => {
+				pingAbortController = null
+				if (resp.ok) {
+					const ms = (seconds) => (seconds * 1000).toFixed() + 'ms'
+					log(`dialed node in ${ms(resp.result.dialDuration)}`)
+					if (!dialOnly) {
+						log(`pinged node in ${ms(resp.result.pingDuration)}`)
+						log(`total: ${ms(resp.result.pingDuration + resp.result.dialDuration)}`)
+					}
+				} else {
+					switch (resp.error) {
+						case 'NODE_ID_DECODE_ERROR':
+							log('wrong node ID: ' + resp.description)
+							break
+						case 'NODE_DIAL_ERROR':
+							log('couldn\'t connect to node: ' + resp.description)
+							break
+						case 'NODE_PING_ERROR':
+							log('couldn\'t ping node: ' + resp.description)
+							break
+						default:
+							log('O_o ' + JSON.stringify(resp))
+					}
+				}
+			})
+		log('started')
+		rememberNode(id, address)
+		updateRememberedNodesList()
+	}
+	function getRememberedNodes() {
+		try {
+			return JSON.parse(localStorage.pingedNodes)
+		} catch (ex) {
+			return []
+		}
+	}
+	function rememberNode(id, address) {
+		let nodes = getRememberedNodes()
+		if (!nodes.find(n => n.id == id && n.address == address))
+			nodes.push({ id, address })
+		localStorage.pingedNodes = JSON.stringify(nodes)
+	}
+	function forgetNode(id, address) {
+		let nodes = getRememberedNodes().filter(n => n.id != id || n.address != address)
+		localStorage.pingedNodes = JSON.stringify(nodes)
+	}
+	function updateRememberedNodesList() {
+		rememberedNodesList.innerHTML = ''
+		getRememberedNodes().forEach(node => {
+			let elem = document.createElement('a')
+			elem.className = 'item'
+			elem.href = 'javascript:void(0)'
+			elem.dataset.id = node.id
+			elem.dataset.address = node.address
+			let idElem = document.createElement('div')
+			idElem.className = 'node-id'
+			idElem.textContent = node.id
+			let addressElem = document.createElement('div')
+			addressElem.className = 'node-address'
+			addressElem.textContent = node.address
+			let removeElem = document.createElement('div')
+			removeElem.className = 'remove'
+			removeElem.textContent = '✕'
+			elem.appendChild(idElem)
+			elem.appendChild(addressElem)
+			elem.appendChild(removeElem)
+			rememberedNodesList.appendChild(elem)
+		})
+	}
+</script>
+
+{{end}}
