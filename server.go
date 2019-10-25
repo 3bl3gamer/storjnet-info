@@ -25,7 +25,7 @@ const CtxKeySatellite = ctxKey("satellite")
 func unmarshalFromBody(r *http.Request, obj interface{}) *httputils.JsonError {
 	if err := json.NewDecoder(r.Body).Decode(obj); err != nil {
 		descr := ""
-		if envMode == "dev" {
+		if env.IsDev() {
 			descr = err.Error()
 		}
 		return &httputils.JsonError{Code: 400, Error: "JSON_DECODE_ERROR", Description: descr}
@@ -246,6 +246,8 @@ func StartHTTPServer(address string) error {
 	}
 	baseDir := filepath.Dir(ex)
 
+	var bundleFPath, stylesFPath string
+
 	sat := &utils.Satellite{}
 	if err := sat.SetUp(); err != nil {
 		return merry.Wrap(err)
@@ -253,7 +255,7 @@ func StartHTTPServer(address string) error {
 
 	// Config
 	wrapper := &httputils.Wrapper{
-		ShowErrorDetails: envMode == "dev",
+		ShowErrorDetails: env.IsDev(),
 		ExtraChainItem: func(handle httputils.HandlerExt) httputils.HandlerExt {
 			return func(wr http.ResponseWriter, r *http.Request, params httprouter.Params) error {
 				log.Debug().Str("method", r.Method).Str("path", r.URL.Path).Msg("request")
@@ -262,11 +264,13 @@ func StartHTTPServer(address string) error {
 			}
 		},
 		TemplateHandler: &httputils.TemplateHandler{
-			CacheParsed: envMode == "prod",
+			CacheParsed: env.IsProd(),
 			BasePath:    baseDir + "/www/templates",
 			FuncMap:     template.FuncMap{},
 			ParamsFunc: func(r *http.Request, ctx *httputils.MainCtx, params httputils.TemplateCtx) error {
 				params["L"] = L10nUtls{Lang: langFromRequest(r)}
+				params["BundleFPath"] = bundleFPath
+				params["StylesFPath"] = stylesFPath
 				return nil
 			},
 			LogBuild: func(path string) { log.Info().Str("path", path).Msg("building template") },
@@ -297,8 +301,26 @@ func StartHTTPServer(address string) error {
 	route("GET", "/explode", func(wr http.ResponseWriter, r *http.Request, ps httprouter.Params) error {
 		return merry.New("test error")
 	})
-	router.ServeFiles("/js/*filepath", http.Dir(baseDir+"/www/js"))
-	router.ServeFiles("/css/*filepath", http.Dir(baseDir+"/www/css"))
+
+	if env.IsDev() {
+		devServerAddress, err := httputils.RunBundleDevServerNear(address, baseDir+"/www", "--configHost", "--configPort")
+		if err != nil {
+			log.Fatal().Err(err)
+		}
+		bundleFPath = "http://" + devServerAddress + "/bundle.js"
+		stylesFPath = "http://" + devServerAddress + "/bundle.css"
+	} else {
+		distPath := baseDir + "/www/dist"
+		bundleFPath, stylesFPath, err = httputils.LastJSAndCSSFNames(distPath, "bundle.", "bundle.")
+		if err != nil {
+			log.Fatal().Err(err)
+		}
+		bundleFPath = "/dist/" + bundleFPath
+		stylesFPath = "/dist/" + stylesFPath
+		router.ServeFiles("/dist/*filepath", http.Dir(distPath))
+	}
+	log.Info().Str("fpath", bundleFPath).Msg("bundle")
+	log.Info().Str("fpath", stylesFPath).Msg("styles")
 
 	// Server
 	log.Info().Msg("starting server on " + address)

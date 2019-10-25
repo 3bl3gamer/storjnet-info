@@ -5,7 +5,7 @@
 		<meta charset="utf-8">
 		<meta name="viewport" content="width=device-width, initial-scale=1">
 		<title>{{block "title" .}}Storj3 stat{{end}}</title>
-		<link href="/css/main.css" rel="stylesheet" type="text/css">
+		<link href="{{.StylesFPath}}" rel="stylesheet" type="text/css">
 	</head>
 	<body>
 		<div class="header">
@@ -47,7 +47,7 @@
 			{{end}}
 			<a href="https://money.yandex.ru/to/410013340187763">{{.L.Loc "Yandex.Money" "ru" "Яндекс.Деньги"}}</a>.
 		</div>
-		<script type="module" src="/js/main.js"></script>
+		<script src="{{.BundleFPath}}"></script>
 		{{block "extra_scripts" .}}{{end}}
 		{{block "local_html_content" .}}{{end}}
 	</body>

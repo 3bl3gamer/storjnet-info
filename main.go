@@ -1,16 +1,25 @@
 package main
 
 import (
+	"flag"
 	"os"
+	"storj3stat/utils"
 
 	"github.com/ansel1/merry"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 )
 
-var envMode = "dev"
+var env = utils.Env{Val: "dev"}
 
 func main() {
+	// Flags
+	var serverAddr string
+	flag.StringVar(&serverAddr, "addr", "127.0.0.1:9009", "server address:port")
+	flag.Var(&env, "env", "server environment: dev or prod")
+	flag.Parse()
+
+	// Logger
 	zerolog.TimeFieldFormat = zerolog.TimeFormatUnixMs
 	zerolog.ErrorStackMarshaler = func(err error) interface{} { return merry.Details(err) }
 	zerolog.ErrorStackFieldName = "message" //TODO: https://github.com/rs/zerolog/issues/157
