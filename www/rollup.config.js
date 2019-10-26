@@ -36,7 +36,7 @@ export default function(commandOptions) {
 			...devPlugins,
 			css({ output: `dist/bundle${isProd ? '.[hash]' : ''}.css` }),
 			// commonjs({}), //rollup-plugin-commonjs
-			nodeResolve({}),
+			nodeResolve({ mainFields: (isProd ? [] : ['source']).concat(['module', 'main']) }),
 		],
 		watch: { clearScreen: false },
 	}))
