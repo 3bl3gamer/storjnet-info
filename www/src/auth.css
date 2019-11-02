@@ -1,0 +1,36 @@
+input,
+button {
+	border: 1px solid;
+	border-color: #cdc7c2 #cdc7c2 #bfb8b1;
+	border-radius: 3px;
+	box-sizing: border-box;
+	height: 25px;
+}
+button {
+	background: linear-gradient(white 2%, #f6f5f3 4%, #edebe9);
+}
+
+.registration-form {
+	display: flex;
+	flex-direction: column;
+	max-width: 256px;
+}
+.registration-form .buttons-wrap {
+	display: flex;
+	flex-wrap: wrap;
+}
+.registration-form .buttons-wrap button {
+	flex-grow: 1;
+}
+.registration-form input,
+.registration-form button {
+	margin: 6px 4px;
+}
+.registration-form button:not([type='submit']) {
+	border: none;
+	background: none;
+	color: gray;
+}
+.registration-form .email-error {
+	color: darkred;
+}

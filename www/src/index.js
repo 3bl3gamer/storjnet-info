@@ -3,6 +3,8 @@ import { render } from 'preact'
 import { html } from './utils'
 
 import './ping_my_node'
+import './auth'
+import './user_nodes'
 
 // const app1 = html`
 // 	<div>Hello World 1</div>

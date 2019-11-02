@@ -34,3 +34,8 @@ PureComponent.prototype.isPureReactComponent = true
 PureComponent.prototype.shouldComponentUpdate = function(props, state) {
 	return shallowDiffers(this.props, props) || shallowDiffers(this.state, state)
 }
+
+export function onError(error) {
+	console.error(error)
+	alert(error)
+}

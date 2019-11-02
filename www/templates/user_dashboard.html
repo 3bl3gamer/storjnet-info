@@ -1,0 +1,15 @@
+{{define "title"}}
+???
+{{end}}
+
+{{define "content"}}
+
+{{if .User}}
+<div class="user-nodes">
+	<script id="user_nodes_data" type="application/json">{{.UserNodes}}</script>
+</div>
+{{else}}
+<div class="auth-forms"></div>
+{{end}}
+
+{{end}}

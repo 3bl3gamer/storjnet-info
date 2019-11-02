@@ -1,4 +1,4 @@
-package main
+package server
 
 import (
 	"context"
@@ -8,24 +8,41 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"storj3stat/core"
 	"storj3stat/utils"
+	"strings"
 	"time"
 
 	httputils "github.com/3bl3gamer/go-http-utils"
 	"github.com/ansel1/merry"
 	"github.com/julienschmidt/httprouter"
 	"github.com/rs/zerolog/log"
-	"storj.io/storj/pkg/storj"
 )
 
 type ctxKey string
 
 const CtxKeySatellite = ctxKey("satellite")
+const CtxKeyEnv = ctxKey("env")
+const CtxKeyDB = ctxKey("db")
+const CtxKeyUser = ctxKey("user")
 
 func unmarshalFromBody(r *http.Request, obj interface{}) *httputils.JsonError {
 	if err := json.NewDecoder(r.Body).Decode(obj); err != nil {
 		descr := ""
-		if env.IsDev() {
+		if r.Context().Value(CtxKeyEnv).(utils.Env).IsDev() {
+			descr = err.Error()
+		}
+		return &httputils.JsonError{Code: 400, Error: "JSON_DECODE_ERROR", Description: descr}
+	}
+	return nil
+}
+func unmarshalNodeFromBody(r *http.Request, node *core.Node) *httputils.JsonError {
+	if err := json.NewDecoder(r.Body).Decode(node); err != nil {
+		if strings.HasPrefix(err.Error(), "node ID error") {
+			return &httputils.JsonError{Code: 400, Error: "NODE_ID_DECODE_ERROR", Description: err.Error()}
+		}
+		descr := ""
+		if r.Context().Value(CtxKeyEnv).(utils.Env).IsDev() {
 			descr = err.Error()
 		}
 		return &httputils.JsonError{Code: 400, Error: "JSON_DECODE_ERROR", Description: descr}
@@ -168,78 +185,7 @@ func langFromRequest(r *http.Request) string {
 	return "en"
 }
 
-func HandleIndex(wr http.ResponseWriter, r *http.Request, ps httprouter.Params) (httputils.TemplateCtx, error) {
-	return map[string]interface{}{"FPath": "index.html"}, nil
-}
-
-func HandlePingMyNode(wr http.ResponseWriter, r *http.Request, ps httprouter.Params) (httputils.TemplateCtx, error) {
-	return map[string]interface{}{"FPath": "ping_my_node.html"}, nil
-}
-
-func HandleLang(wr http.ResponseWriter, r *http.Request, ps httprouter.Params) error {
-	if err := r.ParseForm(); err != nil {
-		return merry.Wrap(err)
-	}
-	if lang := r.Form.Get("lang"); lang != "" {
-		cookie := &http.Cookie{
-			Name:    "lang",
-			Value:   lang,
-			Path:    "/",
-			Expires: time.Now().Add(365 * time.Hour),
-		}
-		wr.Header().Add("Set-Cookie", cookie.String())
-	}
-	ref := r.Header.Get("Referer")
-	if ref == "" {
-		ref = "/"
-	}
-	http.Redirect(wr, r, ref, 303)
-	return nil
-}
-
-func HandlePingMyNodeAPI(wr http.ResponseWriter, r *http.Request, ps httprouter.Params) (interface{}, error) {
-	sat := r.Context().Value(CtxKeySatellite).(*utils.Satellite)
-	params := &struct {
-		ID, Address string
-		DialOnly    bool
-	}{}
-	if jsonErr := unmarshalFromBody(r, params); jsonErr != nil {
-		return *jsonErr, nil
-	}
-
-	id, err := storj.NodeIDFromString(params.ID)
-	if err != nil {
-		return httputils.JsonError{Code: 400, Error: "NODE_ID_DECODE_ERROR", Description: err.Error()}, nil
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	stt := time.Now()
-	conn, err := sat.Dial(ctx, params.Address, id)
-	if err != nil {
-		return httputils.JsonError{Code: 400, Error: "NODE_DIAL_ERROR", Description: err.Error()}, nil
-	}
-	dialDuration := time.Now().Sub(stt).Seconds()
-	defer conn.Close()
-
-	var pingDuration float64
-	if !params.DialOnly {
-		stt := time.Now()
-		if err := sat.Ping(ctx, conn); err != nil {
-			return httputils.JsonError{Code: 400, Error: "NODE_PING_ERROR", Description: err.Error()}, nil
-		}
-		pingDuration = time.Now().Sub(stt).Seconds()
-	}
-	return map[string]interface{}{"pingDuration": pingDuration, "dialDuration": dialDuration}, nil
-}
-
-func HandleHtml500(wr http.ResponseWriter, r *http.Request, ps httprouter.Params) error {
-	tmplHnd := r.Context().Value(httputils.CtxKeyMain).(*httputils.MainCtx).TemplateHandler
-	return merry.Wrap(tmplHnd.RenderTemplate(wr, r, map[string]interface{}{"FPath": "500.html"}))
-}
-
-func StartHTTPServer(address string) error {
+func StartHTTPServer(address string, env utils.Env) error {
 	ex, err := os.Executable()
 	if err != nil {
 		return merry.Wrap(err)
@@ -247,6 +193,8 @@ func StartHTTPServer(address string) error {
 	baseDir := filepath.Dir(ex)
 
 	var bundleFPath, stylesFPath string
+
+	db := utils.MakePGConnection()
 
 	sat := &utils.Satellite{}
 	if err := sat.SetUp(); err != nil {
@@ -260,6 +208,8 @@ func StartHTTPServer(address string) error {
 			return func(wr http.ResponseWriter, r *http.Request, params httprouter.Params) error {
 				log.Debug().Str("method", r.Method).Str("path", r.URL.Path).Msg("request")
 				r = r.WithContext(context.WithValue(r.Context(), CtxKeySatellite, sat))
+				r = r.WithContext(context.WithValue(r.Context(), CtxKeyEnv, env))
+				r = r.WithContext(context.WithValue(r.Context(), CtxKeyDB, db))
 				return merry.Wrap(handle(wr, r, params))
 			}
 		},
@@ -293,8 +243,13 @@ func StartHTTPServer(address string) error {
 	// Routes
 	route("GET", "/", HandleIndex)
 	route("GET", "/ping_my_node", HandlePingMyNode)
+	route("GET", "/~", WithOptUser, HandleUserDashboard)
 	route("POST", "/lang", HandleLang)
-	route("POST", "/api/ping_my_node", HandlePingMyNodeAPI)
+	route("POST", "/api/register", HandleAPIRegister)
+	route("POST", "/api/login", HandleAPILogin)
+	route("POST", "/api/ping_my_node", HandleAPIPingMyNode)
+	route("POST", "/api/user_nodes", WithUser, HandleAPISetUserNode)
+	route("DELETE", "/api/user_nodes", WithUser, HandleAPIDelUserNode)
 	route("GET", "/api/explode", func(wr http.ResponseWriter, r *http.Request, ps httprouter.Params) (interface{}, error) {
 		return nil, merry.New("test API error")
 	})
