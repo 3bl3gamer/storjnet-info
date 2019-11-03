@@ -2,7 +2,6 @@ package updater
 
 import (
 	"context"
-	"fmt"
 	"storj3stat/core"
 	"storj3stat/utils"
 	"sync/atomic"
@@ -16,6 +15,11 @@ import (
 
 var ErrDialFail = merry.New("dial failed")
 var ErrPingFail = merry.New("ping failed")
+
+type UserNodeWithErr struct {
+	core.UserNode
+	Err error
+}
 
 func doPing(sat *utils.Satellite, node *core.Node) (time.Duration, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -85,7 +89,7 @@ func startOldPingNodesLoader(db *pg.DB, userNodesChan chan *core.UserNode, chunk
 	return worker
 }
 
-func startNodesPinger(db *pg.DB, userNodesInChan, userNodesOutChan chan *core.UserNode, routinesCount int) utils.Worker {
+func startNodesPinger(db *pg.DB, userNodesInChan chan *core.UserNode, userNodesOutChan chan *UserNodeWithErr, routinesCount int) utils.Worker {
 	worker := utils.NewSimpleWorker(routinesCount)
 
 	sat := &utils.Satellite{}
@@ -104,6 +108,9 @@ func startNodesPinger(db *pg.DB, userNodesInChan, userNodesOutChan chan *core.Us
 		go func() {
 			defer worker.Done()
 			for userNode := range userNodesInChan {
+				nodeWithErr := &UserNodeWithErr{UserNode: *userNode, Err: nil}
+				nodeWithErr.LastPingedAt = time.Now()
+
 				pingDuration, err := doPing(sat, &userNode.Node)
 				if err != nil {
 					atomic.AddInt64(&countErrTotal, 1)
@@ -112,14 +119,14 @@ func startNodesPinger(db *pg.DB, userNodesInChan, userNodesOutChan chan *core.Us
 					} else if merry.Is(err, ErrPingFail) {
 						atomic.AddInt64(&countErrPing, 1)
 					}
-					fmt.Println(userNode.ID, err)
+					log.Info().Str("id", nodeWithErr.ID.String()).Msg(err.Error())
+					nodeWithErr.Err = err
 				} else {
-					userNode.LastPingedAt = time.Now()
-					userNode.LastPing = pingDuration.Microseconds() / 1000
-					userNode.LastUpAt = userNode.LastPingedAt
-					userNodesOutChan <- userNode
+					nodeWithErr.LastPing = pingDuration.Microseconds() / 1000
+					nodeWithErr.LastUpAt = nodeWithErr.LastPingedAt
 					atomic.AddInt64(&countOk, 1)
 				}
+				userNodesOutChan <- nodeWithErr
 
 				if atomic.AddInt64(&countTotal, 1)%1 == 0 {
 					log.Info().
@@ -134,7 +141,7 @@ func startNodesPinger(db *pg.DB, userNodesInChan, userNodesOutChan chan *core.Us
 	return worker
 }
 
-func startPingedNodesSaver(db *pg.DB, userNodesChan chan *core.UserNode, chunkSize int) utils.Worker {
+func startPingedNodesSaver(db *pg.DB, userNodesChan chan *UserNodeWithErr, chunkSize int) utils.Worker {
 	worker := utils.NewSimpleWorker(1)
 	userNodesChanI := make(chan interface{}, 16)
 
@@ -152,22 +159,31 @@ func startPingedNodesSaver(db *pg.DB, userNodesChan chan *core.UserNode, chunkSi
 		err := utils.SaveChunked(db, chunkSize, userNodesChanI, func(tx *pg.Tx, items []interface{}) error {
 			ids := make([]storj.NodeID, len(items))
 			for i, nodeI := range items {
-				ids[i] = nodeI.(*core.UserNode).ID
+				ids[i] = nodeI.(*UserNodeWithErr).ID
 			}
 			if _, err := tx.Exec("SELECT 1 FROM user_nodes WHERE node_id IN (?) FOR UPDATE", pg.In(ids)); err != nil {
 				return merry.Wrap(err)
 			}
 
 			for _, nodeI := range items {
-				node := nodeI.(*core.UserNode)
+				node := nodeI.(*UserNodeWithErr)
 				stamp := node.LastPingedAt.Unix()
 				index := stamp%(24*3600)/60 + 1
 				timeHint := (stamp % 60) / 4 * 2
-				ping := node.LastPing
-				if ping > 2000-1 {
-					ping = 2000 - 1
+
+				var pingValue int64
+				if node.Err == nil {
+					ping := node.LastPing
+					if ping >= 2000 {
+						ping = 2000 - 1
+					}
+					if ping <= 1 {
+						ping = 2
+					}
+					pingValue = timeHint*1000 + ping
+				} else {
+					pingValue = timeHint*1000 + 1
 				}
-				pingValue := timeHint*1000 + ping
 
 				res, err := tx.Exec(`
 					UPDATE user_nodes_history SET pings[?] = ?
@@ -203,7 +219,7 @@ func startPingedNodesSaver(db *pg.DB, userNodesChan chan *core.UserNode, chunkSi
 func StartUpdater() error {
 	db := utils.MakePGConnection()
 	userNodesInChan := make(chan *core.UserNode, 16)
-	userNodesOutChan := make(chan *core.UserNode, 16)
+	userNodesOutChan := make(chan *UserNodeWithErr, 16)
 
 	workers := []utils.Worker{
 		startOldPingNodesLoader(db, userNodesInChan, 16),
