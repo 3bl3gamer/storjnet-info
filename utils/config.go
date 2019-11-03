@@ -18,6 +18,10 @@ func (e Env) String() string {
 	return e.Val
 }
 
+func (e Env) Type() string {
+	return "string"
+}
+
 func (e Env) IsDev() bool {
 	return e.Val == "dev"
 }

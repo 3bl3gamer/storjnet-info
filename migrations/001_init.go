@@ -20,20 +20,24 @@ func init() {
 				node_id bytea NOT NULL,
 				user_id integer NOT NULL REFERENCES storjnet.users (id),
 				address text NOT NULL,
-				created_at timestamptz NOT NULL DEFAULT NOW(),
 				ping_mode storjnet.node_ping_mode NOT NULL DEFAULT 'off',
+				last_pinged_at timestamptz,
+				last_ping int,
+				last_up_at timestamptz,
+				created_at timestamptz NOT NULL DEFAULT NOW(),
 				CHECK (length(node_id) = 32),
 				PRIMARY KEY (node_id, user_id)
 			);
 
 			CREATE TABLE storjnet.user_nodes_history (
-				id bytea NOT NULL,
+				node_id bytea NOT NULL,
 				user_id integer NOT NULL,
 				date date NOT NULL,
-				activity_stamps int[] NOT NULL DEFAULT '{}'::int[],
-				CHECK (length(ID) = 32),
-				PRIMARY KEY (id, user_id, date),
-				FOREIGN KEY (id, user_id) REFERENCES storjnet.user_nodes (node_id, user_id)
+				pings smallint[] NOT NULL,
+				CHECK (length(node_id) = 32),
+				CHECK (array_dims(pings) = '[1:1441]'),
+				PRIMARY KEY (node_id, user_id, date),
+				FOREIGN KEY (node_id, user_id) REFERENCES storjnet.user_nodes (node_id, user_id)
 			);
 			`)
 	}, func(db migrations.DB) error {

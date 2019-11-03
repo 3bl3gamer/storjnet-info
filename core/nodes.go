@@ -1,16 +1,49 @@
 package core
 
 import (
+	"time"
+
 	"github.com/ansel1/merry"
 	"github.com/go-pg/pg/v9"
 	"storj.io/storj/pkg/storj"
 )
 
 type Node struct {
-	RawID    []byte       `json:"-"`
-	ID       storj.NodeID `json:"id"`
-	Address  string       `json:"address"`
-	PingMode string       `json:"pingMode"`
+	RawID        []byte       `json:"-"`
+	ID           storj.NodeID `json:"id"`
+	Address      string       `json:"address"`
+	PingMode     string       `json:"pingMode"`
+	LastPingedAt time.Time    `json:"lastPingedAt"`
+	LastPing     int64        `json:"lastPing"`
+	LastUpAt     time.Time    `json:"lastUpAt"`
+	CreatedAt    time.Time    `json:"createdAt"`
+}
+
+type UserNode struct {
+	Node
+	UserID int64
+}
+
+func ConvertNodeIDs(nodes []*Node) error {
+	var err error
+	for _, node := range nodes {
+		node.ID, err = storj.NodeIDFromBytes(node.RawID)
+		if err != nil {
+			return merry.Wrap(err)
+		}
+	}
+	return nil
+}
+
+func ConvertUserNodeIDs(nodes []*UserNode) error {
+	var err error
+	for _, node := range nodes {
+		node.ID, err = storj.NodeIDFromBytes(node.RawID)
+		if err != nil {
+			return merry.Wrap(err)
+		}
+	}
+	return nil
 }
 
 func SetUserNode(db *pg.DB, user *User, node *Node) error {
@@ -34,11 +67,8 @@ func LoadUserNodes(db *pg.DB, user *User) ([]*Node, error) {
 	if err != nil {
 		return nil, merry.Wrap(err)
 	}
-	for _, node := range nodes {
-		node.ID, err = storj.NodeIDFromBytes(node.RawID)
-		if err != nil {
-			return nil, merry.Wrap(err)
-		}
+	if err := ConvertNodeIDs(nodes); err != nil {
+		return nil, merry.Wrap(err)
 	}
 	return nodes, nil
 }
