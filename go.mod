@@ -3,7 +3,7 @@ module storj3stat
 go 1.13
 
 require (
-	github.com/3bl3gamer/go-http-utils v0.0.3
+	github.com/3bl3gamer/go-http-utils v0.0.4
 	github.com/abh/geoip v0.0.0-20160510155516-07cea4480daa // indirect
 	github.com/ansel1/merry v1.5.0
 	github.com/go-pg/migrations/v7 v7.1.6
@@ -13,7 +13,7 @@ require (
 	github.com/julienschmidt/httprouter v1.3.0
 	github.com/lib/pq v1.0.0
 	github.com/rs/zerolog v1.15.0
-	github.com/spf13/cobra v0.0.3
+	github.com/spf13/cobra v0.0.5
 	google.golang.org/grpc v1.23.1
-	storj.io/storj v0.23.5
+	storj.io/storj v0.26.3
 )
