@@ -16,9 +16,9 @@ type Satellite struct {
 	Dialer rpc.Dialer
 }
 
-func (sat *Satellite) SetUp() error {
-	sat.Config.Identity.CertPath = "identity/identity.cert"
-	sat.Config.Identity.KeyPath = "identity/identity.key"
+func (sat *Satellite) SetUp(identityDir string) error {
+	sat.Config.Identity.CertPath = identityDir + "/identity.cert"
+	sat.Config.Identity.KeyPath = identityDir + "/identity.key"
 	sat.Config.Server.Config.PeerIDVersions = "*"
 	identity, err := sat.Config.Identity.Load()
 	if err != nil {

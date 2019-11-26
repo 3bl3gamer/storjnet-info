@@ -93,7 +93,7 @@ func startNodesPinger(db *pg.DB, userNodesInChan chan *core.UserNode, userNodesO
 	worker := utils.NewSimpleWorker(routinesCount)
 
 	sat := &utils.Satellite{}
-	if err := sat.SetUp(); err != nil {
+	if err := sat.SetUp("identity"); err != nil {
 		worker.AddError(err)
 		return worker
 	}
@@ -169,7 +169,7 @@ func startPingedNodesSaver(db *pg.DB, userNodesChan chan *UserNodeWithErr, chunk
 				node := nodeI.(*UserNodeWithErr)
 				stamp := node.LastPingedAt.Unix()
 				index := stamp%(24*3600)/60 + 1
-				timeHint := (stamp % 60) / 4 * 2
+				timeHint := (stamp % 60) / 4
 
 				var pingValue int64
 				if node.Err == nil {
@@ -180,9 +180,9 @@ func startPingedNodesSaver(db *pg.DB, userNodesChan chan *UserNodeWithErr, chunk
 					if ping <= 1 {
 						ping = 2
 					}
-					pingValue = timeHint*1000 + ping
+					pingValue = timeHint*2000 + ping
 				} else {
-					pingValue = timeHint*1000 + 1
+					pingValue = timeHint*2000 + 1
 				}
 
 				res, err := tx.Exec(`

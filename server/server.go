@@ -197,7 +197,7 @@ func StartHTTPServer(address string, env utils.Env) error {
 	db := utils.MakePGConnection()
 
 	sat := &utils.Satellite{}
-	if err := sat.SetUp(); err != nil {
+	if err := sat.SetUp("identity"); err != nil {
 		return merry.Wrap(err)
 	}
 
