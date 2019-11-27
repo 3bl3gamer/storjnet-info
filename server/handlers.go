@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"encoding/binary"
 	"fmt"
 	"net/http"
 	"storj3stat/core"
@@ -162,6 +163,34 @@ func HandleAPIDelUserNode(wr http.ResponseWriter, r *http.Request, ps httprouter
 		return nil, merry.Wrap(err)
 	}
 	return "ok", nil
+}
+
+func HandleAPIUserNodePings(wr http.ResponseWriter, r *http.Request, ps httprouter.Params) (interface{}, error) {
+	db := r.Context().Value(CtxKeyDB).(*pg.DB)
+	user := r.Context().Value(CtxKeyUser).(*core.User)
+	nodeID, err := storj.NodeIDFromString(ps.ByName("node_id"))
+	if err != nil {
+		return httputils.JsonError{Code: 400, Error: "NODE_ID_DECODE_ERROR", Description: err.Error()}, nil
+	}
+
+	var histories []*core.UserNodeHistory
+	err = db.Model(&histories).Column("pings", "date").Where("node_id = ? AND user_id = ?", nodeID, user.ID).Order("date").Select()
+	if err != nil {
+		return nil, merry.Wrap(err)
+	}
+	buf := make([]byte, 4+1441*2)
+	for _, hist := range histories {
+		binary.LittleEndian.PutUint32(buf, uint32(hist.Date.Unix()))
+		for i, ping := range hist.Pings {
+			buf[4+i*2+0] = byte(ping & 0xFF)
+			buf[4+i*2+1] = byte(ping >> 8)
+		}
+		_, err := wr.Write(buf)
+		if err != nil {
+			return nil, merry.Wrap(err)
+		}
+	}
+	return nil, nil
 }
 
 func HandleHtml500(wr http.ResponseWriter, r *http.Request, ps httprouter.Params) error {

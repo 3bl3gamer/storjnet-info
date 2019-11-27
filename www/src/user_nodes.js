@@ -201,3 +201,18 @@ class UserNodesList extends PureComponent {
 }
 
 renderIfExists(h(UserNodesList), '.user-nodes')
+
+/*
+fetch('/api/user_nodes/1vvSx8nJgnMzFEfxYo1FZcvtFV5vNJu1Yoma7ycwZuXwAXaSG3/pings', { method: 'GET' })
+	.then(r => r.arrayBuffer())
+	.then(buf => {
+		let pings = new Uint16Array(buf)
+		console.log(pings)
+		pings = pings.slice(10000, 10000+100)
+		for (let value of pings) {
+			let ping = value%2000
+			let timeHint = Math.floor(value/2000)*4
+			console.log(timeHint, ping)
+		}
+	})
+*/
