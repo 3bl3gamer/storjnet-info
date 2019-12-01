@@ -5,6 +5,7 @@ import { html } from './utils'
 import './ping_my_node'
 import './auth'
 import './user_nodes'
+import './user_dashboard'
 
 // const app1 = html`
 // 	<div>Hello World 1</div>

@@ -4,6 +4,7 @@
 	max-width: 100%;
 	min-width: 32px;
 	min-height: 32px;
+	margin-bottom: 16px;
 }
 
 .user-nodes-list .node {

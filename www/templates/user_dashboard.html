@@ -5,10 +5,9 @@
 {{define "content"}}
 
 {{if .User}}
-<div class="user-nodes">
-	<script id="user_nodes_data" type="application/json">{{.UserNodes}}</script>
-</div>
-<div class="ping-charts"></div>
+<script id="user_nodes_data" type="application/json">{{.UserNodes}}</script>
+<div class="user-nodes"></div>
+<div class="user-dashboard"></div>
 {{else}}
 <div class="auth-forms"></div>
 {{end}}

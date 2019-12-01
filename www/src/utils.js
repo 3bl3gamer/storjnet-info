@@ -15,7 +15,7 @@ export function bindHandlers(comp) {
 	})
 }
 
-// from preact-compat
+// vvv from preact-compat vvv
 
 function shallowDiffers(a, b) {
 	for (let i in a) if (!(i in b)) return true
@@ -35,7 +35,21 @@ PureComponent.prototype.shouldComponentUpdate = function(props, state) {
 	return shallowDiffers(this.props, props) || shallowDiffers(this.state, state)
 }
 
+// ^^^ from preact-compat ^^^
+
 export function onError(error) {
 	console.error(error)
 	alert(error)
+}
+
+export function startOfMonth(date) {
+	let newDate = new Date(date)
+	newDate.setUTCHours(0, 0, 0, 0)
+	newDate.setUTCDate(1)
+	return newDate
+}
+export function endOfMonth(date) {
+	date = startOfMonth(date)
+	date.setUTCMonth(date.getUTCMonth() + 1)
+	return date
 }

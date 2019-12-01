@@ -9,7 +9,8 @@
 		"preact": "^10.0.0",
 		"rollup": "^1.23.1",
 		"rollup-plugin-node-resolve": "^5.2.0",
-		"rollup-pluginutils": "^2.8.2"
+		"rollup-pluginutils": "^2.8.2",
+		"unistore": "^3.5.1"
 	},
 	"devDependencies": {
 		"eslint": "^6.5.1",

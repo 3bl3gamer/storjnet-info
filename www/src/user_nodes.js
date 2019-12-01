@@ -1,9 +1,12 @@
-import { h } from 'preact'
-import { PureComponent, renderIfExists, html, bindHandlers, onError } from './utils'
+import { PureComponent, html, bindHandlers, onError } from './utils'
 
 import './user_nodes.css'
 
 const lang = 'ru'
+
+export function sortedNodes(nodes) {
+	return nodes.sort((a, b) => a.address.localeCompare(b.address))
+}
 
 class UserNodeItem extends PureComponent {
 	constructor() {
@@ -102,47 +105,45 @@ class NewUserNodeForm extends PureComponent {
 	}
 }
 
-class UserNodesList extends PureComponent {
+export class UserNodesList extends PureComponent {
 	constructor() {
 		super()
 		bindHandlers(this)
-		let nodes = []
-		try {
-			nodes = JSON.parse(document.getElementById('user_nodes_data').textContent)
-		} catch (ex) {
-			// ¯\_(ツ)_/¯
-		}
-		this.state = { nodeError: null, nodes: this.sortedNodes(nodes) }
+		this.state = { nodeError: null, pendingNodes: {} }
 	}
 
-	sortedNodes(nodes) {
-		return nodes.sort((a, b) => a.address.localeCompare(b.address))
+	sortedNodes() {
+		let nodes = this.props.nodes.filter(n => !(n.id in this.state.pendingNodes))
+		nodes = nodes.concat(Object.values(this.state.pendingNodes))
+		return sortedNodes(nodes)
 	}
 
-	setNodeInner(node) {
-		let nodes
-		let existing = this.state.nodes.find(n => n.id === node.id)
-		if (existing) {
-			nodes = this.state.nodes.slice()
-			nodes[nodes.indexOf(existing)] = node
-		} else {
-			nodes = this.sortedNodes([...this.state.nodes, node])
-		}
-		this.setState({ nodes })
+	setPendingNode(node) {
+		let pendingNodes = { ...this.state.pendingNodes, [node.id]: node }
+		this.setState({ pendingNodes })
 	}
 	delNodeInner(node) {
-		let nodes = this.state.nodes.filter(n => n.id !== node.id)
-		this.setState({ nodes })
+		let pendingNodes = { ...this.state.pendingNodes }
+		delete pendingNodes[node.id]
+		this.setState({ pendingNodes })
+	}
+	applySetNode(node) {
+		this.delNodeInner(node)
+		this.props.setNode(node)
+	}
+	applyDelNode(node) {
+		this.delNodeInner(node)
+		this.props.delNode(node)
 	}
 
 	setNode(node) {
-		this.setNodeInner({ ...node, isLoading: true })
+		this.setPendingNode({ ...node, isLoading: true })
 		this.setState({ nodeError: null })
 		let body = JSON.stringify(node)
 		fetch('/api/user_nodes', { method: 'POST', body })
 			.then(r => r.json())
 			.then(res => {
-				if (res.ok) this.setNodeInner(node)
+				if (res.ok) this.applySetNode(node)
 				else if (res.error == 'NODE_ID_DECODE_ERROR') {
 					this.setState({
 						nodeError:
@@ -156,13 +157,13 @@ class UserNodesList extends PureComponent {
 			.catch(onError)
 	}
 	delNode(node) {
-		this.setNodeInner({ ...node, isLoading: true })
+		this.setPendingNode({ ...node, isLoading: true })
 		this.setState({ nodeError: null })
 		let body = JSON.stringify({ id: node.id })
 		fetch('/api/user_nodes', { method: 'DELETE', body })
 			.then(r => r.json())
 			.then(res => {
-				if (res.ok) this.delNodeInner(node)
+				if (res.ok) this.applyDelNode(node)
 				else onError(res)
 			})
 			.catch(onError)
@@ -178,7 +179,8 @@ class UserNodesList extends PureComponent {
 		this.delNode(node)
 	}
 
-	render(props, { nodeError, nodes }) {
+	render(props, { nodeError }) {
+		let nodes = this.sortedNodes()
 		return html`
 			<div class="user-nodes-list">
 				${nodes.length == 0 && (lang == 'ru' ? 'Нод нет' : 'No nodes yet')}
@@ -199,20 +201,3 @@ class UserNodesList extends PureComponent {
 		`
 	}
 }
-
-renderIfExists(h(UserNodesList), '.user-nodes')
-
-/*
-fetch('/api/user_nodes/1vvSx8nJgnMzFEfxYo1FZcvtFV5vNJu1Yoma7ycwZuXwAXaSG3/pings', { method: 'GET' })
-	.then(r => r.arrayBuffer())
-	.then(buf => {
-		let pings = new Uint16Array(buf)
-		console.log(pings)
-		pings = pings.slice(10000, 10000+100)
-		for (let value of pings) {
-			let ping = value%2000
-			let timeHint = Math.floor(value/2000)*4
-			console.log(timeHint, ping)
-		}
-	})
-*/
