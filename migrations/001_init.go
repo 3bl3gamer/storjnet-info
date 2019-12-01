@@ -35,7 +35,7 @@ func init() {
 				date date NOT NULL,
 				pings smallint[] NOT NULL,
 				CHECK (length(node_id) = 32),
-				CHECK (array_dims(pings) = '[1:1441]'),
+				CHECK (array_dims(pings) = '[1:1440]'),
 				PRIMARY KEY (node_id, user_id, date),
 				FOREIGN KEY (node_id, user_id) REFERENCES storjnet.user_nodes (node_id, user_id)
 			);

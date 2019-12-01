@@ -178,7 +178,7 @@ func HandleAPIUserNodePings(wr http.ResponseWriter, r *http.Request, ps httprout
 	if err != nil {
 		return nil, merry.Wrap(err)
 	}
-	buf := make([]byte, 4+1441*2)
+	buf := make([]byte, 4+1440*2)
 	for _, hist := range histories {
 		binary.LittleEndian.PutUint32(buf, uint32(hist.Date.Unix()))
 		for i, ping := range hist.Pings {

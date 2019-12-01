@@ -196,7 +196,7 @@ func startPingedNodesSaver(db *pg.DB, userNodesChan chan *UserNodeWithErr, chunk
 				if res.RowsAffected() == 0 {
 					_, err := tx.Exec(`
 						INSERT INTO user_nodes_history (node_id, user_id, date, pings)
-						VALUES (?, ?, (? at time zone 'utc')::date, array(SELECT CASE WHEN i = ? THEN ? ELSE 0 END FROM generate_series(0, 24*60) AS i))
+						VALUES (?, ?, (? at time zone 'utc')::date, array(SELECT CASE WHEN i = ? THEN ? ELSE 0 END FROM generate_series(1, 24*60) AS i))
 						`, node.ID, node.UserID, node.LastPingedAt, index, pingValue)
 					if err != nil {
 						return merry.Wrap(err)

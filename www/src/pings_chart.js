@@ -40,7 +40,7 @@ function processPingsData(buf, startDate, endDate) {
 	let reducedPings = new Uint16Array(Math.floor(len / reductionN))
 
 	// flatting
-	for (let j = 0; j < pings.length; j += 1441 + 2) {
+	for (let j = 0; j < pings.length; j += 1440 + 2) {
 		let stamp = (pings[j] + (pings[j + 1] << 16)) * 1000
 		let offset = Math.floor((stamp - startStamp) / 60 / 1000)
 		let iFrom = offset < 0 ? -offset : 0
