@@ -1,10 +1,13 @@
 package server
 
 import (
+	"compress/gzip"
 	"context"
 	"encoding/json"
 	"net/http"
 	"storj3stat/core"
+	"strings"
+	"sync"
 
 	httputils "github.com/3bl3gamer/go-http-utils"
 	"github.com/ansel1/merry"
@@ -48,5 +51,39 @@ func WithOptUser(handle httputils.HandlerExt) httputils.HandlerExt {
 func WithUser(handle httputils.HandlerExt) httputils.HandlerExt {
 	return func(wr http.ResponseWriter, r *http.Request, ps httprouter.Params) error {
 		return withUserInner(handle, wr, r, ps, true)
+	}
+}
+
+var gzippers = sync.Pool{New: func() interface{} {
+	gz, err := gzip.NewWriterLevel(nil, 2) // pings array: 1 - 62.9KB, 2 - 45.2KB, 3 - 45.0KB, 9 - 44.7KB
+	if err != nil {
+		panic(err)
+	}
+	return gz
+}}
+
+type gzipResponseWriter struct {
+	http.ResponseWriter
+	gz *gzip.Writer
+}
+
+func (w *gzipResponseWriter) Write(p []byte) (int, error) {
+	return w.gz.Write(p)
+}
+
+func WithGzip(handle httputils.HandlerExt) httputils.HandlerExt {
+	return func(wr http.ResponseWriter, r *http.Request, ps httprouter.Params) error {
+		if !strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") {
+			return handle(wr, r, ps)
+		}
+		wr.Header().Set("Content-Encoding", "gzip")
+		gz := gzippers.Get().(*gzip.Writer)
+		defer gzippers.Put(gz)
+		gz.Reset(wr)
+		err := handle(&gzipResponseWriter{wr, gz}, r, ps)
+		if err != nil {
+			return merry.Wrap(err)
+		}
+		return merry.Wrap(gz.Close())
 	}
 }
