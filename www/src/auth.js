@@ -2,6 +2,7 @@ import { h } from 'preact'
 import { PureComponent, renderIfExists, html, bindHandlers, onError } from './utils'
 
 import './auth.css'
+import { apiReq } from './api'
 
 const lang = 'ru'
 
@@ -14,40 +15,36 @@ class AuthForm extends PureComponent {
 
 	register(form) {
 		this.setState({ emailError: null })
-		let body = JSON.stringify(Object.fromEntries(new FormData(form)))
-		fetch('/api/register', { method: 'POST', body })
-			.then(r => r.json())
+		apiReq('POST', '/api/register', { data: Object.fromEntries(new FormData(form)) })
 			.then(res => {
-				if (res.ok) location.href = '/~'
-				else if (res.error == 'WRONG_EMAIL')
+				location.href = '/~'
+			})
+			.catch(err => {
+				if (err.error == 'WRONG_EMAIL')
 					this.setState({
 						emailError: lang == 'ru' ? 'неправильнй адрес' : 'wrong address',
 					})
-				else if (res.error == 'EMAIL_EXISTS')
+				else if (err.error == 'EMAIL_EXISTS')
 					this.setState({
 						emailError: lang == 'ru' ? 'адрес занят' : 'address not available',
 					})
-				else onError(res)
+				else onError(err)
 			})
-			.catch(onError)
 	}
 	login(form) {
 		this.setState({ emailError: null })
-		let body = JSON.stringify(Object.fromEntries(new FormData(form)))
-		fetch('/api/login', { method: 'POST', body })
-			.then(r => r.json())
+		apiReq('POST', '/api/login', { data: Object.fromEntries(new FormData(form)) })
 			.then(res => {
-				if (res.ok) location.href = '/~'
-				else if (res.error == 'WRONG_EMAIL_OR_PASSWORD')
+				location.href = '/~'
+			})
+			.catch(err => {
+				if (err.error == 'WRONG_EMAIL_OR_PASSWORD')
 					this.setState({
 						emailError:
-							lang == 'ru'
-								? 'неправильная почта или пароль'
-								: 'wrong e-mail or password',
+							lang == 'ru' ? 'неправильная почта или пароль' : 'wrong e-mail or password',
 					})
-				else onError(res)
+				else onError(err)
 			})
-			.catch(onError)
 	}
 
 	onSubmit(e) {

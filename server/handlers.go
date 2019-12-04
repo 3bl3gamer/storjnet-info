@@ -194,6 +194,8 @@ func HandleAPIUserNodePings(wr http.ResponseWriter, r *http.Request, ps httprout
 
 	startDateStr, endDateStr := extractStartEndDatesStrFromQuery(r.URL.Query())
 
+	wr.Header().Set("Content-Type", "application/octet-stream")
+
 	var histories []*core.UserNodeHistory
 	err = db.Model(&histories).Column("pings", "date").
 		Where("node_id = ? AND user_id = ? AND date BETWEEN ? AND ?", nodeID, user.ID, startDateStr, endDateStr).
@@ -216,7 +218,12 @@ func HandleAPIUserNodePings(wr http.ResponseWriter, r *http.Request, ps httprout
 	return nil, nil
 }
 
+func Handle404(wr http.ResponseWriter, r *http.Request, ps httprouter.Params) error {
+	tmplHnd := r.Context().Value(httputils.CtxKeyMain).(*httputils.MainCtx).TemplateHandler
+	return merry.Wrap(tmplHnd.RenderTemplate(wr, r, map[string]interface{}{"FPath": "404.html"}))
+}
+
 func HandleHtml500(wr http.ResponseWriter, r *http.Request, ps httprouter.Params) error {
 	tmplHnd := r.Context().Value(httputils.CtxKeyMain).(*httputils.MainCtx).TemplateHandler
-	return merry.Wrap(tmplHnd.RenderTemplate(wr, r, map[string]interface{}{"FPath": "500.html"}))
+	return merry.Wrap(tmplHnd.RenderTemplate(wr, r, map[string]interface{}{"FPath": "500.html", "Block": "500.html"}))
 }

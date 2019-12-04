@@ -244,18 +244,25 @@ func StartHTTPServer(address string, env utils.Env) error {
 	route("GET", "/", HandleIndex)
 	route("GET", "/ping_my_node", HandlePingMyNode)
 	route("GET", "/~", WithOptUser, HandleUserDashboard)
+
 	route("POST", "/lang", HandleLang)
 	route("POST", "/api/register", HandleAPIRegister)
 	route("POST", "/api/login", HandleAPILogin)
 	route("POST", "/api/ping_my_node", HandleAPIPingMyNode)
 	route("POST", "/api/user_nodes", WithUser, HandleAPISetUserNode)
 	route("DELETE", "/api/user_nodes", WithUser, HandleAPIDelUserNode)
-	route("GET", "/api/user_nodes/:node_id/pings", WithUser, WithGzip, HandleAPIUserNodePings)
+	route("GET", "/api/user_nodes/:group/:node_id/pings", WithUser, WithGzip, HandleAPIUserNodePings)
+
 	route("GET", "/api/explode", func(wr http.ResponseWriter, r *http.Request, ps httprouter.Params) (interface{}, error) {
 		return nil, merry.New("test API error")
 	})
 	route("GET", "/explode", func(wr http.ResponseWriter, r *http.Request, ps httprouter.Params) error {
 		return merry.New("test error")
+	})
+
+	wrapped404 := wrapper.WrapChain(Handle404)
+	router.NotFound = http.HandlerFunc(func(wr http.ResponseWriter, r *http.Request) {
+		wrapped404(wr, r, httprouter.Params{{}})
 	})
 
 	if env.IsDev() {

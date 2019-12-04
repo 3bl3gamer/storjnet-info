@@ -2,6 +2,7 @@ import { h } from 'preact'
 import { PureComponent, renderIfExists, html, bindHandlers } from './utils'
 
 import './ping_my_node.css'
+import { apiReq } from './api'
 
 const lang = 'ru'
 
@@ -32,41 +33,46 @@ class PingMyNodeModule extends PureComponent {
 		this.rememberNode(id, address)
 		this.setState({ logText: this.logLine('started') })
 
-		fetch('/api/ping_my_node', {
-			method: 'POST',
-			body: JSON.stringify({ id, address, dialOnly }),
+		apiReq('POST', '/api/ping_my_node', {
+			data: { id, address, dialOnly },
 			signal: this.pingAbortController.signal,
 		})
-			.then(r => r.json())
 			.then(resp => {
 				let logText = this.state.logText
 				let log = msg => (logText += this.logLine(msg))
 
-				this.pingAbortController = null
-				if (resp.ok) {
-					let { dialDuration, pingDuration } = resp.result
-					const ms = seconds => (seconds * 1000).toFixed() + 'ms'
-					log(`dialed node in ${ms(dialDuration)}`)
-					if (!dialOnly) {
-						log(`pinged node in ${ms(pingDuration)}`)
-						log(`total: ${ms(pingDuration + dialDuration)}`)
-					}
-				} else {
-					switch (resp.error) {
-						case 'NODE_ID_DECODE_ERROR':
-							log('wrong node ID: ' + resp.description)
-							break
-						case 'NODE_DIAL_ERROR':
-							log("couldn't connect to node: " + resp.description)
-							break
-						case 'NODE_PING_ERROR':
-							log("couldn't ping node: " + resp.description)
-							break
-						default:
-							log('O_o ' + JSON.stringify(resp))
-					}
+				let { dialDuration, pingDuration } = resp
+				const ms = seconds => (seconds * 1000).toFixed() + 'ms'
+				log(`dialed node in ${ms(dialDuration)}`)
+				if (!dialOnly) {
+					log(`pinged node in ${ms(pingDuration)}`)
+					log(`total: ${ms(pingDuration + dialDuration)}`)
 				}
+
 				this.setState({ logText })
+			})
+			.catch(err => {
+				let logText = this.state.logText
+				let log = msg => (logText += this.logLine(msg))
+
+				switch (err.error) {
+					case 'NODE_ID_DECODE_ERROR':
+						log('wrong node ID: ' + err.description)
+						break
+					case 'NODE_DIAL_ERROR':
+						log("couldn't connect to node: " + err.description)
+						break
+					case 'NODE_PING_ERROR':
+						log("couldn't ping node: " + err.description)
+						break
+					default:
+						log('O_o ' + JSON.stringify(err))
+				}
+
+				this.setState({ logText })
+			})
+			.finally(() => {
+				this.pingAbortController = null
 			})
 	}
 	rememberNode(id, address) {
@@ -127,9 +133,7 @@ class PingMyNodeModule extends PureComponent {
 			</div>
 			<p>
 				<b>Dial</b> —
-				${lang == 'ru'
-					? ' просто попытаться подключиться к ноде.'
-					: ' just try to connect to node.'}
+				${lang == 'ru' ? ' просто попытаться подключиться к ноде.' : ' just try to connect to node.'}
 			</p>
 			<p>
 				<b>Ping</b> —
@@ -150,18 +154,8 @@ class PingMyNodeModule extends PureComponent {
 					value=${curNode.address}
 					onchange=${this.onCurNodeAddressUpdate}
 				/>
-				<input
-					class="node-dial-button"
-					type="button"
-					value="Dial"
-					onclick=${this.onDialClick}
-				/>
-				<input
-					class="node-ping-button"
-					type="button"
-					value="Ping"
-					onclick=${this.onPingClick}
-				/>
+				<input class="node-dial-button" type="button" value="Dial" onclick=${this.onDialClick} />
+				<input class="node-ping-button" type="button" value="Ping" onclick=${this.onPingClick} />
 			</form>
 			<pre class="log-box">${logText}</pre>
 		`

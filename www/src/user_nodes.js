@@ -1,6 +1,7 @@
 import { PureComponent, html, bindHandlers, onError } from './utils'
 
 import './user_nodes.css'
+import { apiReq } from './api'
 
 const lang = 'ru'
 
@@ -139,32 +140,28 @@ export class UserNodesList extends PureComponent {
 	setNode(node) {
 		this.setPendingNode({ ...node, isLoading: true })
 		this.setState({ nodeError: null })
-		let body = JSON.stringify(node)
-		fetch('/api/user_nodes', { method: 'POST', body })
-			.then(r => r.json())
+		apiReq('POST', '/api/user_nodes', { data: node })
 			.then(res => {
-				if (res.ok) this.applySetNode(node)
-				else if (res.error == 'NODE_ID_DECODE_ERROR') {
+				this.applySetNode(node)
+			})
+			.catch(err => {
+				if (err.error == 'NODE_ID_DECODE_ERROR') {
 					this.setState({
 						nodeError:
 							(lang == 'ru' ? 'Неправильный ID ноды' : 'Wrong node ID') +
 							` "${node.id}": ` +
-							res.description,
+							err.description,
 					})
 					this.delNodeInner(node)
-				} else onError(res)
+				} else onError(err)
 			})
-			.catch(onError)
 	}
 	delNode(node) {
 		this.setPendingNode({ ...node, isLoading: true })
 		this.setState({ nodeError: null })
-		let body = JSON.stringify({ id: node.id })
-		fetch('/api/user_nodes', { method: 'DELETE', body })
-			.then(r => r.json())
+		apiReq('DELETE', '/api/user_nodes', { data: { id: node.id } })
 			.then(res => {
-				if (res.ok) this.applyDelNode(node)
-				else onError(res)
+				this.applyDelNode(node)
 			})
 			.catch(onError)
 	}

@@ -6,6 +6,7 @@ import {
 	endOfMonth,
 	hoverSingle,
 	toISODateStringInterval,
+	onError,
 } from './utils'
 
 import './pings_chart.css'
@@ -20,6 +21,7 @@ import {
 	roundedRect,
 	drawPingRegions,
 } from './chart_utils'
+import { apiReq } from './api'
 
 function delayedRedraw(redrawFunc) {
 	let redrawRequested = false
@@ -121,8 +123,8 @@ class PingsChart extends PureComponent {
 
 	loadData() {
 		let { startDateStr: start, endDateStr: end } = toISODateStringInterval(this.state)
-		fetch(`/api/user_nodes/${this.props.node.id}/pings?start_date=${start}&end_date=${end}`, {
-			method: 'GET',
+		apiReq('GET', `/api/user_nodes/my/${this.props.node.id}/pings`, {
+			data: { start_date: start, end_date: end },
 		})
 			.then(r => r.arrayBuffer())
 			.then(buf => {
@@ -130,6 +132,7 @@ class PingsChart extends PureComponent {
 				this.setState(processPingsData(buf, startDate, endDate))
 				this.requestRedraw()
 			})
+			.catch(onError)
 	}
 
 	onResize() {
