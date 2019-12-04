@@ -1,4 +1,12 @@
-import { PureComponent, bindHandlers, html, startOfMonth, endOfMonth } from './utils'
+import {
+	PureComponent,
+	bindHandlers,
+	html,
+	startOfMonth,
+	endOfMonth,
+	hoverSingle,
+	toISODateStringInterval,
+} from './utils'
 
 import './pings_chart.css'
 import {
@@ -7,23 +15,23 @@ import {
 	View,
 	drawPingLine,
 	drawMonthDays,
-	forEachPingRegion,
 	drawLabeledVScaleLeftLine,
+	RectTop,
+	roundedRect,
+	drawPingRegions,
 } from './chart_utils'
 
-function delayedRedraw() {
-	let comp = null
+function delayedRedraw(redrawFunc) {
 	let redrawRequested = false
 
 	function onRedraw() {
 		redrawRequested = false
-		comp.redraw()
+		redrawFunc()
 	}
 
 	return function() {
 		if (redrawRequested) return
 		redrawRequested = true
-		comp = this
 		requestAnimationFrame(onRedraw)
 	}
 }
@@ -77,18 +85,43 @@ class PingsChart extends PureComponent {
 		super()
 		bindHandlers(this)
 		this.canvasExt = new CanvasExt()
-		this.requestRedraw = delayedRedraw()
-		let now = new Date(Date.now() - 24 * 3600 * 1000)
+		this.canvasZoomExt = new CanvasExt()
+
+		this.requestRedraw = delayedRedraw(this.onRedraw)
+		this.requestZoomRedraw = delayedRedraw(this.onZoomRedraw)
+
+		this.hoverCtl = hoverSingle({ onHover: this.onHover, onLeave: this.onLeave })
+
+		this.rect = new RectCenter({ left: 0, right: 0, top: 0, bottom: 11 })
+		this.view = new View({
+			startStamp: 0,
+			endStamp: 0,
+			bottomValue: 0,
+			topValue: 1000,
+		})
+
+		this.zoomRect = new RectTop({ left: 0, right: 0, height: 32, top: 0 })
+		this.zoomLabelsRect = new RectTop({ left: 0, right: 0, height: 5, top: 28 })
+		this.zoomView = new View({
+			startStamp: 0,
+			endStamp: 0,
+			bottomValue: 0,
+			topValue: 2000,
+		})
+
+		let now = new Date()
 		this.state = {
 			startDate: startOfMonth(now),
 			endDate: endOfMonth(now),
 			pings: null,
 			reducedPings: null,
+			zoom: { isShown: false, cusorX: null, boxX: null, boxWidth: null, pos: null, isTouch: false },
 		}
 	}
 
 	loadData() {
-		fetch(`/api/user_nodes/${this.props.node.id}/pings`, {
+		let { startDateStr: start, endDateStr: end } = toISODateStringInterval(this.state)
+		fetch(`/api/user_nodes/${this.props.node.id}/pings?start_date=${start}&end_date=${end}`, {
 			method: 'GET',
 		})
 			.then(r => r.arrayBuffer())
@@ -101,55 +134,61 @@ class PingsChart extends PureComponent {
 
 	onResize() {
 		this.requestRedraw()
+		this.setState({ zoom: { ...this.state.zoom, isShown: false } })
+	}
+	onHover(x, y, e, touch) {
+		if (this.canvasExt.cssWidth == 0) return
+		let isTouch = !!touch
+		let boxWidth = Math.min(512, this.canvasExt.cssWidth)
+		let pixRatio = window.devicePixelRatio
+		let boxXMax = this.canvasExt.cssWidth - boxWidth
+		let boxX = Math.max(0, Math.min(x - boxWidth / 2, boxXMax))
+		boxX = Math.round(boxX * pixRatio) / pixRatio
+		let pos = x / this.canvasExt.cssWidth
+		this.setState({ zoom: { isShown: true, cusorX: x, boxX, boxWidth, pos, isTouch } })
+		this.requestZoomRedraw()
+	}
+	onLeave() {
+		this.setState({ zoom: { ...this.state.zoom, isShown: false } })
 	}
 
-	redraw() {
-		if (!this.canvasExt.created()) return
-		let { canvas, rc } = this.canvasExt
-		this.canvasExt.clear()
+	onRedraw() {
+		let { canvasExt, rect, view } = this
+		let { pings, startDate, endDate } = this.state
+		let { rc } = canvasExt
+
+		if (!canvasExt.created()) return
+		canvasExt.resize()
+
+		canvasExt.clear()
 		rc.save()
-		rc.scale(this.canvasExt.pixelRatio, this.canvasExt.pixelRatio)
+		rc.scale(canvasExt.pixelRatio, canvasExt.pixelRatio)
 		rc.font = '9px sans-serif'
 
-		let { startDate, endDate } = this.state
-		let rect = new RectCenter({ left: 0, right: 0, top: 1, bottom: 11 })
-		rect.update(this.canvasExt.cssWidth, this.canvasExt.cssHeight)
-		let view = new View({
-			startStamp: startDate.getTime(),
-			endStamp: endDate.getTime(),
-			bottomValue: 0,
-			topValue: 1000,
-		})
+		rect.update(canvasExt.cssWidth, canvasExt.cssHeight)
+		view.updateStamps(startDate.getTime(), endDate.getTime())
 
 		rc.fillStyle = '#EEE'
 		rc.fillRect(0, 0, rect.width, rect.top + rect.height)
 
-		let pings = this.state.pings
 		if (pings != null) {
-			rc.fillStyle = 'limegreen'
-			forEachPingRegion(rect, view, pings, view.startStamp, 60 * 1000, 2, (xFrom, xTo) => {
-				rc.fillRect(xFrom, 0, xTo - xFrom, 29)
-			})
+			drawPingRegions(rc, rect, view, pings, +startDate, 60 * 1000, 2, 'limegreen', 0.5)
 
 			drawPingLine(
-				this.canvasExt,
+				rc,
 				rect,
 				view,
 				this.state.reducedPings,
-				view.startStamp,
+				+startDate,
 				60 * 1000 * this.state.reducedPingsN,
 				'rgba(0,0,0,0.4)',
 			)
 
-			rc.fillStyle = 'red'
-			forEachPingRegion(rect, view, pings, view.startStamp, 60 * 1000, 1, (xFrom, xTo) => {
-				rc.fillRect(xFrom - 0.25, 0, xTo - xFrom + 0.5, 29)
-			})
+			drawPingRegions(rc, rect, view, pings, +startDate, 60 * 1000, 1, 'red', 0.5)
 		}
 
-		drawMonthDays(this.canvasExt, rect, view, { hLineColor: 'rgba(0,0,0,0.1)' })
+		drawMonthDays(canvasExt, rect, view, { hLineColor: 'rgba(0,0,0,0.1)' })
 
-		// drawVScalesLeft(this.canvasExt, rect, view, 'black', 'rgba(0,0,0,0.12)')
 		const msFunc = v => (v == 0 ? '0' : (v / 1000).toFixed(0) + 'K')
 		rc.textAlign = 'left'
 		rc.textBaseline = 'bottom'
@@ -159,13 +198,68 @@ class PingsChart extends PureComponent {
 
 		rc.strokeStyle = 'rgba(0,0,0,0.05)'
 		rc.lineWidth = 0.5
-		rc.strokeRect(0.5, 0.5, canvas.width - 1, canvas.height - 1)
+		rc.strokeRect(0.5, 0.5, canvasExt.cssWidth - 1, canvasExt.cssHeight - 1)
+
+		rc.restore()
+	}
+
+	onZoomRedraw() {
+		let { canvasZoomExt: canvasExt, zoomView: view } = this
+		let { rect: mainRect, zoomRect: rect, zoomLabelsRect: labelsRect } = this
+		let { zoom, pings, startDate, endDate } = this.state
+		let { rc } = canvasExt
+
+		if (!canvasExt.created()) return
+		canvasExt.resize()
+
+		rect.update(canvasExt.cssWidth, canvasExt.cssHeight)
+		labelsRect.update(canvasExt.cssWidth, canvasExt.cssHeight)
+
+		let timeW = 24 * 3600 * 1000
+		let stamp = +startDate + zoom.pos * (endDate - startDate)
+		view.updateStamps(stamp - timeW, stamp + timeW)
+
+		canvasExt.clear()
+		rc.save()
+		rc.scale(canvasExt.pixelRatio, canvasExt.pixelRatio)
+
+		rc.fillStyle = 'black'
+		rc.fillRect(zoom.cusorX - zoom.boxX - 0.5, canvasExt.cssHeight - mainRect.bottom, 1, -mainRect.height)
+
+		rc.fillStyle = 'rgba(255,255,255,0.7)'
+		rc.fillRect(0, 4, canvasExt.cssWidth, rect.height + 12 - 4)
+
+		rc.save()
+		rc.beginPath()
+		roundedRect(rc, 0.5, 0.5, rect.width - 1, rect.height, 2.5)
+		rc.clip()
+
+		rc.fillStyle = '#EEE'
+		rc.fillRect(0, 0, rect.width, rect.top + rect.height)
+
+		if (pings !== null) {
+			drawPingRegions(rc, rect, view, pings, +startDate, 60 * 1000, 2, 'limegreen', 0.5)
+			drawPingLine(rc, rect, view, pings, +startDate, 60 * 1000, 'rgba(0,0,0,0.5)')
+			drawPingRegions(rc, rect, view, pings, +startDate, 60 * 1000, 1, 'red', 0.5)
+		}
+
+		rc.restore()
+
+		drawMonthDays(canvasExt, labelsRect, view, {
+			hLineColor: 'rgba(0,0,0,0.1)',
+			vLinesColor: 'black',
+		})
+
+		rc.beginPath()
+		roundedRect(rc, 0.5, 0.5, rect.width - 1, rect.height, 2.5)
+		rc.lineWidth = 1
+		rc.strokeStyle = 'rgba(0,0,0,0.8)'
+		rc.stroke()
 
 		rc.restore()
 	}
 
 	componentDidMount() {
-		this.canvasExt.resize()
 		this.requestRedraw()
 		this.loadData()
 		addEventListener('resize', this.onResize)
@@ -174,11 +268,21 @@ class PingsChart extends PureComponent {
 		addEventListener('resize', this.onResize)
 	}
 
-	render(props, state) {
+	render(props, { zoom }) {
+		let zoomElem =
+			zoom.isShown &&
+			html`
+				<canvas
+					class="zoom-canvas ${zoom.isTouch ? 'touch' : ''}"
+					ref=${this.canvasZoomExt.setRef}
+					style="width: ${zoom.boxWidth}px; transform: translateX(${zoom.boxX}px)"
+				></canvas>
+			`
 		return html`
-			<div class="pings-chart">
-				<canvas ref=${this.canvasExt.setRef}></canvas>
+			<div class="pings-chart" ref=${this.hoverCtl.setRef}>
+				<canvas class="main-canvas" ref=${this.canvasExt.setRef}></canvas>
 				<div class="legend">${this.props.node.id}</div>
+				${zoomElem}
 			</div>
 		`
 	}

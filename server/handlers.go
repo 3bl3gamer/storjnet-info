@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"net/http"
+	"net/url"
 	"storj3stat/core"
 	"storj3stat/utils"
 	"time"
@@ -165,6 +166,24 @@ func HandleAPIDelUserNode(wr http.ResponseWriter, r *http.Request, ps httprouter
 	return "ok", nil
 }
 
+func extractStartEndDatesStrFromQuery(query url.Values) (string, string) {
+	startDateStr := query.Get("start_date")
+	endDateStr := query.Get("end_date")
+	nowStr := time.Now().In(time.UTC).Format("2006-01-02")
+	endTime, err := time.ParseInLocation("2006-01-02", endDateStr, time.UTC)
+	if err != nil {
+		return nowStr, nowStr
+	}
+	startTime, err := time.ParseInLocation("2006-01-02", startDateStr, time.UTC)
+	if err != nil {
+		return nowStr, nowStr
+	}
+	if endTime.Sub(startTime) > 40*24*time.Hour {
+		return nowStr, nowStr
+	}
+	return startDateStr, endDateStr
+}
+
 func HandleAPIUserNodePings(wr http.ResponseWriter, r *http.Request, ps httprouter.Params) (interface{}, error) {
 	db := r.Context().Value(CtxKeyDB).(*pg.DB)
 	user := r.Context().Value(CtxKeyUser).(*core.User)
@@ -173,8 +192,12 @@ func HandleAPIUserNodePings(wr http.ResponseWriter, r *http.Request, ps httprout
 		return httputils.JsonError{Code: 400, Error: "NODE_ID_DECODE_ERROR", Description: err.Error()}, nil
 	}
 
+	startDateStr, endDateStr := extractStartEndDatesStrFromQuery(r.URL.Query())
+
 	var histories []*core.UserNodeHistory
-	err = db.Model(&histories).Column("pings", "date").Where("node_id = ? AND user_id = ?", nodeID, user.ID).Order("date").Select()
+	err = db.Model(&histories).Column("pings", "date").
+		Where("node_id = ? AND user_id = ? AND date BETWEEN ? AND ?", nodeID, user.ID, startDateStr, endDateStr).
+		Order("date").Select()
 	if err != nil {
 		return nil, merry.Wrap(err)
 	}

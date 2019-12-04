@@ -107,11 +107,12 @@ function value2y(rect, view, value) {
 	return rect.top + rect.height - ((value - view.bottomValue) / view.height) * rect.height
 }
 
-export function drawPingLine(canvasExt, rect, view, pings, startStamp, itemWidth, color) {
-	let rc = canvasExt.rc
+export function drawPingLine(rc, rect, view, pings, startStamp, itemWidth, color) {
+	let iFrom = Math.max(0, Math.floor((view.startStamp - startStamp) / itemWidth))
+	let iTo = Math.min(pings.length, Math.ceil((view.endStamp - startStamp) / itemWidth))
 	rc.beginPath()
 	let started = false
-	for (let i = 0; i < pings.length; i++) {
+	for (let i = iFrom; i < iTo; i++) {
 		let value = pings[i]
 		let ping = value % 2000
 		if (ping > 1) {
@@ -138,7 +139,9 @@ export function forEachPingRegion(rect, view, pings, startStamp, itemWidth, need
 	let prevKind = null
 	let prevKindX = 0
 	let lastX = 0
-	for (let i = 0; i < pings.length; i++) {
+	let iFrom = Math.max(0, Math.floor((view.startStamp - startStamp) / itemWidth))
+	let iTo = Math.min(pings.length, Math.ceil((view.endStamp - startStamp) / itemWidth))
+	for (let i = iFrom; i < iTo; i++) {
 		let value = pings[i]
 		let ping = value % 2000
 		let timeHint = Math.floor(value / 2000) * 4
@@ -159,75 +162,12 @@ export function forEachPingRegion(rect, view, pings, startStamp, itemWidth, need
 		func(prevKindX, lastX)
 	}
 }
-/*
-function forEachPing(pings, func) {
-	for (let i = 0; i < pings.length; i++) {
-		let value = pings[i]
-		let ping = value % 2000
-		let timeHint = Math.floor(value / 2000) * 4
-		let time = i * 60 + timeHint
-		let x = time / 60 / 18
-		let y = ping / 20
-		func(x, y, time, ping)
-	}
+export function drawPingRegions(rc, rect, view, pings, startStamp, itemWidth, needKind, color, ext) {
+	rc.fillStyle = color
+	forEachPingRegion(rect, view, pings, startStamp, itemWidth, needKind, (xFrom, xTo) => {
+		rc.fillRect(xFrom - ext / 2, rect.top, xTo - xFrom + ext, rect.height)
+	})
 }
-function forEachPingReduced(pings, func) {
-	let n = 60
-	for (let j = 0; j < pings.length; j += n) {
-		let minPing = Infinity
-		let maxPing = -Infinity
-		let minTime = null
-		let maxTime = null
-		for (let i = j; i < Math.min(j + n, pings.length); i++) {
-			let value = pings[i]
-			let ping = value % 2000
-			if (ping > 1) {
-				let timeHint = Math.floor(value / 2000) * 4
-				let time = i * 60 + timeHint
-				if (ping < minPing) {
-					minPing = ping
-					minTime = time
-				}
-				if (ping > maxPing) {
-					maxPing = ping
-					maxTime = time
-				}
-			}
-		}
-		if (minTime > maxTime) {
-			;[minTime, maxTime] = [maxTime, minTime]
-		}
-		func(minTime / 60 / 18, minPing / 20, minTime, minPing)
-		func(maxTime / 60 / 18, maxPing / 20, maxTime, maxPing)
-	}
-}
-function forEachPingAvg(pings, func) {
-	let n = 30
-	for (let j = 0; j < pings.length; j += n) {
-		let pingSum = 0
-		let timeSum = 0
-		let count = 0
-		for (let i = j; i < Math.min(j + n, pings.length); i++) {
-			let value = pings[i]
-			let ping = value % 2000
-			if (ping > 1) {
-				let timeHint = Math.floor(value / 2000) * 4
-				let time = i * 60 + timeHint
-				pingSum += ping
-				timeSum += time
-				count++
-			}
-		}
-		if (count > 0)
-			func(
-				timeSum / count / 60 / 18,
-				48 * 1.5 - pingSum / count / 20,
-				timeSum / count,
-				pingSum / count,
-			)
-	}
-}
-*/
 
 function* iterateDays(startDate, endDate, step = 1) {
 	if (step < 1) step = 1
@@ -247,7 +187,7 @@ function* iterateDays(startDate, endDate, step = 1) {
 }
 
 export function drawMonthDays(canvasExt, rect, view, params = {}) {
-	let { textColor = 'black', vLinesColor = null, hLineColor = '#555' } = params
+	let { textColor = 'black', vLinesColor = null, hLineColor = '#555', textYShift = 2 } = params
 
 	let rc = canvasExt.rc
 	rc.fillStyle = 'black'
@@ -261,27 +201,53 @@ export function drawMonthDays(canvasExt, rect, view, params = {}) {
 
 	for (let [, dayDate, nextDayDate] of iterateDays(view.startStamp, view.endStamp, step)) {
 		let y = rect.top + rect.height
-		// drawHours(
-		// 	canvasExt,
-		// 	view.startStamp,
-		// 	view.endStamp,
-		// 	dayDate,
-		// 	nextDayDate,
-		// 	y,
-		// 	rect.height - 2,
-		// )
+		drawHours(
+			canvasExt,
+			view.startStamp,
+			view.endStamp,
+			dayDate,
+			nextDayDate,
+			y + textYShift,
+			rect.height - 2,
+			vLinesColor,
+		)
 		let x = stamp2x(rect, view, dayDate)
 		if (vLinesColor !== null) {
 			rc.fillStyle = vLinesColor
 			rc.fillRect(x, y, 1, -rect.height)
 		}
 		rc.fillStyle = textColor
-		rc.fillText(dayDate.getDate(), x, y + (hLineColor === null ? 2 : 3))
+		rc.fillText(dayDate.getDate(), x, y + textYShift)
 	}
 
 	if (hLineColor !== null) {
 		rc.fillStyle = hLineColor
 		rc.fillRect(rect.left, rect.top + rect.height - 0.5, rect.width, 1)
+	}
+}
+function drawHours(canvasExt, dateDrawFrom, dateDrawTo, curDayDate, nextDayDate, y, markHeight, markColor) {
+	let rc = canvasExt.rc
+
+	let labelWidth = rc.measureText('12:00').width * 1.5
+	let dayWidth = (canvasExt.cssWidth * (nextDayDate - curDayDate)) / (dateDrawTo - dateDrawFrom)
+	let maxLabels = dayWidth / labelWidth
+	let step = [1, 2, 3, 4, 6, 12].find(x => x > 24 / maxLabels)
+	if (step == null) return
+
+	rc.strokeStyle = 'rgba(255,255,255,0.3)'
+	rc.lineWidth = 2.5
+	for (let hourNum = step; ; hourNum += step) {
+		let curDate = new Date(curDayDate)
+		curDate.setHours(curDate.getHours() + hourNum)
+		if (curDate >= nextDayDate) break
+		let x = ((curDate - dateDrawFrom) / (dateDrawTo - dateDrawFrom)) * canvasExt.cssWidth
+		if (markColor !== null) {
+			rc.fillStyle = markColor
+			rc.fillRect(x, y - 2, 1, -markHeight)
+		}
+		rc.strokeText(curDate.getHours() + ':00', x, y)
+		rc.fillStyle = '#777'
+		rc.fillText(curDate.getHours() + ':00', x, y)
 	}
 }
 
@@ -335,4 +301,22 @@ export function drawVScalesLeft(canvasExt, rect, view, textColor, lineColor, tex
 	rc.textBaseline = 'bottom'
 	for (let i = 0; i < values.length; i++)
 		drawLabeledVScaleLeftLine(rc, rect, view, values[i], textColor, lineColor, roundN, textFunc)
+}
+
+export function roundedRectLeft(rc, x, y, h, r) {
+	rc.lineTo(x + r, y + h)
+	rc.arcTo(x, y + h, x, y + h - r, r)
+	rc.lineTo(x, y + y + r)
+	rc.arcTo(x, y, x + r, y, r)
+}
+export function roundedRectRight(rc, x, y, h, r) {
+	rc.lineTo(x - r, y)
+	rc.arcTo(x, y, x, y + r, r)
+	rc.lineTo(x, y + h - r)
+	rc.arcTo(x, y + h, x - r, y + h, r)
+}
+export function roundedRect(rc, x, y, w, h, r) {
+	rc.moveTo(x + w - r, y + h)
+	roundedRectLeft(rc, x, y, h, r)
+	roundedRectRight(rc, x + w, y, h, r)
 }
