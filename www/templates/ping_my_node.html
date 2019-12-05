@@ -1,13 +1,7 @@
 {{define "title"}}
-{{if .L.Is "ru"}}
-Пинговальня.
-{{else}}
-Pingdom.
-{{end}}
+{{.L.Loc "Pingdom" "ru" "Пинговальня"}}
 {{end}}
 
 {{define "content"}}
-
 <div class="module ping-my-node"></div>
-
 {{end}}
