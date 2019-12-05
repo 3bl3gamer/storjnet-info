@@ -3,8 +3,7 @@ import { PureComponent, renderIfExists, html, bindHandlers, onError } from './ut
 
 import './auth.css'
 import { apiReq } from './api'
-
-const lang = 'ru'
+import { L } from './i18n'
 
 class AuthForm extends PureComponent {
 	constructor() {
@@ -22,11 +21,11 @@ class AuthForm extends PureComponent {
 			.catch(err => {
 				if (err.error == 'WRONG_EMAIL')
 					this.setState({
-						emailError: lang == 'ru' ? 'неправильнй адрес' : 'wrong address',
+						emailError: L('wrong address', 'ru', 'неправильнй адрес'),
 					})
 				else if (err.error == 'EMAIL_EXISTS')
 					this.setState({
-						emailError: lang == 'ru' ? 'адрес занят' : 'address not available',
+						emailError: L('address not available', 'ru', 'адрес занят'),
 					})
 				else onError(err)
 			})
@@ -40,8 +39,7 @@ class AuthForm extends PureComponent {
 			.catch(err => {
 				if (err.error == 'WRONG_EMAIL_OR_PASSWORD')
 					this.setState({
-						emailError:
-							lang == 'ru' ? 'неправильная почта или пароль' : 'wrong e-mail or password',
+						emailError: L('wrong e-mail or password', 'ru', 'неправильная почта или пароль'),
 					})
 				else onError(err)
 			})
@@ -69,14 +67,19 @@ class AuthForm extends PureComponent {
 		return html`
 			<form class="registration-form" onsubmit=${this.onSubmit}>
 				<div class="email-error">${emailError}</div>
-				<input type="email" name="email" required placeholder="E-mail" />
-				<input type="password" name="password" required placeholder="Password" />
+				<input type="email" name="email" required placeholder="${L('E-mail', 'ru', 'Почта')}" />
+				<input
+					type="password"
+					name="password"
+					required
+					placeholder="${L('Password', 'ru', 'Пароль')}"
+				/>
 				<div class="buttons-wrap">
 					<button type=${regButType} name="register" onclick=${this.onClick}>
-						Регистрация
+						${L('Register', 'ru', 'Регистрация')}
 					</button>
 					<button type=${logButType} name="login" onclick=${this.onClick}>
-						Вход
+						${L('Login', 'ru', 'Вход')}
 					</button>
 				</div>
 			</form>

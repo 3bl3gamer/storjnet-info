@@ -3,8 +3,7 @@ import { PureComponent, renderIfExists, html, bindHandlers } from './utils'
 
 import './ping_my_node.css'
 import { apiReq } from './api'
-
-const lang = 'ru'
+import { L } from './i18n'
 
 class PingMyNodeModule extends PureComponent {
 	constructor() {
@@ -133,13 +132,12 @@ class PingMyNodeModule extends PureComponent {
 			</div>
 			<p>
 				<b>Dial</b> —
-				${lang == 'ru' ? ' просто попытаться подключиться к ноде.' : ' just try to connect to node.'}
+				${L(' just try to connect to node.', 'ru', ' просто попытаться подключиться к ноде.')}
 			</p>
 			<p>
 				<b>Ping</b> —
-				${lang == 'ru'
-					? ' подключиться и отправить пинг. Обновит'
-					: ' connect and send ping. Will update'} <code>Last Contact</code>.
+				${L(' connect and send ping. Will update', 'ru', ' подключиться и отправить пинг. Обновит')}
+				${' '}<code>Last Contact</code>.
 			</p>
 			<form class="node-ping-form">
 				<input

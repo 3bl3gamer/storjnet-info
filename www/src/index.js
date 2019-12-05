@@ -8,8 +8,7 @@ import './user_dashboard'
 
 import { PingsChartsList } from './pings_chart'
 import { sortedNodes } from './user_nodes'
-
-const lang = 'ru'
+import { L } from './i18n'
 
 let nodes = []
 try {
@@ -21,13 +20,17 @@ try {
 renderIfExists(
 	html`
 		<h2>
-			${lang == 'ru' ? 'Сателлиты' : 'Satellites'}
+			${L('Satellites', 'ru', 'Сателлиты')}
 		</h2>
 		<${PingsChartsList} group="sat" nodes=${nodes} />
 		<p class="dim small">
-			${lang == 'ru'
-				? 'Сателлиты пингуются из из сервера под Парижем. Узкие красные полосы — не признак оффлайна: просто по какой-то причине не вернулся одиночный пинг.'
-				: 'Satellites are pinged from a server near Paris. Narrow red stripes are not a sign of offline: just for some reason a single ping response was not received.'}
+			${L(
+				'Satellites are pinged from a server near Paris. ' +
+					'Narrow red stripes are not a sign of offline: just for some reason a single ping response was not received.',
+				'ru',
+				'Сателлиты пингуются из из сервера под Парижем. ' +
+					'Узкие красные полосы — не признак оффлайна: просто по какой-то причине не вернулся одиночный пинг.',
+			)}
 		</p>
 	`,
 	'.sat-nodes',

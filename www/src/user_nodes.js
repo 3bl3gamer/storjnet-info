@@ -2,8 +2,7 @@ import { PureComponent, html, bindHandlers, onError } from './utils'
 
 import './user_nodes.css'
 import { apiReq } from './api'
-
-const lang = 'ru'
+import { L } from './i18n'
 
 export function sortedNodes(nodes) {
 	return nodes.sort((a, b) => a.address.localeCompare(b.address))
@@ -26,7 +25,7 @@ class UserNodeItem extends PureComponent {
 		const pingModes = [
 			['ping', 'ping'],
 			['dial', 'dial'],
-			['off', lang == 'ru' ? 'выкл' : 'off'],
+			['off', L('off', 'ru', 'выкл')],
 		]
 		return html`
 			<div class="node ${node.isLoading ? 'loading' : ''}">
@@ -39,7 +38,7 @@ class UserNodeItem extends PureComponent {
 						onchange=${this.onChange}
 					/>
 					<div class="node-ping-mode">
-						Проверка аптайма:
+						${L('Uptime check', 'ru', 'Проверка аптайма')}:
 						<select name="pingMode" onchange=${this.onChange}>
 							${pingModes.map(
 								([name, label]) =>
@@ -96,9 +95,11 @@ class NewUserNodeForm extends PureComponent {
 					<textarea
 						class="nodes-data"
 						name="nodes_data"
-						placeholder=${lang == 'ru'
-							? '<айди ноды> <адрес>\n<айди ноды> <адрес>\n...'
-							: '<node id> <address>\n<node id> <address>\n...'}
+						placeholder=${L(
+							'<node id> <address>\n<node id> <address>\n...',
+							'ru',
+							'<айди ноды> <адрес>\n<айди ноды> <адрес>\n...',
+						)}
 					></textarea>
 				</div>
 			</form>
@@ -148,7 +149,7 @@ export class UserNodesList extends PureComponent {
 				if (err.error == 'NODE_ID_DECODE_ERROR') {
 					this.setState({
 						nodeError:
-							(lang == 'ru' ? 'Неправильный ID ноды' : 'Wrong node ID') +
+							L('Wrong node ID', 'ru', 'Неправильный ID ноды') +
 							` "${node.id}": ` +
 							err.description,
 					})
@@ -180,7 +181,7 @@ export class UserNodesList extends PureComponent {
 		let nodes = this.sortedNodes()
 		return html`
 			<div class="user-nodes-list">
-				${nodes.length == 0 && (lang == 'ru' ? 'Нод нет' : 'No nodes yet')}
+				${nodes.length == 0 && L('No nodes yet', 'ru', 'Нод нет')}
 				${nodes.map(
 					n =>
 						html`
