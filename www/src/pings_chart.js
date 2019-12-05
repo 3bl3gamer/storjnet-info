@@ -123,7 +123,7 @@ class PingsChart extends PureComponent {
 
 	loadData() {
 		let { startDateStr: start, endDateStr: end } = toISODateStringInterval(this.state)
-		apiReq('GET', `/api/user_nodes/my/${this.props.node.id}/pings`, {
+		apiReq('GET', `/api/user_nodes/${this.props.group}/${this.props.node.id}/pings`, {
 			data: { start_date: start, end_date: end },
 		})
 			.then(r => r.arrayBuffer())
@@ -292,11 +292,11 @@ class PingsChart extends PureComponent {
 }
 
 export class PingsChartsList extends PureComponent {
-	render({ nodes }, state) {
+	render({ nodes, group }, state) {
 		return nodes.map(
 			n =>
 				html`
-					<${PingsChart} node=${n} />
+					<${PingsChart} group=${group} node=${n} />
 				`,
 		)
 	}

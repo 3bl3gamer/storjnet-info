@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"storj3stat/core"
 	"storj3stat/utils"
+	"strings"
 	"time"
 
 	httputils "github.com/3bl3gamer/go-http-utils"
@@ -18,7 +19,13 @@ import (
 )
 
 func HandleIndex(wr http.ResponseWriter, r *http.Request, ps httprouter.Params) (httputils.TemplateCtx, error) {
-	return map[string]interface{}{"FPath": "index.html"}, nil
+	db := r.Context().Value(CtxKeyDB).(*pg.DB)
+	user := r.Context().Value(CtxKeyUser).(*core.User)
+	nodes, err := core.LoadSatNodes(db)
+	if err != nil {
+		return nil, merry.Wrap(err)
+	}
+	return map[string]interface{}{"FPath": "index.html", "User": user, "SatNodes": nodes}, nil
 }
 
 func HandlePingMyNode(wr http.ResponseWriter, r *http.Request, ps httprouter.Params) (httputils.TemplateCtx, error) {
@@ -186,7 +193,6 @@ func extractStartEndDatesStrFromQuery(query url.Values) (string, string) {
 
 func HandleAPIUserNodePings(wr http.ResponseWriter, r *http.Request, ps httprouter.Params) (interface{}, error) {
 	db := r.Context().Value(CtxKeyDB).(*pg.DB)
-	user := r.Context().Value(CtxKeyUser).(*core.User)
 	nodeID, err := storj.NodeIDFromString(ps.ByName("node_id"))
 	if err != nil {
 		return httputils.JsonError{Code: 400, Error: "NODE_ID_DECODE_ERROR", Description: err.Error()}, nil
@@ -197,10 +203,18 @@ func HandleAPIUserNodePings(wr http.ResponseWriter, r *http.Request, ps httprout
 	wr.Header().Set("Content-Type", "application/octet-stream")
 
 	var histories []*core.UserNodeHistory
-	err = db.Model(&histories).Column("pings", "date").
-		Where("node_id = ? AND user_id = ? AND date BETWEEN ? AND ?", nodeID, user.ID, startDateStr, endDateStr).
-		Order("date").Select()
-	if err != nil {
+	histsQuery := db.Model(&histories).Column("pings", "date").
+		Where("node_id = ? AND date BETWEEN ? AND ?", nodeID, startDateStr, endDateStr).
+		Order("date")
+
+	if strings.Contains(r.URL.Path, "/sat/") {
+		histsQuery = histsQuery.Where("user_id = (SELECT id FROM users WHERE email = 'satellites@mail.com')")
+	} else {
+		user := r.Context().Value(CtxKeyUser).(*core.User)
+		histsQuery = histsQuery.Where("user_id = ?", user.ID)
+	}
+
+	if err = histsQuery.Select(); err != nil {
 		return nil, merry.Wrap(err)
 	}
 	buf := make([]byte, 4+1440*2)

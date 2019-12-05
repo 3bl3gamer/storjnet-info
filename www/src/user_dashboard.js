@@ -38,7 +38,7 @@ renderIfExists(
 		<${Provider} store=${store}>
 			<div>
 				<${UserNodesListS} />
-				<${PingsChartsListS} />
+				<${PingsChartsListS} group="my" />
 			</div>
 		<//>
 	`,

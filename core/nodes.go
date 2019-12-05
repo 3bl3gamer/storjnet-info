@@ -16,7 +16,7 @@ type Node struct {
 	LastPingedAt time.Time    `json:"lastPingedAt"`
 	LastPing     int64        `json:"lastPing"`
 	LastUpAt     time.Time    `json:"lastUpAt"`
-	CreatedAt    time.Time    `json:"createdAt"`
+	CreatedAt    time.Time    `json:"-"`
 }
 
 type UserNode struct {
@@ -64,6 +64,20 @@ func DelUserNode(db *pg.DB, user *User, nodeID storj.NodeID) error {
 func LoadUserNodes(db *pg.DB, user *User) ([]*Node, error) {
 	nodes := make([]*Node, 0)
 	_, err := db.Query(&nodes, "SELECT node_id AS raw_id, address, ping_mode FROM user_nodes WHERE user_id = ?", user.ID)
+	if err != nil {
+		return nil, merry.Wrap(err)
+	}
+	if err := ConvertNodeIDs(nodes); err != nil {
+		return nil, merry.Wrap(err)
+	}
+	return nodes, nil
+}
+
+func LoadSatNodes(db *pg.DB) ([]*Node, error) {
+	nodes := make([]*Node, 0)
+	_, err := db.Query(&nodes, `
+		SELECT node_id AS raw_id, address FROM user_nodes
+		WHERE user_id = (SELECT id FROM users WHERE email = 'satellites@mail.com')`)
 	if err != nil {
 		return nil, merry.Wrap(err)
 	}

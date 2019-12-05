@@ -8,8 +8,14 @@ Index.
 
 {{define "content"}}
 
-<p>...</p>
-
+{{if .User}}
+<p>
+	<a href="/~">{{.L.Loc "My nodes" "ru" "Мои ноды"}}</a>
+</p>
+{{else}}
 <div class="auth-forms"></div>
+{{end}}
+<script id="sat_nodes_data" type="application/json">{{.SatNodes}}</script>
+<div class="sat-nodes"></div>
 
 {{end}}
