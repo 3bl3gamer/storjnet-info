@@ -11,6 +11,11 @@ Storj Net Info
 {{else}}
 <div class="auth-forms"></div>
 {{end}}
+<p>
+	<a href="/ping_my_node">{{.L.Loc "Ping nodes" "ru" "Попинговать ноды"}}</a>
+	{{.L.Loc "by ID and address" "ru" "по айди и адресу"}}.
+</p>
+
 <script id="sat_nodes_data" type="application/json">{{.SatNodes}}</script>
 <div class="sat-nodes"></div>
 

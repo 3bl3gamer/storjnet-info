@@ -9,37 +9,37 @@ class AuthForm extends PureComponent {
 	constructor() {
 		super()
 		bindHandlers(this)
-		this.state = { mode: 'register', emailError: null }
+		this.state = { mode: 'register', authError: null }
 	}
 
 	register(form) {
-		this.setState({ emailError: null })
+		this.setState({ authError: null })
 		apiReq('POST', '/api/register', { data: Object.fromEntries(new FormData(form)) })
 			.then(res => {
 				location.href = '/~'
 			})
 			.catch(err => {
-				if (err.error == 'WRONG_EMAIL')
+				if (err.error == 'USERNAME_TO_SHORT')
 					this.setState({
-						emailError: L('wrong address', 'ru', 'неправильнй адрес'),
+						authError: L('username to short', 'ru', 'логин слишком короткий'),
 					})
-				else if (err.error == 'EMAIL_EXISTS')
+				else if (err.error == 'USERNAME_EXISTS')
 					this.setState({
-						emailError: L('address not available', 'ru', 'адрес занят'),
+						authError: L('username not available', 'ru', 'логин занят'),
 					})
 				else onError(err)
 			})
 	}
 	login(form) {
-		this.setState({ emailError: null })
+		this.setState({ authError: null })
 		apiReq('POST', '/api/login', { data: Object.fromEntries(new FormData(form)) })
 			.then(res => {
 				location.href = '/~'
 			})
 			.catch(err => {
-				if (err.error == 'WRONG_EMAIL_OR_PASSWORD')
+				if (err.error == 'WRONG_USERNAME_OR_PASSWORD')
 					this.setState({
-						emailError: L('wrong e-mail or password', 'ru', 'неправильная почта или пароль'),
+						authError: L('wrong username or password', 'ru', 'неправильный логин или пароль'),
 					})
 				else onError(err)
 			})
@@ -55,19 +55,19 @@ class AuthForm extends PureComponent {
 			let form = e.target.closest('form')
 			let data = new FormData(form)
 			this.setState({ mode: e.target.name })
-			if (data.get('email') != '' && data.get('password') != '') {
+			if (data.get('username') != '' && data.get('password') != '') {
 				if (form.checkValidity()) this[e.target.name](form)
 			}
 		}
 	}
 
-	render(props, { mode, emailError }) {
+	render(props, { mode, authError }) {
 		const regButType = mode == 'register' ? 'submit' : 'button'
 		const logButType = mode == 'login' ? 'submit' : 'button'
 		return html`
 			<form class="registration-form" onsubmit=${this.onSubmit}>
-				<div class="email-error">${emailError}</div>
-				<input type="email" name="email" required placeholder="${L('E-mail', 'ru', 'Почта')}" />
+				<div class="auth-error">${authError}</div>
+				<input type="text" name="username" required placeholder="${L('Username', 'ru', 'Логин')}" />
 				<input
 					type="password"
 					name="password"

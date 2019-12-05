@@ -106,17 +106,17 @@ func HandleAPIPingMyNode(wr http.ResponseWriter, r *http.Request, ps httprouter.
 func HandleAPIRegister(wr http.ResponseWriter, r *http.Request, ps httprouter.Params) (interface{}, error) {
 	db := r.Context().Value(CtxKeyDB).(*pg.DB)
 	params := &struct {
-		Email, Password string
+		Username, Password string
 	}{}
 	if jsonErr := unmarshalFromBody(r, params); jsonErr != nil {
 		return *jsonErr, nil
 	}
-	if len(params.Email) < 3 {
-		return httputils.JsonError{Code: 400, Error: "WRONG_EMAIL"}, nil
+	if len(params.Username) < 3 {
+		return httputils.JsonError{Code: 400, Error: "USERNAME_TO_SHORT"}, nil
 	}
-	_, err := core.RegisterUser(db, wr, params.Email, params.Password)
-	if merry.Is(err, core.ErrEmailExsists) {
-		return httputils.JsonError{Code: 400, Error: "EMAIL_EXISTS"}, nil
+	_, err := core.RegisterUser(db, wr, params.Username, params.Password)
+	if merry.Is(err, core.ErrUsernameExsists) {
+		return httputils.JsonError{Code: 400, Error: "USERNAME_EXISTS"}, nil
 	}
 	if err != nil {
 		return nil, merry.Wrap(err)
@@ -127,14 +127,14 @@ func HandleAPIRegister(wr http.ResponseWriter, r *http.Request, ps httprouter.Pa
 func HandleAPILogin(wr http.ResponseWriter, r *http.Request, ps httprouter.Params) (interface{}, error) {
 	db := r.Context().Value(CtxKeyDB).(*pg.DB)
 	params := &struct {
-		Email, Password string
+		Username, Password string
 	}{}
 	if jsonErr := unmarshalFromBody(r, params); jsonErr != nil {
 		return *jsonErr, nil
 	}
-	_, err := core.LoginUser(db, wr, params.Email, params.Password)
+	_, err := core.LoginUser(db, wr, params.Username, params.Password)
 	if merry.Is(err, core.ErrUserNotFound) {
-		return httputils.JsonError{Code: 403, Error: "WRONG_EMAIL_OR_PASSWORD"}, nil
+		return httputils.JsonError{Code: 403, Error: "WRONG_USERNAME_OR_PASSWORD"}, nil
 	}
 	if err != nil {
 		return nil, merry.Wrap(err)
@@ -208,7 +208,7 @@ func HandleAPIUserNodePings(wr http.ResponseWriter, r *http.Request, ps httprout
 		Order("date")
 
 	if strings.Contains(r.URL.Path, "/sat/") {
-		histsQuery = histsQuery.Where("user_id = (SELECT id FROM users WHERE email = 'satellites@mail.com')")
+		histsQuery = histsQuery.Where("user_id = (SELECT id FROM users WHERE username = 'satellites')")
 	} else {
 		user := r.Context().Value(CtxKeyUser).(*core.User)
 		histsQuery = histsQuery.Where("user_id = ?", user.ID)

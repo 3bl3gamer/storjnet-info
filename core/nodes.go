@@ -77,7 +77,7 @@ func LoadSatNodes(db *pg.DB) ([]*Node, error) {
 	nodes := make([]*Node, 0)
 	_, err := db.Query(&nodes, `
 		SELECT node_id AS raw_id, address FROM user_nodes
-		WHERE user_id = (SELECT id FROM users WHERE email = 'satellites@mail.com')`)
+		WHERE user_id = (SELECT id FROM users WHERE username = 'satellites')`)
 	if err != nil {
 		return nil, merry.Wrap(err)
 	}

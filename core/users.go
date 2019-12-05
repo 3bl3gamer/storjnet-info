@@ -11,7 +11,8 @@ import (
 
 const SessionDuration = 365 * 24 * time.Hour
 
-var ErrEmailExsists = merry.New("email_exists")
+// var ErrEmailExsists = merry.New("email_exists")
+var ErrUsernameExsists = merry.New("username_exists")
 var ErrUserNotFound = merry.New("user_not_found")
 
 type User struct {
@@ -23,13 +24,13 @@ type User struct {
 	CreatedAt    time.Time
 }
 
-func RegisterUser(db *pg.DB, wr http.ResponseWriter, email, password string) (*User, error) {
+func RegisterUser(db *pg.DB, wr http.ResponseWriter, username, password string) (*User, error) {
 	user := &User{}
 	_, err := db.QueryOne(user,
-		"INSERT INTO users (email, password_hash, sessid) VALUES (?, crypt(?, gen_salt('bf')), gen_random_uuid()) RETURNING *",
-		email, password)
-	if utils.IsConstrError(err, "users", "unique_violation", "users_email_key") {
-		return nil, ErrEmailExsists.Here()
+		"INSERT INTO users (username, password_hash, sessid) VALUES (?, crypt(?, gen_salt('bf')), gen_random_uuid()) RETURNING *",
+		username, password)
+	if utils.IsConstrError(err, "users", "unique_violation", "users_username_key") {
+		return nil, ErrUsernameExsists.Here()
 	}
 	if err != nil {
 		return nil, merry.Wrap(err)
@@ -38,9 +39,9 @@ func RegisterUser(db *pg.DB, wr http.ResponseWriter, email, password string) (*U
 	return user, nil
 }
 
-func LoginUser(db *pg.DB, wr http.ResponseWriter, email, password string) (*User, error) {
+func LoginUser(db *pg.DB, wr http.ResponseWriter, username, password string) (*User, error) {
 	user := &User{}
-	err := db.Model(user).Where("email = ? AND password_hash = crypt(?, password_hash)", email, password).Select()
+	err := db.Model(user).Where("username = ? AND password_hash = crypt(?, password_hash)", username, password).Select()
 	if err == pg.ErrNoRows {
 		return nil, ErrUserNotFound.Here()
 	}

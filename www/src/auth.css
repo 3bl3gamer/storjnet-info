@@ -32,6 +32,6 @@ button {
 	background: none;
 	color: gray;
 }
-.registration-form .email-error {
+.registration-form .auth-error {
 	color: darkred;
 }

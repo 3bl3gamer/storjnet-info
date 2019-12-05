@@ -7,8 +7,8 @@ func init() {
 		return execSome(db, `
 			CREATE TABLE storjnet.users (
 				id serial PRIMARY KEY,
-				email text NOT NULL UNIQUE,
-				username text UNIQUE,
+				email text UNIQUE,
+				username text NOT NULL UNIQUE,
 				password_hash text NOT NULL,
 				sessid text NOT NULL,
 				created_at timestamptz NOT NULL DEFAULT NOW()

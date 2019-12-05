@@ -26,10 +26,10 @@ renderIfExists(
 		<p class="dim small">
 			${L(
 				'Satellites are pinged from a server near Paris. ' +
-					'Narrow red stripes are not a sign of offline: just for some reason a single ping response was not received.',
+					'Narrow red stripes are not a sign of offline: just for some reason a single response was not received.',
 				'ru',
-				'Сателлиты пингуются из из сервера под Парижем. ' +
-					'Узкие красные полосы — не признак оффлайна: просто по какой-то причине не вернулся одиночный пинг.',
+				'Сателлиты пингуются из сервера под Парижем. ' +
+					'Узкие красные полосы — не признак оффлайна: просто по какой-то причине не вернулся одиночный ответ.',
 			)}
 		</p>
 	`,

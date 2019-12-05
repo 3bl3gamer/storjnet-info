@@ -47,7 +47,7 @@ PureComponent.prototype.shouldComponentUpdate = function(props, state) {
 
 export function onError(error) {
 	console.error(error)
-	alert(error)
+	// alert(error)
 }
 
 export function startOfMonth(date) {
