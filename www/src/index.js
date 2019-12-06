@@ -25,11 +25,13 @@ renderIfExists(
 		<${PingsChartsList} group="sat" nodes=${nodes} />
 		<p class="dim small">
 			${L(
-				'Satellites are pinged from a server near Paris. ' +
+				'Once a minute a connection is established with the satellites from a server near Paris, ' +
+					'elapsed time is saved. Timeous is 2 s. ' +
 					'Narrow red stripes are not a sign of offline: just for some reason a single response was not received.',
 				'ru',
-				'Сателлиты пингуются из сервера под Парижем. ' +
-					'Узкие красные полосы — не признак оффлайна: просто по какой-то причине не вернулся одиночный ответ.',
+				'Раз в минуту с сателлитами устанавливается соединение из сервера под Парижем, ' +
+					'затраченное время сохраняется. Таймаут — 2 с. ' +
+					'Узкие красные полосы — не 100%-признак оффлайна: просто по какой-то причине не вернулся одиночный ответ.',
 			)}
 		</p>
 	`,

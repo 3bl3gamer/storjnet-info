@@ -40,11 +40,7 @@ func RegisterUser(db *pg.DB, wr http.ResponseWriter, username, password string) 
 }
 
 func LoginUser(db *pg.DB, wr http.ResponseWriter, username, password string) (*User, error) {
-	user := &User{}
-	err := db.Model(user).Where("username = ? AND password_hash = crypt(?, password_hash)", username, password).Select()
-	if err == pg.ErrNoRows {
-		return nil, ErrUserNotFound.Here()
-	}
+	user, err := FindUserByUsernameAndPassword(db, username, password)
 	if err != nil {
 		return nil, merry.Wrap(err)
 	}
@@ -55,6 +51,18 @@ func LoginUser(db *pg.DB, wr http.ResponseWriter, username, password string) (*U
 func FindUserBySessid(db *pg.DB, sessid string) (*User, error) {
 	user := &User{}
 	err := db.Model(user).Where("sessid = ?", sessid).Select()
+	if err == pg.ErrNoRows {
+		return nil, ErrUserNotFound.Here()
+	}
+	if err != nil {
+		return nil, merry.Wrap(err)
+	}
+	return user, nil
+}
+
+func FindUserByUsernameAndPassword(db *pg.DB, username, password string) (*User, error) {
+	user := &User{}
+	err := db.Model(user).Where("username = ? AND password_hash = crypt(?, password_hash)", username, password).Select()
 	if err == pg.ErrNoRows {
 		return nil, ErrUserNotFound.Here()
 	}

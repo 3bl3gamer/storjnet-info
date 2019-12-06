@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/binary"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"net/url"
 	"storj3stat/core"
@@ -42,7 +43,12 @@ func HandleUserDashboard(wr http.ResponseWriter, r *http.Request, ps httprouter.
 	if err != nil {
 		return nil, merry.Wrap(err)
 	}
-	return map[string]interface{}{"FPath": "user_dashboard.html", "User": user, "UserNodes": nodes}, nil
+	var userText string
+	_, err = db.QueryOne(&userText, `SELECT text FROM user_texts WHERE user_id = ? ORDER BY updated_at DESC LIMIT 1`, user.ID)
+	if err != nil && err != pg.ErrNoRows {
+		return nil, merry.Wrap(err)
+	}
+	return map[string]interface{}{"FPath": "user_dashboard.html", "User": user, "UserNodes": nodes, "UserText": userText}, nil
 }
 
 func HandleLang(wr http.ResponseWriter, r *http.Request, ps httprouter.Params) error {
@@ -230,6 +236,25 @@ func HandleAPIUserNodePings(wr http.ResponseWriter, r *http.Request, ps httprout
 		}
 	}
 	return nil, nil
+}
+
+func HandleAPIUserTexts(wr http.ResponseWriter, r *http.Request, ps httprouter.Params) (interface{}, error) {
+	db := r.Context().Value(CtxKeyDB).(*pg.DB)
+	user := r.Context().Value(CtxKeyUser).(*core.User)
+
+	buf, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		return nil, merry.Wrap(err)
+	}
+
+	_, err = db.Exec(`
+		INSERT INTO user_texts (user_id, date, text, updated_at) VALUES (?, (NOW() at time zone 'utc')::date, ?, NOW())
+		ON CONFLICT (user_id, date) DO UPDATE SET text = EXCLUDED.text, updated_at = NOW()`,
+		user.ID, string(buf))
+	if err != nil {
+		return nil, merry.Wrap(err)
+	}
+	return "ok", nil
 }
 
 func Handle404(wr http.ResponseWriter, r *http.Request, ps httprouter.Params) error {

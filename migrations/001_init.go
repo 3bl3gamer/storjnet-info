@@ -10,7 +10,7 @@ func init() {
 				email text UNIQUE,
 				username text NOT NULL UNIQUE,
 				password_hash text NOT NULL,
-				sessid text NOT NULL,
+				sessid uuid NOT NULL,
 				created_at timestamptz NOT NULL DEFAULT NOW()
 			);
 

@@ -17,18 +17,28 @@ import (
 
 func withUserInner(handle httputils.HandlerExt, wr http.ResponseWriter, r *http.Request, ps httprouter.Params, mustBeLoggedIn bool) error {
 	db := r.Context().Value(CtxKeyDB).(*pg.DB)
-
 	var user *core.User
-	cookie, err := r.Cookie("sessid")
-	if err == nil {
-		sessid := cookie.Value
-		user, err = core.FindUserBySessid(db, sessid)
+	var err error
+
+	// trying basic auth
+	if username, password, ok := r.BasicAuth(); ok {
+		user, err = core.FindUserByUsernameAndPassword(db, username, password)
 		if err != nil && !merry.Is(err, core.ErrUserNotFound) {
 			return merry.Wrap(err)
 		}
-		if user != nil {
-			if err := core.UpdateSessionData(db, wr, user); err != nil {
+	} else {
+		// trying regular cookie sessid
+		cookie, err := r.Cookie("sessid")
+		if err == nil {
+			sessid := cookie.Value
+			user, err = core.FindUserBySessid(db, sessid)
+			if err != nil && !merry.Is(err, core.ErrUserNotFound) {
 				return merry.Wrap(err)
+			}
+			if user != nil {
+				if err := core.UpdateSessionData(db, wr, user); err != nil {
+					return merry.Wrap(err)
+				}
 			}
 		}
 	}

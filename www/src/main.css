@@ -45,9 +45,14 @@ td:not(:first-child) {
 	text-align: right;
 }
 
-code {
+code,
+pre {
 	background-color: #e7e7e7;
 	border-radius: 2px;
+}
+pre {
+	padding: 4px;
+	overflow: auto;
 }
 
 /* =================== */
