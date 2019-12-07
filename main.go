@@ -19,7 +19,8 @@ var httpCmdFlags = struct {
 	serverAddr string
 }{}
 var checkVersionsCmdFlags = struct {
-	tgBotToken string
+	tgBotToken        string
+	tgSocks5ProxyAddr string
 }{}
 
 var (
@@ -54,7 +55,7 @@ func CMDUpdate(cmd *cobra.Command, args []string) error {
 }
 
 func CMDCheckVersions(cmd *cobra.Command, args []string) error {
-	return merry.Wrap(versions.CheckVersions(checkVersionsCmdFlags.tgBotToken))
+	return merry.Wrap(versions.CheckVersions(checkVersionsCmdFlags.tgBotToken, checkVersionsCmdFlags.tgSocks5ProxyAddr))
 }
 
 func init() {
@@ -68,6 +69,7 @@ func init() {
 
 	flags = checkVersionsCmd.Flags()
 	flags.StringVar(&checkVersionsCmdFlags.tgBotToken, "tg-bot-token", "", "TG bot API token")
+	flags.StringVar(&checkVersionsCmdFlags.tgSocks5ProxyAddr, "tg-proxy", "", "SOCKS5 proxy for TG requests")
 }
 
 func main() {

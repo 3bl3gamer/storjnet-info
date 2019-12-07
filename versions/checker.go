@@ -115,23 +115,26 @@ func sendTGMessage(httpClient *http.Client, botID, text, chatID string) error {
 	return nil
 }
 
-func sendTGMessages(botID, text string, chatIDs []string) error {
-	dialer, err := proxy.SOCKS5("tcp", "127.0.0.1:9050", nil, proxy.Direct)
-	if err != nil {
-		return merry.Wrap(err)
+func sendTGMessages(botToken, socks5ProxyAddr, text string, chatIDs []string) error {
+	httpTransport := &http.Transport{}
+	if socks5ProxyAddr != "" {
+		dialer, err := proxy.SOCKS5("tcp", socks5ProxyAddr, nil, proxy.Direct)
+		if err != nil {
+			return merry.Wrap(err)
+		}
+		httpTransport.Dial = dialer.Dial
 	}
-	httpTransport := &http.Transport{Dial: dialer.Dial}
 	httpClient := &http.Client{Transport: httpTransport}
 
 	for _, chatID := range chatIDs {
-		if err := sendTGMessage(httpClient, botID, text, chatID); err != nil {
+		if err := sendTGMessage(httpClient, botToken, text, chatID); err != nil {
 			return merry.Wrap(err)
 		}
 	}
 	return nil
 }
 
-func CheckVersions(tgBotToken string) error {
+func CheckVersions(tgBotToken, tgSocks5ProxyAddr string) error {
 	tgChatIDs := []string{"78542303"}
 	db := utils.MakePGConnection()
 
@@ -150,7 +153,7 @@ func CheckVersions(tgBotToken string) error {
 
 		if !curVersion.Equals(prevVersion) {
 			text := cfg.messageFunc(curVersion)
-			if err := sendTGMessages(tgBotToken, text, tgChatIDs); err != nil {
+			if err := sendTGMessages(tgBotToken, tgSocks5ProxyAddr, text, tgChatIDs); err != nil {
 				return merry.Wrap(err)
 			}
 		}
