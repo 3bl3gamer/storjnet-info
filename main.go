@@ -5,6 +5,7 @@ import (
 	"storj3stat/server"
 	"storj3stat/updater"
 	"storj3stat/utils"
+	"storj3stat/versions"
 
 	"github.com/ansel1/merry"
 	"github.com/rs/zerolog"
@@ -14,8 +15,11 @@ import (
 
 var env = utils.Env{Val: "dev"}
 
-var runFlags = struct {
+var httpCmdFlags = struct {
 	serverAddr string
+}{}
+var checkVersionsCmdFlags = struct {
+	tgBotToken string
 }{}
 
 var (
@@ -34,23 +38,36 @@ var (
 		Short: "start updater (pinger, uptime checker, etc.)",
 		RunE:  CMDUpdate,
 	}
+	checkVersionsCmd = &cobra.Command{
+		Use:   "check-versions",
+		Short: "check if versions on github and version.storj.io have changed",
+		RunE:  CMDCheckVersions,
+	}
 )
 
 func CMDHttp(cmd *cobra.Command, args []string) error {
-	return merry.Wrap(server.StartHTTPServer(runFlags.serverAddr, env))
+	return merry.Wrap(server.StartHTTPServer(httpCmdFlags.serverAddr, env))
 }
 
 func CMDUpdate(cmd *cobra.Command, args []string) error {
 	return merry.Wrap(updater.StartUpdater())
 }
 
+func CMDCheckVersions(cmd *cobra.Command, args []string) error {
+	return merry.Wrap(versions.CheckVersions(checkVersionsCmdFlags.tgBotToken))
+}
+
 func init() {
 	rootCmd.AddCommand(httpCmd)
 	rootCmd.AddCommand(updateCmd)
+	rootCmd.AddCommand(checkVersionsCmd)
 
 	flags := httpCmd.Flags()
 	flags.Var(&env, "env", "evironment, dev or prod")
-	flags.StringVar(&runFlags.serverAddr, "addr", "127.0.0.1:9003", "HTTP server address:port")
+	flags.StringVar(&httpCmdFlags.serverAddr, "addr", "127.0.0.1:9003", "HTTP server address:port")
+
+	flags = checkVersionsCmd.Flags()
+	flags.StringVar(&checkVersionsCmdFlags.tgBotToken, "tg-bot-token", "", "TG bot API token")
 }
 
 func main() {

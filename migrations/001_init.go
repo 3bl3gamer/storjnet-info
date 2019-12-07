@@ -37,7 +37,7 @@ func init() {
 				CHECK (length(node_id) = 32),
 				CHECK (array_dims(pings) = '[1:1440]'),
 				PRIMARY KEY (node_id, user_id, date),
-				FOREIGN KEY (node_id, user_id) REFERENCES storjnet.user_nodes (node_id, user_id)
+				-- no reference to user_nodes (so user_node can be removed and restored withoul loosing all history)
 			);
 			`)
 	}, func(db migrations.DB) error {
