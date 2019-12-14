@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-	"storj3stat/core"
-	"storj3stat/utils"
+	"storjnet/core"
+	"storjnet/utils"
 	"strconv"
 	"strings"
 

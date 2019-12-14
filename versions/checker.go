@@ -3,8 +3,8 @@ package versions
 import (
 	"log"
 	"net/http"
-	"storj3stat/core"
-	"storj3stat/utils"
+	"storjnet/core"
+	"storjnet/utils"
 
 	"github.com/ansel1/merry"
 	"github.com/blang/semver"

@@ -2,7 +2,7 @@ package core
 
 import (
 	"net/http"
-	"storj3stat/utils"
+	"storjnet/utils"
 	"time"
 
 	"github.com/ansel1/merry"

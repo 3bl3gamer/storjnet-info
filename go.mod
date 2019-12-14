@@ -1,4 +1,4 @@
-module storj3stat
+module storjnet
 
 go 1.13
 

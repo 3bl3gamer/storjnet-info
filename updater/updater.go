@@ -2,8 +2,8 @@ package updater
 
 import (
 	"context"
-	"storj3stat/core"
-	"storj3stat/utils"
+	"storjnet/core"
+	"storjnet/utils"
 	"sync/atomic"
 	"time"
 

@@ -7,8 +7,8 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
-	"storj3stat/core"
-	"storj3stat/utils"
+	"storjnet/core"
+	"storjnet/utils"
 	"strings"
 	"time"
 

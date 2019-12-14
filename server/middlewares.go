@@ -5,7 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
-	"storj3stat/core"
+	"storjnet/core"
 	"strings"
 	"sync"
 

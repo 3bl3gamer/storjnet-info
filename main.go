@@ -2,11 +2,11 @@ package main
 
 import (
 	"os"
-	"storj3stat/server"
-	"storj3stat/tgbot"
-	"storj3stat/updater"
-	"storj3stat/utils"
-	"storj3stat/versions"
+	"storjnet/server"
+	"storjnet/tgbot"
+	"storjnet/updater"
+	"storjnet/utils"
+	"storjnet/versions"
 
 	"github.com/ansel1/merry"
 	"github.com/rs/zerolog"

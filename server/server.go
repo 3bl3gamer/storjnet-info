@@ -8,8 +8,8 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"storj3stat/core"
-	"storj3stat/utils"
+	"storjnet/core"
+	"storjnet/utils"
 	"strings"
 	"time"
 
