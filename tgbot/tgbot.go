@@ -1,8 +1,6 @@
 package tgbot
 
 import (
-	"encoding/json"
-	"fmt"
 	"net/http"
 	"net/url"
 	"storjnet/core"
@@ -115,6 +113,10 @@ func unsubscripbe(db *pg.DB, id int64) error {
 	return merry.Wrap(err)
 }
 
+func handleStart(bot *tgbotapi.BotAPI, db *pg.DB, update tgbotapi.Update, args string) error {
+	return justSend(bot, update.Message.Chat.ID, "Привет.")
+}
+
 func handleVersions(bot *tgbotapi.BotAPI, db *pg.DB, update tgbotapi.Update, args string) error {
 	sendAction(bot, update.Message.Chat.ID, "typing")
 
@@ -212,6 +214,7 @@ func StartTGBot(tgBotToken, socks5ProxyAddr string, webhook *WebhookConfig) erro
 	}
 
 	handlers := map[string]cmdHandler{
+		"/start":       handleStart,
 		"/versions":    handleVersions,
 		"/version":     handleVersions,
 		"/winver":      handleVersions,
@@ -220,9 +223,6 @@ func StartTGBot(tgBotToken, socks5ProxyAddr string, webhook *WebhookConfig) erro
 	}
 
 	for update := range updates {
-		buf, _ := json.Marshal(update)
-		fmt.Println(">>> " + string(buf))
-
 		cmd, args := extractCommand(bot, update)
 		if handler, ok := handlers[cmd]; ok {
 			if err := handler(bot, db, update, args); err != nil {
