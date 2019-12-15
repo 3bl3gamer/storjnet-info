@@ -1,6 +1,7 @@
 package tgbot
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -189,14 +190,16 @@ func StartTGBot(tgBotToken, socks5ProxyAddr string, webhook *WebhookConfig) erro
 	log.Info().Str("username", bot.Self.UserName).Str("name", bot.Self.FirstName).Msg("authorized")
 
 	var updates tgbotapi.UpdatesChannel
-	if webhook != nil { //webhook
-		_, err := bot.SetWebhook(tgbotapi.NewWebhookWithCert(webhook.URL, "cert.pem"))
+	if webhook != nil {
+		log.Info().Msg("using webhook")
+		_, err = bot.SetWebhook(tgbotapi.NewWebhook(webhook.URL))
 		if err != nil {
 			return merry.Wrap(err)
 		}
 		updates = bot.ListenForWebhook(webhook.ListenPath)
-		go log.Fatal().Err(http.ListenAndServeTLS(webhook.ListenAddr, "cert.pem", "key.pem", nil))
-	} else { //polling
+		go func() { log.Fatal().Err(http.ListenAndServe(webhook.ListenAddr, nil)) }()
+	} else {
+		log.Info().Msg("using polling")
 		if _, err := bot.RemoveWebhook(); err != nil {
 			return merry.Wrap(err)
 		}
@@ -217,12 +220,16 @@ func StartTGBot(tgBotToken, socks5ProxyAddr string, webhook *WebhookConfig) erro
 	}
 
 	for update := range updates {
-		fmt.Printf(">>> %#v\n%#v\n\n", update, update.Message)
+		buf, _ := json.Marshal(update)
+		fmt.Println(">>> " + string(buf))
+
 		cmd, args := extractCommand(bot, update)
 		if handler, ok := handlers[cmd]; ok {
 			if err := handler(bot, db, update, args); err != nil {
 				return merry.Wrap(err)
 			}
+		} else if update.Message != nil {
+			justSend(bot, update.Message.Chat.ID, "Не понял.")
 		}
 	}
 	return nil
