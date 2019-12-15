@@ -1,7 +1,6 @@
 package versions
 
 import (
-	"log"
 	"net/http"
 	"storjnet/core"
 	"storjnet/utils"
@@ -10,6 +9,7 @@ import (
 	"github.com/blang/semver"
 	"github.com/go-pg/pg/v9"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
+	"github.com/rs/zerolog/log"
 	"golang.org/x/net/proxy"
 )
 
@@ -53,7 +53,7 @@ func CheckVersions(tgBotToken, tgSocks5ProxyAddr string) error {
 		if err != nil {
 			return merry.Wrap(err)
 		}
-		log.Printf("%s -> %s (%s)", prevVersion, curVersion, cfg.Key)
+		log.Debug().Msgf("%s -> %s (%s)", prevVersion, curVersion, cfg.Key)
 
 		if !curVersion.Equals(prevVersion) {
 			text := cfg.MessageNew(curVersion)

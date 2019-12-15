@@ -3,10 +3,12 @@ package core
 import (
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 
 	"github.com/ansel1/merry"
 	"github.com/blang/semver"
+	"github.com/rs/zerolog/log"
 )
 
 type prefixedVersion semver.Version
@@ -72,8 +74,19 @@ var VersionConfigs = []struct {
 				Name    string
 				TagName prefixedVersion `json:"tag_name"`
 			}{}
-			if err := json.NewDecoder(resp.Body).Decode(&params); err != nil {
+			// if err := json.NewDecoder(resp.Body).Decode(&params); err != nil {
+			// 	return semver.Version{}, merry.Wrap(err)
+			// }
+			buf, err := ioutil.ReadAll(resp.Body)
+			if err != nil {
 				return semver.Version{}, merry.Wrap(err)
+			}
+			if err := json.Unmarshal(buf, &params); err != nil {
+				return semver.Version{}, merry.Wrap(err)
+			}
+			if semver.Version(params.TagName).Equals(semver.Version{}) {
+				log.Warn().Str("resp", string(buf)).Msg("version is zero")
+				return semver.Version{}, merry.New("version is zero")
 			}
 			return semver.Version(params.TagName), nil
 		},

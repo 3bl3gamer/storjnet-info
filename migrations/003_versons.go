@@ -9,7 +9,6 @@ func init() {
 				kind text NOT NULL,
 				version text NOT NULL,
 				created_at timestamptz NOT NULL DEFAULT NOW(),
-				PRIMARY KEY (kind, version)
 			)
 			`)
 	}, func(db migrations.DB) error {
