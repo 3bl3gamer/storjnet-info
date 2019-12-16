@@ -223,12 +223,14 @@ func StartTGBot(tgBotToken, socks5ProxyAddr string, webhook *WebhookConfig) erro
 	}
 
 	for update := range updates {
+		// buf, _ := json.Marshal(update)
+		// fmt.Println(">>> " + string(buf))
 		cmd, args := extractCommand(bot, update)
 		if handler, ok := handlers[cmd]; ok {
 			if err := handler(bot, db, update, args); err != nil {
 				return merry.Wrap(err)
 			}
-		} else if update.Message != nil {
+		} else if update.Message != nil && update.Message.Text != "" {
 			justSend(bot, update.Message.Chat.ID, "Не понял.")
 		}
 	}
