@@ -1,0 +1,147 @@
+.dim {
+	color: darkgray;
+	transition: color ease 0.2s;
+}
+.dim:hover {
+	color: inherit;
+}
+
+.small {
+	font-size: 85%;
+}
+
+.ok {
+	background-color: #cfc;
+}
+.warn {
+	background-color: #ff9;
+}
+.ok,
+.warn {
+	padding: 1px;
+	border-radius: 2px;
+}
+
+.wide-block {
+	overflow-x: auto;
+}
+
+table {
+	border-collapse: collapse;
+	margin: 4px;
+}
+
+thead {
+	font-weight: bold;
+	text-align: center;
+}
+
+tr {
+	border-bottom: 1px solid lightgray;
+}
+
+td:not(:first-child) {
+	padding: 1px 15px;
+	text-align: right;
+}
+
+code,
+pre {
+	background-color: #e7e7e7;
+	border-radius: 2px;
+}
+pre {
+	padding: 4px;
+	overflow: auto;
+}
+
+/* =================== */
+
+html {
+	min-height: 100%;
+}
+
+body {
+	display: flex;
+	flex-direction: column;
+	margin: 0;
+	min-height: 100vh;
+}
+
+.header,
+.footer {
+	width: 100%;
+	background-color: #eee;
+	box-shadow: 0 0 8px #ccc;
+}
+
+.header {
+	display: flex;
+	justify-content: space-between;
+}
+
+.header > * {
+	margin: 8px 16px;
+}
+
+.header .logo {
+	color: inherit;
+	text-decoration: none;
+	white-space: nowrap;
+}
+.header .logo .logo-main {
+	font-size: 130%;
+}
+.header .logo .logo-sub {
+	font-size: 80%;
+	text-align: center;
+	color: #444;
+}
+
+.header .lang-switch {
+	display: flex;
+	align-items: center;
+}
+.header .lang-switch select {
+	border: none;
+	-webkit-appearance: none;
+	-moz-appearance: none;
+	appearance: none;
+	background: none;
+	cursor: pointer;
+	margin-left: 4px;
+}
+@-moz-document url-prefix() {
+	/* костыль для ФФшного select'а: он рисует справа и слева от элемента лишние отступы */
+	.header .lang-switch select {
+		margin-left: 0;
+		margin-right: -4px;
+	}
+}
+.header .lang-switch select:hover {
+	text-decoration: underline;
+}
+@media (max-width: 479px) {
+	.header {
+		flex-direction: column;
+		align-items: center;
+	}
+	.header .lang-switch {
+		position: absolute;
+		top: 10px;
+		right: 0;
+	}
+}
+
+.footer {
+	margin-top: 64px;
+	padding: 8px 16px;
+	box-sizing: border-box;
+	font-size: 85%;
+}
+
+.content {
+	position: relative;
+	flex-grow: 100;
+	margin: 8px;
+}

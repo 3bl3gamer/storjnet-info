@@ -1,0 +1,27 @@
+{
+	"name": "storjnet",
+	"version": "1.0.0",
+	"description": "",
+	"main": "index.js",
+	"dependencies": {
+		"concat-with-sourcemaps": "^1.1.0",
+		"htm": "^2.2.1",
+		"preact": "^10.0.0",
+		"rollup": "^1.23.1",
+		"rollup-plugin-node-resolve": "^5.2.0",
+		"rollup-pluginutils": "^2.8.2",
+		"unistore": "^3.5.1"
+	},
+	"devDependencies": {
+		"eslint": "^6.5.1",
+		"rollup-plugin-livereload": "^1.0.4",
+		"rollup-plugin-serve": "^1.0.1"
+	},
+	"scripts": {
+		"test": "echo \"Error: no test specified\" && exit 1",
+		"dev": "./node_modules/.bin/rollup --config rollup.config.js --watch",
+		"build": "./node_modules/.bin/rollup --config rollup.config.js --environment NODE_ENV:production"
+	},
+	"author": "",
+	"license": "ISC"
+}

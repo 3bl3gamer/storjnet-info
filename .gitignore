@@ -1,0 +1,6 @@
+storjnet
+identity
+.vscode
+www/node_modules
+www/dist
+www/package-lock.json

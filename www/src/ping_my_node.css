@@ -1,0 +1,88 @@
+.node-ping-form {
+	display: flex;
+	flex-direction: row;
+	width: 100%;
+	max-width: 620px;
+}
+
+.node-ping-form .node-address-input,
+.node-ping-form .node-id-input {
+	width: 64px;
+}
+
+.node-ping-form > *:not(.node-id-input) {
+	margin-left: 8px;
+}
+
+.node-ping-form .node-address-input {
+	flex-grow: 1;
+}
+
+.node-ping-form .node-id-input {
+	flex-grow: 3;
+}
+
+.remembered-nodes-list {
+	margin-bottom: 16px;
+}
+
+.remembered-nodes-list .item {
+	display: flex;
+}
+
+.remembered-nodes-list .item .node {
+	display: flex;
+	overflow: hidden;
+}
+
+.remembered-nodes-list .item .node .node-id {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	margin-right: 4px;
+}
+
+.remembered-nodes-list .item .node:hover .node-id {
+	overflow: visible;
+	background-color: white;
+	word-break: break-all;
+}
+
+.remembered-nodes-list .item .node .node-address {
+	margin: 0 8px;
+}
+
+.remembered-nodes-list .item .remove {
+	color: darkred;
+	text-decoration: none;
+	border: none;
+	background: none;
+	margin: 0;
+	padding: 0 8px;
+}
+
+.remembered-nodes-list .item .remove:hover {
+	/* border: 1px solid darkred; */
+	background-color: #fdd;
+}
+
+.log-box {
+	white-space: pre-line;
+}
+
+@media (max-width: 479px) {
+	.node-ping-form {
+		flex-wrap: wrap;
+	}
+
+	.node-ping-form .node-id-input {
+		width: 100%;
+	}
+
+	.node-ping-form > *:not(.node-id-input) {
+		margin-top: 4px;
+	}
+
+	.node-ping-form .node-address-input {
+		margin-left: 0;
+	}
+}
