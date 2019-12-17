@@ -29,6 +29,8 @@ func (v *prefixedVersion) UnmarshalJSON(data []byte) (err error) {
 	return nil
 }
 
+var GitHubOAuthToken = ""
+
 var VersionConfigs = []struct {
 	Key        string
 	Version    func() (semver.Version, error)
@@ -65,7 +67,14 @@ var VersionConfigs = []struct {
 	{
 		"GitHub:latest",
 		func() (semver.Version, error) {
-			resp, err := http.Get("https://api.github.com/repos/storj/storj/releases/latest")
+			req, err := http.NewRequest("GET", "https://api.github.com/repos/storj/storj/releases/latest", nil)
+			if err != nil {
+				return semver.Version{}, merry.Wrap(err)
+			}
+			if GitHubOAuthToken != "" {
+				req.Header.Set("Authorization", "token "+GitHubOAuthToken)
+			}
+			resp, err := http.DefaultClient.Do(req)
 			if err != nil {
 				return semver.Version{}, merry.Wrap(err)
 			}

@@ -2,6 +2,7 @@ package main
 
 import (
 	"os"
+	"storjnet/core"
 	"storjnet/server"
 	"storjnet/tgbot"
 	"storjnet/updater"
@@ -92,10 +93,12 @@ func init() {
 	flags.StringVar(&tgBotCmdFlags.webhookURL, "tg-webhook-url", "", "TG webhook URL, will be sent to TG (http://example.com:8443/requests/listen/path)")
 	flags.StringVar(&tgBotCmdFlags.webhookListenAddr, "tg-webhook-addr", "", "TG webhook address:port for https server")
 	flags.StringVar(&tgBotCmdFlags.webhookListenPath, "tg-webhook-path", "", "TG webhook /requests/listen/path for https server")
+	flags.StringVar(&core.GitHubOAuthToken, "github-oauth-token", "", "GitHub API OAuth token (optional, for increasing API req rate)")
 
 	flags = checkVersionsCmd.Flags()
 	flags.StringVar(&tgBotCmdFlags.botToken, "tg-bot-token", "", "TG bot API token")
 	flags.StringVar(&tgBotCmdFlags.socks5ProxyAddr, "tg-proxy", "", "SOCKS5 proxy for TG requests")
+	flags.StringVar(&core.GitHubOAuthToken, "github-oauth-token", "", "GitHub API OAuth token (optional, for increasing API req rate)")
 }
 
 func main() {
