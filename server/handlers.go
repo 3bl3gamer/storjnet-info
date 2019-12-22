@@ -206,8 +206,6 @@ func HandleAPIUserNodePings(wr http.ResponseWriter, r *http.Request, ps httprout
 
 	startDateStr, endDateStr := extractStartEndDatesStrFromQuery(r.URL.Query())
 
-	wr.Header().Set("Content-Type", "application/octet-stream")
-
 	var histories []*core.UserNodeHistory
 	histsQuery := db.Model(&histories).Column("pings", "date").
 		Where("node_id = ? AND date BETWEEN ? AND ?", nodeID, startDateStr, endDateStr).
@@ -223,6 +221,8 @@ func HandleAPIUserNodePings(wr http.ResponseWriter, r *http.Request, ps httprout
 	if err = histsQuery.Select(); err != nil {
 		return nil, merry.Wrap(err)
 	}
+
+	wr.Header().Set("Content-Type", "application/octet-stream")
 	buf := make([]byte, 4+1440*2)
 	for _, hist := range histories {
 		binary.LittleEndian.PutUint32(buf, uint32(hist.Date.Unix()))
@@ -255,6 +255,36 @@ func HandleAPIUserTexts(wr http.ResponseWriter, r *http.Request, ps httprouter.P
 		return nil, merry.Wrap(err)
 	}
 	return "ok", nil
+}
+
+func HandleStorjTokenTxSummary(wr http.ResponseWriter, r *http.Request, ps httprouter.Params) (interface{}, error) {
+	db := r.Context().Value(CtxKeyDB).(*pg.DB)
+
+	startDateStr, endDateStr := extractStartEndDatesStrFromQuery(r.URL.Query())
+
+	var daySums []*core.StorjTokenTxSummary
+	err := db.Model(&daySums).
+		Where("date BETWEEN ? AND ?", startDateStr, endDateStr).
+		Order("date").Select()
+	if err != nil {
+		return nil, merry.Wrap(err)
+	}
+
+	wr.Header().Set("Content-Type", "application/octet-stream")
+	buf := make([]byte, 4+24*(4+4+4+4))
+	for _, day := range daySums {
+		binary.LittleEndian.PutUint32(buf, uint32(day.Date.Unix()))
+		utils.CopyFloat32SliceToBuf(buf[4+24*4*0:], day.Preparings)
+		utils.CopyFloat32SliceToBuf(buf[4+24*4*1:], day.Payouts)
+		utils.CopyInt32SliceToBuf(buf[4+24*4*2:], day.PayoutCounts)
+		utils.CopyFloat32SliceToBuf(buf[4+24*4*3:], day.Withdrawals)
+		fmt.Println(day.Date, buf)
+		_, err := wr.Write(buf)
+		if err != nil {
+			return nil, merry.Wrap(err)
+		}
+	}
+	return nil, nil
 }
 
 func Handle404(wr http.ResponseWriter, r *http.Request, ps httprouter.Params) error {

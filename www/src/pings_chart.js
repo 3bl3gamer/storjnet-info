@@ -7,6 +7,7 @@ import {
 	hoverSingle,
 	toISODateStringInterval,
 	onError,
+	delayedRedraw,
 } from './utils'
 
 import './pings_chart.css'
@@ -22,21 +23,6 @@ import {
 	drawPingRegions,
 } from './chart_utils'
 import { apiReq } from './api'
-
-function delayedRedraw(redrawFunc) {
-	let redrawRequested = false
-
-	function onRedraw() {
-		redrawRequested = false
-		redrawFunc()
-	}
-
-	return function() {
-		if (redrawRequested) return
-		redrawRequested = true
-		requestAnimationFrame(onRedraw)
-	}
-}
 
 function processPingsData(buf, startDate, endDate) {
 	let pings = new Uint16Array(buf)
@@ -282,7 +268,7 @@ class PingsChart extends PureComponent {
 				></canvas>
 			`
 		return html`
-			<div class="pings-chart" ref=${this.hoverCtl.setRef}>
+			<div class="chart pings-chart" ref=${this.hoverCtl.setRef}>
 				<canvas class="main-canvas" ref=${this.canvasExt.setRef}></canvas>
 				<div class="legend">${this.props.node.id}</div>
 				${zoomElem}

@@ -106,6 +106,11 @@ function stamp2x(rect, view, stamp) {
 function value2y(rect, view, value) {
 	return rect.top + rect.height - ((value - view.bottomValue) / view.height) * rect.height
 }
+function value2yLog(rect, view, value) {
+	let maxLogVal = Math.log(view.height)
+	value = Math.log(1 + Math.abs(value)) * Math.sign(value) / maxLogVal * view.height
+	return rect.top + rect.height - ((value - view.bottomValue) / view.height) * rect.height
+}
 
 export function drawPingLine(rc, rect, view, pings, startStamp, itemWidth, color) {
 	let iFrom = Math.max(0, Math.floor((view.startStamp - startStamp) / itemWidth))
@@ -167,6 +172,52 @@ export function drawPingRegions(rc, rect, view, pings, startStamp, itemWidth, ne
 	forEachPingRegion(rect, view, pings, startStamp, itemWidth, needKind, (xFrom, xTo) => {
 		rc.fillRect(xFrom - ext / 2, rect.top, xTo - xFrom + ext, rect.height)
 	})
+}
+
+export function drawLineStepped(
+	canvasExt,
+	rect,
+	view,
+	values,
+	startStamp,
+	itemWidth,
+	color,
+	skipZero = false,
+	yFunc = value2yLog
+) {
+	let rc = canvasExt.rc
+	rc.beginPath()
+	let started = false
+	let prevX = 0,
+		prevY = 0
+	for (let i = 0; i < values.length; i++) {
+		let stamp = startStamp + i * itemWidth
+		let value = values[i]
+		let x = stamp2x(rect, view, stamp)
+		let y = yFunc(rect, view, value)
+		if (skipZero && value == 0) {
+			if (started) {
+				rc.lineTo(x, y)
+				started = false
+			}
+		} else {
+			if (started) {
+				rc.lineTo(x, y)
+			} else {
+				if (i == 0) rc.moveTo(x, y)
+				else {
+					rc.moveTo(prevX, prevY)
+					rc.lineTo(x, y)
+				}
+				started = true
+			}
+		}
+		prevX = x
+		prevY = y
+	}
+	rc.lineJoin = 'bevel'
+	rc.strokeStyle = color
+	rc.stroke()
 }
 
 function* iterateDays(startDate, endDate, step = 1) {

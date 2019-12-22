@@ -6,9 +6,10 @@ import './auth'
 import './user_nodes'
 import './user_dashboard'
 
+import { L } from './i18n'
 import { PingsChartsList } from './pings_chart'
 import { sortedNodes } from './user_nodes'
-import { L } from './i18n'
+import { StorjTxSummary } from './storj_tx_summary'
 
 let nodes = []
 try {
@@ -36,4 +37,14 @@ renderIfExists(
 		</p>
 	`,
 	'.sat-nodes',
+)
+
+renderIfExists(
+	html`
+		<h2>
+			${L('Payouts', 'ru', 'Выплаты')}
+		</h2>
+		<${StorjTxSummary} />
+	`,
+	'.storj-tx-summary',
 )

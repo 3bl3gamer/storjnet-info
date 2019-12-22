@@ -145,3 +145,36 @@ body {
 	flex-grow: 100;
 	margin: 8px;
 }
+
+.chart {
+	position: relative;
+	width: 100%;
+	height: 96px;
+}
+
+.chart .main-canvas {
+	width: 100%;
+	height: 100%;
+}
+
+.chart .legend {
+	position: absolute;
+	display: flex;
+	flex-direction: row;
+	flex-wrap: wrap;
+	top: 0;
+	left: 24px;
+	font: 9px sans-serif;
+	text-shadow: 0 0 4px white;
+}
+.chart .legend .item {
+	display: flex;
+	align-items: center;
+	padding: 0 4px;
+	background: rgba(255, 255, 255, 0.4);
+}
+.chart .legend .item .example {
+	width: 12px;
+	height: 1.4px;
+	margin-right: 3px;
+}

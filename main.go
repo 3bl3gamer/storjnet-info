@@ -5,6 +5,7 @@ import (
 	"storjnet/core"
 	"storjnet/server"
 	"storjnet/tgbot"
+	"storjnet/transactions"
 	"storjnet/updater"
 	"storjnet/utils"
 	"storjnet/versions"
@@ -54,6 +55,11 @@ var (
 		Short: "check if versions on github and version.storj.io have changed",
 		RunE:  CMDCheckVersions,
 	}
+	fetchTransactionsCmd = &cobra.Command{
+		Use:   "fetch-transactions",
+		Short: "fetch STORJ transactions from etherscan.io",
+		RunE:  CMDFetchTransactions,
+	}
 )
 
 func CMDHttp(cmd *cobra.Command, args []string) error {
@@ -77,11 +83,16 @@ func CMDCheckVersions(cmd *cobra.Command, args []string) error {
 	return merry.Wrap(versions.CheckVersions(tgBotCmdFlags.botToken, tgBotCmdFlags.socks5ProxyAddr))
 }
 
+func CMDFetchTransactions(cmd *cobra.Command, args []string) error {
+	return merry.Wrap(transactions.FetchAndProcess())
+}
+
 func init() {
 	rootCmd.AddCommand(httpCmd)
 	rootCmd.AddCommand(updateCmd)
 	rootCmd.AddCommand(tgBotCmd)
 	rootCmd.AddCommand(checkVersionsCmd)
+	rootCmd.AddCommand(fetchTransactionsCmd)
 
 	flags := httpCmd.Flags()
 	flags.Var(&env, "env", "evironment, dev or prod")

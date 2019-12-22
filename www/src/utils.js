@@ -1,5 +1,6 @@
 import { h, render, Component } from 'preact'
 import htm from 'htm'
+import { L } from './i18n'
 
 export const html = htm.bind(h)
 
@@ -127,4 +128,29 @@ export function toISODateStringInterval({ startDate, endDate }) {
 	endDate = new Date(endDate)
 	endDate.setUTCDate(endDate.getUTCDate() - 1)
 	return { startDateStr: toISODateString(startDate), endDateStr: toISODateString(endDate) }
+}
+
+export function delayedRedraw(redrawFunc) {
+	let redrawRequested = false
+
+	function onRedraw() {
+		redrawRequested = false
+		redrawFunc()
+	}
+
+	return function() {
+		if (redrawRequested) return
+		redrawRequested = true
+		requestAnimationFrame(onRedraw)
+	}
+}
+
+export function LegendItem({ color, textColor = null, children }) {
+	if (textColor === null) textColor = color
+	return html`
+		<div class="item" style="color: ${color}">
+			<div class="example" style="background-color: ${textColor}"></div>
+			${children}
+		</div>
+	`
 }
