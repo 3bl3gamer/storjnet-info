@@ -3,7 +3,7 @@ module.exports = {
 		browser: true,
 		es6: true,
 	},
-	extends: 'eslint:recommended',
+	extends: 'plugin:prettier/recommended',
 	globals: {
 		Atomics: 'readonly',
 		SharedArrayBuffer: 'readonly',
@@ -15,6 +15,7 @@ module.exports = {
 	rules: {
 		'no-console': 'warn',
 		'no-unused-vars': ['error', { vars: 'all', args: 'none' }],
+		'no-undef': 'error',
 	},
 	globals: {
 		process: true,
