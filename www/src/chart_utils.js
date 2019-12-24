@@ -98,17 +98,34 @@ export class View {
 		this.endStamp = endStamp
 		this.duration = this.endStamp - this.startStamp
 	}
+
+	updateLimits(bottomValue, topValue) {
+		this.bottomValue = bottomValue
+		this.topValue = topValue
+		this.height = this.topValue - this.bottomValue
+	}
 }
 
-function stamp2x(rect, view, stamp) {
+export function getArrayMaxValue(arr, initialValue = -Infinity) {
+	let val = initialValue
+	for (let i = 0; i < arr.length; i++) if (val < arr[i]) val = arr[i]
+	return val
+}
+
+export function roundRange(bottomVal, topVal, sigDigits = 2) {
+	let k = Math.pow(10, Math.floor(Math.log10(topVal - bottomVal) - (sigDigits - 1)))
+	return [Math.ceil(bottomVal / k) * k, Math.ceil(topVal / k) * k]
+}
+
+export function stamp2x(rect, view, stamp) {
 	return rect.left + ((stamp - view.startStamp) / view.duration) * rect.width
 }
-function value2y(rect, view, value) {
+export function value2y(rect, view, value) {
 	return rect.top + rect.height - ((value - view.bottomValue) / view.height) * rect.height
 }
-function value2yLog(rect, view, value) {
+export function value2yLog(rect, view, value) {
 	let maxLogVal = Math.log(view.height)
-	value = Math.log(1 + Math.abs(value)) * Math.sign(value) / maxLogVal * view.height
+	value = ((Math.log(1 + Math.abs(value)) * Math.sign(value)) / maxLogVal) * view.height
 	return rect.top + rect.height - ((value - view.bottomValue) / view.height) * rect.height
 }
 
@@ -183,7 +200,7 @@ export function drawLineStepped(
 	itemWidth,
 	color,
 	skipZero = false,
-	yFunc = value2yLog
+	yFunc = value2y,
 ) {
 	let rc = canvasExt.rc
 	rc.beginPath()
@@ -308,6 +325,7 @@ function roundLabelValues(bottomValue, topValue, roundN) {
 	bottomValue = Math.ceil(bottomValue / k) * k
 	topValue = Math.floor(topValue / k) * k
 	let midValue = (topValue + bottomValue) / 2
+	// let midValue = Math.sqrt(topValue + bottomValue)
 
 	let height = topValue - bottomValue
 	let bottomK = bottomValue / height
@@ -330,9 +348,19 @@ function roundLabelValues(bottomValue, topValue, roundN) {
 	}
 	return [bottomValue, midValue, topValue]
 }
-export function drawLabeledVScaleLeftLine(rc, rect, view, value, textColor, lineColor, roundN, textFunc) {
+export function drawLabeledVScaleLeftLine(
+	rc,
+	rect,
+	view,
+	value,
+	textColor,
+	lineColor,
+	roundN,
+	textFunc = null,
+	yFunc = value2y,
+) {
 	let text = textFunc === null ? value.toFixed(Math.max(0, -roundN)) : textFunc(value)
-	let lineY = ((view.topValue - value) / view.height) * rect.height
+	let lineY = yFunc(rect, view, value)
 	rc.strokeStyle = 'rgba(255,255,255,0.75)'
 	rc.lineWidth = 2
 	rc.strokeText(text, rect.left + 2, rect.top + lineY)
@@ -346,12 +374,13 @@ export function drawLabeledVScaleLeftLine(rc, rect, view, value, textColor, line
 export function drawVScalesLeft(canvasExt, rect, view, textColor, lineColor, textFunc = null) {
 	let rc = canvasExt.rc
 	let roundN = Math.floor(Math.log10(view.topValue - view.bottomValue) - 1)
-	let topOffset = (view.height / rect.height) * 11 //font height
+	// let topOffset = (view.height / rect.height) * 11 //font height
+	let topOffset = 0 //Math.exp(Math.log(view.height) - (Math.log(view.height) / rect.height) * 11) //font height
 	let values = roundLabelValues(view.bottomValue, view.topValue - topOffset, roundN)
 	rc.textAlign = 'left'
-	rc.textBaseline = 'bottom'
+	rc.textBaseline = 'middle'
 	for (let i = 0; i < values.length; i++)
-		drawLabeledVScaleLeftLine(rc, rect, view, values[i], textColor, lineColor, roundN, textFunc)
+		drawLabeledVScaleLeftLine(rc, rect, view, values[i], textColor, lineColor, roundN, textFunc, value2y)
 }
 
 export function roundedRectLeft(rc, x, y, h, r) {

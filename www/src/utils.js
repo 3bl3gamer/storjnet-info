@@ -1,6 +1,5 @@
 import { h, render, Component } from 'preact'
 import htm from 'htm'
-import { L } from './i18n'
 
 export const html = htm.bind(h)
 
@@ -47,6 +46,7 @@ PureComponent.prototype.shouldComponentUpdate = function(props, state) {
 // ^^^ from preact-compat ^^^
 
 export function onError(error) {
+	// eslint-disable-next-line no-console
 	console.error(error)
 	// alert(error)
 }

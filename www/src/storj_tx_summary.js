@@ -10,8 +10,21 @@ import {
 	LegendItem,
 } from './utils'
 import { apiReq } from './api'
-import { CanvasExt, RectCenter, View, drawMonthDays, drawLineStepped } from './chart_utils'
+import {
+	CanvasExt,
+	RectCenter,
+	View,
+	drawMonthDays,
+	drawLineStepped,
+	value2yLog,
+	value2y,
+	getArrayMaxValue,
+	drawLabeledVScaleLeftLine,
+	roundRange,
+} from './chart_utils'
 import { L, lang } from './i18n'
+
+import './storj_tx_summary.css'
 
 function processTxData(buf, startDate, endDate) {
 	let startStamp = Math.floor(startDate.getTime())
@@ -44,10 +57,12 @@ function processTxData(buf, startDate, endDate) {
 
 	let payoutTotal = 0
 	let payoutsCount = 0
+	let withdrawalTotal = 0
 	for (let i = 0; i < payouts.length; i++) {
 		if (payouts[i] > 0) {
 			payoutTotal += payouts[i]
 			payoutsCount += payoutCounts[i]
+			withdrawalTotal += withdrawals[i]
 		}
 	}
 	let payoutAvg = payoutsCount == 0 ? 0 : payoutTotal / payoutsCount
@@ -63,7 +78,12 @@ function processTxData(buf, startDate, endDate) {
 			payoutCounts,
 			withdrawals,
 		},
-		aggregated: { payoutTotal, payoutAvg, payoutsCount },
+		aggregated: {
+			payoutTotal,
+			payoutAvg,
+			payoutsCount,
+			withdrawalTotal,
+		},
 	}
 }
 
@@ -75,12 +95,12 @@ export class StorjTxSummary extends PureComponent {
 
 		this.requestRedraw = delayedRedraw(this.onRedraw)
 
-		this.rect = new RectCenter({ left: 0, right: 0, top: 0, bottom: 11 })
+		this.rect = new RectCenter({ left: 0, right: 0, top: 1, bottom: 11 })
 		this.view = new View({
 			startStamp: 0,
 			endStamp: 0,
 			bottomValue: 0,
-			topValue: 1000000,
+			topValue: 1,
 		})
 
 		let now = new Date()
@@ -88,7 +108,13 @@ export class StorjTxSummary extends PureComponent {
 			startDate: startOfMonth(now),
 			endDate: endOfMonth(now),
 			arrays: null,
+			isLogScale: true,
 		}
+	}
+
+	scalesLabelFunc(value) {
+		if (value > 1000) return Math.round(value / 100) / 10 + L('K', 'ru', 'К')
+		return Math.round(value)
 	}
 
 	loadData() {
@@ -99,7 +125,10 @@ export class StorjTxSummary extends PureComponent {
 			.then(r => r.arrayBuffer())
 			.then(buf => {
 				let { startDate, endDate } = this.state
-				this.setState(processTxData(buf, startDate, endDate))
+				let data = processTxData(buf, startDate, endDate)
+				this.setState(data)
+				let maxVal = getArrayMaxValue(data.arrays.payouts)
+				this.view.updateLimits(...roundRange(0, maxVal))
 				this.requestRedraw()
 			})
 			.catch(onError)
@@ -107,7 +136,7 @@ export class StorjTxSummary extends PureComponent {
 
 	onRedraw() {
 		let { canvasExt, rect, view } = this
-		let { arrays, startDate, endDate } = this.state
+		let { arrays, startDate, endDate, isLogScale } = this.state
 		let { rc } = canvasExt
 
 		if (!canvasExt.created()) return
@@ -120,31 +149,40 @@ export class StorjTxSummary extends PureComponent {
 		rc.save()
 		rc.scale(canvasExt.pixelRatio, canvasExt.pixelRatio)
 
-		if (arrays !== null) {
-			drawLineStepped(canvasExt, rect, view, arrays.withdrawals, +startDate, 3600 * 1000, 'Coral', true)
-			// drawLineStepped(canvasExt, rect, view, arrays.payoutCounts, +startDate, 3600*1000, 'black', true)
-			drawLineStepped(canvasExt, rect, view, arrays.payouts, +startDate, 3600 * 1000, 'green', true)
-			drawLineStepped(
-				canvasExt,
-				rect,
-				view,
-				arrays.preparings,
-				+startDate,
-				3600 * 1000,
-				'DarkGray',
-				true,
-			)
-		}
-
 		drawMonthDays(canvasExt, rect, view, {})
 
-		// rc.strokeStyle = 'rgba(0,0,0,0.05)'
-		// rc.lineWidth = 0.5
-		// rc.strokeRect(0.5, 0.5, canvasExt.cssWidth - 1, canvasExt.cssHeight - 1)
+		if (arrays !== null) {
+			let start = startDate.getTime()
+			let step = 3600 * 1000
+			let func = isLogScale ? value2yLog : value2y
+			drawLineStepped(canvasExt, rect, view, arrays.withdrawals, start, step, 'purple', true, func)
+			// drawLineStepped(canvasExt, rect, view, arrays.payoutCounts, start, step, 'black', true, func)
+			drawLineStepped(canvasExt, rect, view, arrays.payouts, start, step, 'green', true, func)
+			drawLineStepped(canvasExt, rect, view, arrays.preparings, start, step, 'orange', true, func)
+		}
+
+		let textCol = 'black'
+		let lineCol = 'rgba(0,0,0,0.08)'
+		let func = isLogScale ? value2yLog : value2y
+		let topVal = view.topValue
+		let midVal = isLogScale ? Math.sqrt(topVal) : topVal / 2
+		midVal = roundRange(0, midVal, isLogScale ? 1 : 2)[1]
+		rc.textAlign = 'left'
+		rc.textBaseline = 'bottom'
+		drawLabeledVScaleLeftLine(rc, rect, view, 0, textCol, lineCol, 0, this.scalesLabelFunc)
+		rc.textBaseline = 'middle'
+		drawLabeledVScaleLeftLine(rc, rect, view, midVal, textCol, lineCol, 0, this.scalesLabelFunc, func)
+		rc.textBaseline = 'top'
+		drawLabeledVScaleLeftLine(rc, rect, view, topVal, textCol, lineCol, 0, this.scalesLabelFunc)
 
 		rc.restore()
 	}
 	onResize() {
+		this.requestRedraw()
+	}
+
+	onScaleModeClick(e) {
+		this.setState({ isLogScale: !!e.target.dataset.isLog })
 		this.requestRedraw()
 	}
 
@@ -157,20 +195,27 @@ export class StorjTxSummary extends PureComponent {
 		addEventListener('resize', this.onResize)
 	}
 
-	render(props, { aggregated }) {
+	render(props, { aggregated, isLogScale }) {
 		let infoElem = '...'
 		if (aggregated) {
 			let total = Math.round(aggregated.payoutTotal)
 			let count = Math.round(aggregated.payoutsCount)
 			let avg = Math.round(aggregated.payoutAvg * 10) / 10
-			//prettier-ignoree
+			let withdr = Math.round(aggregated.withdrawalTotal)
+			let withdrPerc = ((withdr * 100) / total).toFixed(1)
 			infoElem = html`
 				<p>
 					${lang == 'ru'
 						? `За последний месяц отправлено ${L.n(count, 'платёж', 'платежа', 'платежей')} ` +
 						  `на ${L.n(total, 'STROJ', "STROJ'а", "STROJ'ей")}, ${avg} в среднем.`
 						: `Over the past month ${L.n(count, 'payment', 'payments')} were sent ` +
-						  `for ${L.n(total, 'STROJ', "STROJs")}, ${avg} on average.`}
+						  `for ${L.n(total, 'STROJ', 'STROJs')}, ${avg} on average.`}
+					${' '}
+					${lang == 'ru'
+						? `С кошельков получателей выведено ${L.n(withdr, 'койн', 'конйа', 'койнов')} ` +
+						  `(${withdrPerc}% от выплат).`
+						: `${L.n(withdr, 'coin', 'coins')} were withdrawn from recipient's wallets ` +
+						  `(${withdrPerc}% of payouts).`}
 				</p>
 			`
 		}
@@ -179,11 +224,32 @@ export class StorjTxSummary extends PureComponent {
 			<div class="chart storj-tx-summary-chart">
 				<canvas class="main-canvas" ref=${this.canvasExt.setRef}></canvas>
 				<div class="legend">
-					<${LegendItem} color="darkgray">${L('preparation', 'ru', 'подготовка')}</>
+					<${LegendItem} color="orange">${L('preparation', 'ru', 'подготовка')}</>
 					<${LegendItem} color="green">${L('payouts', 'ru', 'выплаты')}</>
-					<${LegendItem} color="coral">${L('withdrawal', 'ru', 'вывод')}</>
+					<${LegendItem} color="purple">${L('withdrawals', 'ru', 'вывод')}</>
+					<div class="scale-mode-wrap">
+						${L('scale', 'ru', 'шкала')}:
+						<button class="${isLogScale ? '' : 'active'}" onClick=${this.onScaleModeClick}>lin</button>
+						<button class="${isLogScale ? 'active' : ''}" onClick=${this.onScaleModeClick} data-is-log="1">log</button>
+					</div>
 				</div>
 			</div>
+			<p class="dim small">
+				<b>${L('preparation', 'ru', 'подготовка')}</b>
+				${
+					lang == 'ru'
+						? " — входящие переводы в Storj'евый кошелёк выплат"
+						: ' — incoming transfers to Storj payout wallet(s)'
+				},${' '}
+				<b>${L('payouts', 'ru', 'выплаты')}</b>
+				${lang == 'ru' ? ' — собственно выплаты операторам нод' : ' — actual payouts to Storj Node Operators'},${' '}
+				<b>${L('withdrawals', 'ru', 'вывод')}</b>
+				${
+					lang == 'ru'
+						? ' — переводы токенов из кошельков SNO (в обменники или просто на другие адреса)'
+						: ' — token transfers from SNO wallets (to exchangers or just other addresses)'
+				}.
+			</p>
 		`
 	}
 }

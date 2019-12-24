@@ -3,7 +3,6 @@ package server
 import (
 	"context"
 	"encoding/binary"
-	"fmt"
 	"io/ioutil"
 	"net/http"
 	"net/url"
@@ -159,7 +158,6 @@ func HandleAPISetUserNode(wr http.ResponseWriter, r *http.Request, ps httprouter
 	if err != nil {
 		return nil, merry.Wrap(err)
 	}
-	fmt.Println(node)
 	return node, nil
 }
 
@@ -278,7 +276,6 @@ func HandleStorjTokenTxSummary(wr http.ResponseWriter, r *http.Request, ps httpr
 		utils.CopyFloat32SliceToBuf(buf[4+24*4*1:], day.Payouts)
 		utils.CopyInt32SliceToBuf(buf[4+24*4*2:], day.PayoutCounts)
 		utils.CopyFloat32SliceToBuf(buf[4+24*4*3:], day.Withdrawals)
-		fmt.Println(day.Date, buf)
 		_, err := wr.Write(buf)
 		if err != nil {
 			return nil, merry.Wrap(err)

@@ -9,8 +9,6 @@ import {
 	onError,
 	delayedRedraw,
 } from './utils'
-
-import './pings_chart.css'
 import {
 	CanvasExt,
 	RectCenter,
@@ -23,6 +21,8 @@ import {
 	drawPingRegions,
 } from './chart_utils'
 import { apiReq } from './api'
+
+import './pings_chart.css'
 
 function processPingsData(buf, startDate, endDate) {
 	let pings = new Uint16Array(buf)

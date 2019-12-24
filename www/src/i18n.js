@@ -31,5 +31,5 @@ function pluralize(val, ...words) {
 }
 
 L.n = function L_n(val, ...words) {
-	return val + ' ' + pluralize(val, ...words)
+	return val.toLocaleString(lang) + ' ' + pluralize(val, ...words)
 }
