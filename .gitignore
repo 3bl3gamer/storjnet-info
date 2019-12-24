@@ -1,6 +1,7 @@
+.vscode
 storjnet
 identity
-.vscode
+dumps
 www/node_modules
 www/dist
 www/package-lock.json

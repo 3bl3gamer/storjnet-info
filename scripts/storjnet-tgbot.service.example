@@ -1,0 +1,17 @@
+[Unit]
+Description=Storjnet TG bot
+After=network.target
+
+[Service]
+User=storj
+WorkingDirectory=/home/storj/storjnet
+ExecStart=/home/storj/storjnet/storjnet tg-bot \
+  --tg-bot-token=<tg_token> \
+  --tg-webhook-url https://storjnet.info/path/to/bot/hook \
+  --tg-webhook-addr 127.0.0.1:9005 \
+  --tg-webhook-path /path/to/bot/hook \
+  --github-oauth-token <github_token>
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

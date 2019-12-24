@@ -1,0 +1,12 @@
+[Unit]
+Description=Storjnet HTTP server
+After=network.target
+
+[Service]
+User=storj
+WorkingDirectory=/home/storj/storjnet
+ExecStart=/home/storj/storjnet/storjnet http --env=prod --addr=127.0.0.1:9004
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
