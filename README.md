@@ -1,8 +1,8 @@
 # StorjInfo
 
-Starts single node and saves node IDs from incoming connections. Preriodically updates nodes info by calling `LookupNode` and `NodeInfo`.
+**UPD:** After [Kademlia removal](https://storj.io/blog/2019/08/so-youre-a-storage-node-operator.-which-satellites-do-you-trust/) there is no reliable way not collect new nodes. So this version of StorjInfo was frozen and moved to [old.storjnet.info](http://old.storjnet.info/)
 
-May go down after upcoming [Kademlia removal](https://storj.io/blog/2019/08/so-youre-a-storage-node-operator.-which-satellites-do-you-trust/). Or may not, details yet unclear.
+Starts single node and saves node IDs from incoming connections. Preriodically updates nodes info by calling `LookupNode` and `NodeInfo`.
 
 ## DB setup
 ```bash
