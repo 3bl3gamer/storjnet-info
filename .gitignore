@@ -1,5 +1,6 @@
 .vscode
 storjnet
+scripts/probe_nodes/probe_nodes
 identity
 dumps
 www/node_modules

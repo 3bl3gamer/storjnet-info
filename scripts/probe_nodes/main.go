@@ -8,7 +8,7 @@ import (
 	"io"
 	"log"
 	"os"
-	"storj3stat/utils"
+	"storjnet/utils"
 	"strconv"
 	"strings"
 	"sync"
@@ -31,10 +31,12 @@ var ignoredSuffixes = []string{
 	"rpccompat: unexpected EOF",
 	"rpccompat: tls: first record does not look like a TLS handshake",
 	"rpccompat: tls: unsupported SSLv2 handshake received",
+	"rpccompat: remote error: tls: error decoding message",
 	"rpccompat: remote error: tls: unexpected message",
 	"rpccompat: remote error: tls: internal error",
 	"rpccompat: remote error: tls: handshake failure",
 	"rpccompat: remote error: tls: protocol version not supported",
+	"rpccompat: remote error: tls: insufficient security level", //recovered?
 	"rpccompat: local error: tls: unexpected message",
 	"rpccompat: context deadline exceeded",
 	"i/o timeout",

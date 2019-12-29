@@ -1,6 +1,6 @@
 * * * * * /home/storj/storjnet/storjnet check-versions --tg-bot-token=<tg_token> --github-oauth-token <github_token>
 
-0 23 * * * /home/storj/storjnet/scripts/daily_backup.sh
+5 * * * * /home/storj/storjnet/scripts/daily_backup.sh
 
 ETHERSCAN_API_KEY=<key>
 30 * * * * /home/storj/storjnet/storjnet fetch-transactions
