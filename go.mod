@@ -12,11 +12,12 @@ require (
 	github.com/go-telegram-bot-api/telegram-bot-api v4.6.4+incompatible
 	github.com/gorilla/csrf v1.6.1
 	github.com/julienschmidt/httprouter v1.3.0
-	github.com/lib/pq v1.0.0
+	github.com/lib/pq v1.3.0
 	github.com/rs/zerolog v1.15.0
 	github.com/spf13/cobra v0.0.5
 	github.com/technoweenie/multipartstreamer v1.0.1 // indirect
 	golang.org/x/net v0.0.0-20190916140828-c8589233b77d
 	google.golang.org/grpc v1.23.1
-	storj.io/storj v0.26.3
+	storj.io/common v0.0.0-20200124181041-5b2cd8f217e2
+	storj.io/storj v0.31.12
 )

@@ -4,9 +4,9 @@ import (
 	"context"
 
 	"github.com/ansel1/merry"
-	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/peertls/tlsopts"
-	"storj.io/storj/pkg/rpc"
+	"storj.io/common/pb"
+	"storj.io/common/peertls/tlsopts"
+	"storj.io/common/rpc"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite"
 )
@@ -50,7 +50,7 @@ func (sat *Satellite) DialAndClose(ctx context.Context, address string, id storj
 }
 
 func (sat *Satellite) Ping(ctx context.Context, conn *rpc.Conn) error {
-	client := conn.ContactClient()
+	client := pb.NewDRPCContactClient(conn.Raw())
 	_, err := client.PingNode(ctx, &pb.ContactPingRequest{})
 	return merry.Wrap(err)
 }

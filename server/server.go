@@ -271,7 +271,7 @@ func StartHTTPServer(address string, env utils.Env) error {
 	if env.IsDev() {
 		devServerAddress, err := httputils.RunBundleDevServerNear(address, baseDir+"/www", "--configHost", "--configPort")
 		if err != nil {
-			log.Fatal().Err(err)
+			return merry.Wrap(err)
 		}
 		bundleFPath = "http://" + devServerAddress + "/bundle.js"
 		stylesFPath = "http://" + devServerAddress + "/bundle.css"
@@ -279,7 +279,7 @@ func StartHTTPServer(address string, env utils.Env) error {
 		distPath := baseDir + "/www/dist"
 		bundleFPath, stylesFPath, err = httputils.LastJSAndCSSFNames(distPath, "bundle.", "bundle.")
 		if err != nil {
-			log.Fatal().Err(err)
+			return merry.Wrap(err)
 		}
 		bundleFPath = "/dist/" + bundleFPath
 		stylesFPath = "/dist/" + stylesFPath
