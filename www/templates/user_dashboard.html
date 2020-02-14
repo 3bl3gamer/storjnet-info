@@ -18,18 +18,18 @@
 Сюда можно вывести произвольный текст, отправив его в теле POST-запроса на storjnet.info/api/user_texts с Basic Auth.
 
 Простую строку можно отправи так:
-curl --user username:password --data 'some data' http://storjnet.info/api/user_texts
+curl --user username:password --data 'some data' https://storjnet.info/api/user_texts
 
 Выхлоп скрипта — так:
-sh print_stats.sh | curl -u username:password --data-binary  @- http://storjnet.info/api/user_texts
+sh print_stats.sh | curl -u username:password --data-binary  @- https://storjnet.info/api/user_texts
 {{else}}
 You can display arbitrary text here by sending it in the POST request body to storjnet.info/api/user_texts with Basic Auth.
 
 Simple line can be sent with:
-curl --user username:password --data 'some data' http://storjnet.info/api/user_texts
+curl --user username:password --data 'some data' https://storjnet.info/api/user_texts
 
 Some script output — with:
-sh print_stats.sh | curl -u username:password --data-binary  @- http://storjnet.info/api/user_texts
+sh print_stats.sh | curl -u username:password --data-binary  @- https://storjnet.info/api/user_texts
 {{end -}}
 </pre>
 {{end}}

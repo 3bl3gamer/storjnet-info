@@ -231,7 +231,12 @@ func updateDaySummary(db *pg.DB, storjAddrs [][20]byte, date time.Time) error {
 func FetchAndProcess() error {
 	db := utils.MakePGConnection()
 
-	storjStrAddrs := []string{"0x005f7b5faa2f8a7a647d2b2dd2c278b35429fdc6"}
+	storjStrAddrs := []string{
+		"0x005f7b5faa2f8a7a647d2b2dd2c278b35429fdc6",
+		"0x00f5010ee550d6c58eb263bd46c5b9ab77943f8e",
+		"0x004374c9d59a9b34cb6298f7906e126cb3c50c70",
+		"0x0071edcf0c4dd52231bcafc7caab231062b75561",
+	}
 	storjAddrs, err := decodeHexAddresses(storjStrAddrs)
 	if err != nil {
 		return merry.Wrap(err)

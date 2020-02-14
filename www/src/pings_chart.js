@@ -257,7 +257,7 @@ class PingsChart extends PureComponent {
 		addEventListener('resize', this.onResize)
 	}
 
-	render(props, { zoom }) {
+	render({ node, group }, { zoom }) {
 		let zoomElem =
 			zoom.isShown &&
 			html`
@@ -267,10 +267,11 @@ class PingsChart extends PureComponent {
 					style="width: ${zoom.boxWidth}px; transform: translateX(${zoom.boxX}px)"
 				></canvas>
 			`
+		let legend = group == 'sat' ? node.address.match(/^(.*?)(:7777)?$/)[1] : node.id
 		return html`
 			<div class="chart pings-chart" ref=${this.hoverCtl.setRef}>
 				<canvas class="main-canvas" ref=${this.canvasExt.setRef}></canvas>
-				<div class="legend">${this.props.node.id}</div>
+				<div class="legend">${legend}</div>
 				${zoomElem}
 			</div>
 		`
@@ -278,7 +279,7 @@ class PingsChart extends PureComponent {
 }
 
 export class PingsChartsList extends PureComponent {
-	render({ nodes, group }, state) {
+	render({ nodes, group, legendMode }, state) {
 		return nodes.map(
 			n =>
 				html`
