@@ -62,8 +62,8 @@ function processTxData(buf, startDate, endDate) {
 		if (payouts[i] > 0) {
 			payoutTotal += payouts[i]
 			payoutsCount += payoutCounts[i]
-			withdrawalTotal += withdrawals[i]
 		}
+		withdrawalTotal += withdrawals[i]
 	}
 	let payoutAvg = payoutsCount == 0 ? 0 : payoutTotal / payoutsCount
 
@@ -206,9 +206,9 @@ export class StorjTxSummary extends PureComponent {
 			infoElem = html`
 				<p>
 					${lang == 'ru'
-						? `За последний месяц отправлено ${L.n(count, 'платёж', 'платежа', 'платежей')} ` +
+						? `В текущем месяце отправлено ${L.n(count, 'платёж', 'платежа', 'платежей')} ` +
 						  `на ${L.n(total, 'STROJ', "STROJ'а", "STROJ'ей")}, ${avg} в среднем.`
-						: `Over the past month ${L.n(count, 'payment', 'payments')} were sent ` +
+						: `During this month ${L.n(count, 'payment', 'payments')} were sent ` +
 						  `for ${L.n(total, 'STROJ', 'STROJs')}, ${avg} on average.`}
 					${' '}
 					${lang == 'ru'
