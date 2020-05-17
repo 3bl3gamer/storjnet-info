@@ -25,6 +25,14 @@ type WebhookConfig struct {
 	ListenPath string
 }
 
+func isReplyToBotInGroupChat(bot *tgbotapi.BotAPI, update tgbotapi.Update) bool {
+	msg := update.Message
+	if msg == nil || msg.From == nil || msg.ReplyToMessage == nil || msg.ReplyToMessage.From == nil {
+		return false
+	}
+	return int64(msg.From.ID) != msg.Chat.ID && msg.ReplyToMessage.From.ID == bot.Self.ID
+}
+
 func justSend(bot *tgbotapi.BotAPI, chatID int64, text string) error {
 	return merry.Wrap(utils.TGSendMessageMD(bot, chatID, text))
 }
@@ -230,7 +238,7 @@ func StartTGBot(tgBotToken, socks5ProxyAddr string, webhook *WebhookConfig) erro
 			if err := handler(bot, db, update, args); err != nil {
 				return merry.Wrap(err)
 			}
-		} else if update.Message != nil && update.Message.Text != "" {
+		} else if update.Message != nil && update.Message.Text != "" && !isReplyToBotInGroupChat(bot, update) {
 			justSend(bot, update.Message.Chat.ID, "Не понял.")
 		}
 	}
