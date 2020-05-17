@@ -192,7 +192,7 @@ export class StorjTxSummary extends PureComponent {
 		addEventListener('resize', this.onResize)
 	}
 	componentWillUnmount() {
-		addEventListener('resize', this.onResize)
+		removeEventListener('resize', this.onResize)
 	}
 
 	render(props, { aggregated, isLogScale }) {

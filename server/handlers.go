@@ -284,6 +284,60 @@ func HandleStorjTokenTxSummary(wr http.ResponseWriter, r *http.Request, ps httpr
 	return nil, nil
 }
 
+func HandleNodesLocations(wr http.ResponseWriter, r *http.Request, ps httprouter.Params) (interface{}, error) {
+	db := r.Context().Value(ctxKey("db")).(*pg.DB)
+
+	var nodeLocations []struct{ Lon, Lat float32 }
+	_, err := db.Query(&nodeLocations, `
+		SELECT (location->'longitude')::float8 AS lon, (location->'latitude')::float8 AS lat
+		FROM node_addrs WHERE location IS NOT NULL AND updated_at > NOW() - INTERVAL '1 day'`)
+	if err != nil {
+		return nil, merry.Wrap(err)
+	}
+
+	buf := make([]byte, len(nodeLocations)*4)
+	for i, loc := range nodeLocations {
+		lon := uint16((180 + loc.Lon) / 360 * 65536)
+		lat := uint16((90 + loc.Lat) / 180 * 65536)
+		buf[i*4+0] = byte(lon % 256)
+		buf[i*4+1] = byte(lon >> 8)
+		buf[i*4+2] = byte(lat % 256)
+		buf[i*4+3] = byte(lat >> 8)
+	}
+
+	wr.Header().Set("Content-Type", "application/octet-stream")
+	_, err = wr.Write(buf)
+	return nil, merry.Wrap(err)
+}
+
+func HandleNodesLocationSummary(wr http.ResponseWriter, r *http.Request, ps httprouter.Params) (interface{}, error) {
+	db := r.Context().Value(CtxKeyDB).(*pg.DB)
+
+	var stats struct {
+		CountriesCount int64 `json:"countriesCount"`
+		CountriesTop   []struct {
+			Country string `json:"country"`
+			Count   int64  `json:"count"`
+		} `json:"countriesTop"`
+	}
+	_, err := db.Query(&stats, `
+		SELECT
+			(SELECT count(*) FROM jsonb_object_keys(countries)) AS countries_count,
+			(
+				SELECT jsonb_agg(jsonb_build_object('country', (t).key, 'count', (t).value))
+				FROM (
+					SELECT t FROM jsonb_each(countries) AS t
+					ORDER BY (t).value::int DESC limit 10
+				) AS t
+			) AS countries_top
+		FROM node_addrs_stats ORDER BY id DESC LIMIT 1
+		`)
+	if err != nil {
+		return nil, merry.Wrap(err)
+	}
+	return stats, nil
+}
+
 func Handle404(wr http.ResponseWriter, r *http.Request, ps httprouter.Params) error {
 	tmplHnd := r.Context().Value(httputils.CtxKeyMain).(*httputils.MainCtx).TemplateHandler
 	return merry.Wrap(tmplHnd.RenderTemplate(wr, r, map[string]interface{}{"FPath": "404.html"}))

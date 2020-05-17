@@ -39,7 +39,7 @@ export function PureComponent(props, context) {
 F.prototype = Component.prototype
 PureComponent.prototype = new F()
 PureComponent.prototype.isPureReactComponent = true
-PureComponent.prototype.shouldComponentUpdate = function(props, state) {
+PureComponent.prototype.shouldComponentUpdate = function (props, state) {
 	return shallowDiffers(this.props, props) || shallowDiffers(this.state, state)
 }
 
@@ -108,7 +108,7 @@ export function hoverSingle({ onHover, onLeave }) {
 	}
 
 	return {
-		setRef: function(newElem) {
+		setRef: function (newElem) {
 			if (newElem === null) {
 				unmount()
 				elem = null
@@ -138,7 +138,7 @@ export function delayedRedraw(redrawFunc) {
 		redrawFunc()
 	}
 
-	return function() {
+	return function () {
 		if (redrawRequested) return
 		redrawRequested = true
 		requestAnimationFrame(onRedraw)
@@ -153,4 +153,17 @@ export function LegendItem({ color, textColor = null, children }) {
 			${children}
 		</div>
 	`
+}
+
+export function fixNodesCount(count) {
+	// Nodes are currently counted for default port only.
+	// According to the data collected for old.storjnet.info, there are 15-20% more nodes on other ports.
+	return Math.round(count * 1.18)
+	// count *= 1.18
+	// const k = Math.pow(10, Math.max(0, Math.floor(Math.log10(count)) - 1))
+	// return Math.round(count / k) * k
+}
+
+export function zeroes(count) {
+	return new Array(count).fill(0)
 }
