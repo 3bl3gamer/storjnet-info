@@ -155,10 +155,11 @@ export class StorjTxSummary extends PureComponent {
 			let start = startDate.getTime()
 			let step = 3600 * 1000
 			let func = isLogScale ? value2yLog : value2y
-			drawLineStepped(canvasExt, rect, view, arrays.withdrawals, start, step, 'purple', true, func)
-			// drawLineStepped(canvasExt, rect, view, arrays.payoutCounts, start, step, 'black', true, func)
-			drawLineStepped(canvasExt, rect, view, arrays.payouts, start, step, 'green', true, func)
-			drawLineStepped(canvasExt, rect, view, arrays.preparings, start, step, 'orange', true, func)
+			const { withdrawals, payouts, preparings } = arrays
+			drawLineStepped(canvasExt, rect, view, withdrawals, start, step, 'purple', true, true, func)
+			// drawLineStepped(canvasExt, rect, view, payoutCounts, start, step, 'black', true, true, func)
+			drawLineStepped(canvasExt, rect, view, payouts, start, step, 'green', true, true, func)
+			drawLineStepped(canvasExt, rect, view, preparings, start, step, 'orange', true, true, func)
 		}
 
 		let textCol = 'black'
@@ -224,13 +225,21 @@ export class StorjTxSummary extends PureComponent {
 			<div class="chart storj-tx-summary-chart">
 				<canvas class="main-canvas" ref=${this.canvasExt.setRef}></canvas>
 				<div class="legend">
-					<${LegendItem} color="orange">${L('preparation', 'ru', 'подготовка')}</>
-					<${LegendItem} color="green">${L('payouts', 'ru', 'выплаты')}</>
-					<${LegendItem} color="purple">${L('withdrawals', 'ru', 'вывод')}</>
+					<${LegendItem} color="orange">${L('preparation', 'ru', 'подготовка')}</${LegendItem}>
+					<${LegendItem} color="green">${L('payouts', 'ru', 'выплаты')}</${LegendItem}>
+					<${LegendItem} color="purple">${L('withdrawals', 'ru', 'вывод')}</${LegendItem}>
 					<div class="scale-mode-wrap">
 						${L('scale', 'ru', 'шкала')}:
-						<button class="${isLogScale ? '' : 'active'}" onClick=${this.onScaleModeClick}>lin</button>
-						<button class="${isLogScale ? 'active' : ''}" onClick=${this.onScaleModeClick} data-is-log="1">log</button>
+						<button class="${isLogScale ? '' : 'active'}" onClick=${this.onScaleModeClick}>
+							lin
+						</button>
+						<button
+							class="${isLogScale ? 'active' : ''}"
+							onClick=${this.onScaleModeClick}
+							data-is-log="1"
+						>
+							log
+						</button>
 					</div>
 				</div>
 			</div>

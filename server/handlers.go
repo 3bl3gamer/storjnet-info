@@ -18,6 +18,29 @@ import (
 	"storj.io/storj/pkg/storj"
 )
 
+func extractStartEndDatesFromQuery(query url.Values) (time.Time, time.Time) {
+	startDateStr := query.Get("start_date")
+	endDateStr := query.Get("end_date")
+	now := time.Now().In(time.UTC)
+	endTime, err := time.ParseInLocation("2006-01-02", endDateStr, time.UTC)
+	if err != nil {
+		return now, now
+	}
+	startTime, err := time.ParseInLocation("2006-01-02", startDateStr, time.UTC)
+	if err != nil {
+		return now, now
+	}
+	if endTime.Sub(startTime) > 40*24*time.Hour {
+		return now, now
+	}
+	return startTime, endTime
+}
+
+func extractStartEndDatesStrFromQuery(query url.Values) (string, string) {
+	startTime, endTime := extractStartEndDatesFromQuery(query)
+	return startTime.Format("2006-01-02"), endTime.Format("2006-01-02")
+}
+
 func HandleIndex(wr http.ResponseWriter, r *http.Request, ps httprouter.Params) (httputils.TemplateCtx, error) {
 	db := r.Context().Value(CtxKeyDB).(*pg.DB)
 	user := r.Context().Value(CtxKeyUser).(*core.User)
@@ -177,24 +200,6 @@ func HandleAPIDelUserNode(wr http.ResponseWriter, r *http.Request, ps httprouter
 	return "ok", nil
 }
 
-func extractStartEndDatesStrFromQuery(query url.Values) (string, string) {
-	startDateStr := query.Get("start_date")
-	endDateStr := query.Get("end_date")
-	nowStr := time.Now().In(time.UTC).Format("2006-01-02")
-	endTime, err := time.ParseInLocation("2006-01-02", endDateStr, time.UTC)
-	if err != nil {
-		return nowStr, nowStr
-	}
-	startTime, err := time.ParseInLocation("2006-01-02", startDateStr, time.UTC)
-	if err != nil {
-		return nowStr, nowStr
-	}
-	if endTime.Sub(startTime) > 40*24*time.Hour {
-		return nowStr, nowStr
-	}
-	return startDateStr, endDateStr
-}
-
 func HandleAPIUserNodePings(wr http.ResponseWriter, r *http.Request, ps httprouter.Params) (interface{}, error) {
 	db := r.Context().Value(CtxKeyDB).(*pg.DB)
 	nodeID, err := storj.NodeIDFromString(ps.ByName("node_id"))
@@ -336,6 +341,89 @@ func HandleNodesLocationSummary(wr http.ResponseWriter, r *http.Request, ps http
 		return nil, merry.Wrap(err)
 	}
 	return stats, nil
+}
+
+func HandleNodesCounts(wr http.ResponseWriter, r *http.Request, ps httprouter.Params) (interface{}, error) {
+	db := r.Context().Value(ctxKey("db")).(*pg.DB)
+
+	startDate, endDate := extractStartEndDatesFromQuery(r.URL.Query())
+
+	var counts []struct{ H3, H12, H24, Stamp int64 }
+	_, err := db.Query(&counts, `
+		SELECT
+			(count_hours->'3')::int AS h3,
+			(count_hours->'12')::int AS h12,
+			(count_hours->'24')::int AS h24,
+			extract(epoch from created_at)::bigint AS stamp
+		FROM node_addrs_stats WHERE created_at >= ? AND created_at < ?`, startDate, endDate)
+	if err != nil {
+		return nil, merry.Wrap(err)
+	}
+
+	var changes []struct {
+		Date       time.Time
+		Delta      int64
+		Left, Come int64
+	}
+	_, err = db.Query(&changes, `
+		SELECT date,
+			COALESCE(array_length(left_addrs, 1), 0) AS left,
+			COALESCE(array_length(come_addrs, 1), 0) AS come
+		FROM node_daily_addrs WHERE date BETWEEN ?::date AND ?::date`, startDate, endDate)
+	if err != nil {
+		return nil, merry.Wrap(err)
+	}
+
+	startStamp := startDate.Unix()
+	maxStamp := startStamp
+	for _, count := range counts {
+		if count.Stamp > maxStamp {
+			maxStamp = count.Stamp
+		}
+	}
+	countsArrLen := (maxStamp-startStamp)/3600 + 1
+
+	changesArrLen := int64(0)
+	for i, change := range changes {
+		// dates come as UTC's, checking just in case
+		if change.Date.Location() != time.UTC || change.Date.Hour() != 0 {
+			panic("date is not UTC midnight")
+		}
+		delta := int64(change.Date.In(time.UTC).Sub(startDate).Hours() / 24)
+		if delta+1 > changesArrLen {
+			changesArrLen = delta + 1
+		}
+		changes[i].Delta = delta
+	}
+
+	buf := make([]byte, 4+4+int(countsArrLen)*6+4+int(changesArrLen)*4)
+	fullBuf := buf
+	binary.LittleEndian.PutUint32(buf, uint32(startStamp))
+	binary.LittleEndian.PutUint32(buf[4:], uint32(countsArrLen))
+	buf = buf[8:]
+	for _, count := range counts {
+		i := (count.Stamp - startStamp) / 3600
+		buf[i*6+0] = byte(count.H3)
+		buf[i*6+1] = byte(count.H3 >> 8)
+		buf[i*6+2] = byte(count.H12)
+		buf[i*6+3] = byte(count.H12 >> 8)
+		buf[i*6+4] = byte(count.H24)
+		buf[i*6+5] = byte(count.H24 >> 8)
+	}
+	buf = buf[countsArrLen*6:]
+	binary.LittleEndian.PutUint32(buf, uint32(changesArrLen))
+	buf = buf[4:]
+	for _, change := range changes {
+		i := change.Delta
+		buf[i*4+0] = byte(change.Come)
+		buf[i*4+1] = byte(change.Come >> 8)
+		buf[i*4+2] = byte(change.Left)
+		buf[i*4+3] = byte(change.Left >> 8)
+	}
+
+	wr.Header().Set("Content-Type", "application/octet-stream")
+	_, err = wr.Write(fullBuf)
+	return nil, merry.Wrap(err)
 }
 
 func Handle404(wr http.ResponseWriter, r *http.Request, ps httprouter.Params) error {

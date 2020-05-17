@@ -106,6 +106,12 @@ export class View {
 	}
 }
 
+export function getArrayMinValue(arr, initialValue = Infinity, skipZero = false) {
+	let val = initialValue
+	for (let i = 0; i < arr.length; i++) if (val > arr[i] && (!skipZero || arr[i] !== 0)) val = arr[i]
+	return val
+}
+
 export function getArrayMaxValue(arr, initialValue = -Infinity) {
 	let val = initialValue
 	for (let i = 0; i < arr.length; i++) if (val < arr[i]) val = arr[i]
@@ -127,6 +133,9 @@ export function value2yLog(rect, view, value) {
 	let maxLogVal = Math.log(view.height)
 	value = ((Math.log(1 + Math.abs(value)) * Math.sign(value)) / maxLogVal) * view.height
 	return rect.top + rect.height - ((value - view.bottomValue) / view.height) * rect.height
+}
+export function signed(value) {
+	return (value >= 0 ? '+' : '') + value
 }
 
 export function drawPingLine(rc, rect, view, pings, startStamp, itemWidth, color) {
@@ -200,6 +209,7 @@ export function drawLineStepped(
 	itemWidth,
 	color,
 	skipZero = false,
+	joinZero = false,
 	yFunc = value2y,
 ) {
 	let rc = canvasExt.rc
@@ -214,17 +224,20 @@ export function drawLineStepped(
 		let y = yFunc(rect, view, value)
 		if (skipZero && value == 0) {
 			if (started) {
-				rc.lineTo(x, y)
+				if (joinZero) rc.lineTo(x, y)
 				started = false
 			}
 		} else {
 			if (started) {
 				rc.lineTo(x, y)
 			} else {
-				if (i == 0) rc.moveTo(x, y)
-				else {
+				if (i == 0) {
+					rc.moveTo(x, y)
+				} else if (joinZero) {
 					rc.moveTo(prevX, prevY)
 					rc.lineTo(x, y)
+				} else {
+					rc.moveTo(x, y)
 				}
 				started = true
 			}
@@ -237,15 +250,86 @@ export function drawLineStepped(
 	rc.stroke()
 }
 
-function* iterateDays(startDate, endDate, step = 1) {
+export function drawDailyComeLeftBars(
+	canvasExt,
+	rect,
+	view,
+	comeValues,
+	leftValues,
+	comeColor,
+	leftColor,
+	textColor,
+) {
+	let rc = canvasExt.rc
+
+	let maxLabelWidth = 1
+	for (let i = 0; i < comeValues.length; i++) {
+		const width = Math.max(
+			rc.measureText(signed(comeValues[i])).width,
+			rc.measureText(signed(-leftValues[i])).width,
+		)
+		if (width > maxLabelWidth) maxLabelWidth = width
+	}
+	let dayWidth = (rect.width / view.duration) * 24 * 3600 * 1000
+	let isHorizMode = maxLabelWidth < dayWidth
+
+	for (let [dayNum, dayDate, nextDayDate] of iterateDays(view.startStamp, view.endStamp, 1, true)) {
+		const come = comeValues[dayNum]
+		const left = leftValues[dayNum]
+		const x0 = stamp2x(rect, view, dayDate)
+		const x1 = stamp2x(rect, view, nextDayDate)
+		const dx = (x1 - x0) * 0.95
+		const k = 0.8
+		const comeY = value2y(rect, view, Math.abs(come))
+		const leftY = value2y(rect, view, Math.abs(left))
+
+		if (come > left) {
+			rc.fillStyle = comeColor
+			rc.fillRect(x0, comeY, dx * k, rect.height - comeY)
+		}
+		rc.fillStyle = leftColor
+		rc.fillRect(x0 + dx * (1 - k), leftY, dx * k, rect.height - leftY)
+		if (come <= left) {
+			rc.fillStyle = comeColor
+			rc.fillRect(x0, comeY, dx * k, rect.height - comeY)
+		}
+
+		const textY = Math.min(comeY, leftY)
+		rc.fillStyle = textColor
+		if (isHorizMode) {
+			rc.textAlign = 'center'
+			rc.textBaseline = 'bottom'
+			rc.fillText(signed(-left), (x0 + x1) / 2, textY)
+			rc.fillText(signed(come), (x0 + x1) / 2, textY - 12)
+		} else {
+			rc.textAlign = 'left'
+			rc.textBaseline = 'middle'
+			rc.save()
+			rc.translate((x0 + x1) / 2, textY - 1)
+			rc.rotate(-Math.PI / 2)
+			if (come > left) {
+				rc.fillText(signed(come), 0, 0)
+			} else {
+				rc.fillText(signed(-left), 0, 0)
+			}
+			rc.restore()
+		}
+	}
+}
+
+export function* iterateDays(startDate, endDate, step = 1, utc = false) {
 	if (step < 1) step = 1
 	startDate = new Date(startDate)
-	startDate.setHours(0, 0, 0, 0)
+	startDate[utc ? 'setUTCHours' : 'setHours'](0, 0, 0, 0)
 
 	let dayDate = new Date(startDate)
 	for (let dayNum = 0; ; dayNum += step) {
 		let nextDayDate = new Date(startDate)
-		nextDayDate.setDate(nextDayDate.getDate() + dayNum + 1)
+		if (utc) {
+			nextDayDate.setUTCDate(nextDayDate.getUTCDate() + dayNum + 1)
+		} else {
+			nextDayDate.setDate(nextDayDate.getDate() + dayNum + 1)
+		}
 
 		yield [dayNum, dayDate, nextDayDate]
 

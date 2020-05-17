@@ -11,6 +11,7 @@ import { PingsChartsList } from './pings_chart'
 import { sortedNodes } from './user_nodes'
 import { StorjTxSummary } from './storj_tx_summary'
 import { NodesLocationSummary } from './nodes_location_summary'
+import { NodesCountChart } from './nodes_count_chart'
 
 let nodes = []
 try {
@@ -44,6 +45,14 @@ renderIfExists(
 		<${StorjTxSummary} />
 	`,
 	'.storj-tx-summary',
+)
+
+renderIfExists(
+	html`
+		<h2>${L('Network size', 'ru', 'Размер сети')}</h2>
+		<${NodesCountChart} />
+	`,
+	'.nodes-count-chart',
 )
 
 renderIfExists(
