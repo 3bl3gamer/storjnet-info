@@ -39,15 +39,15 @@ func decodeHex(buf []byte, str string) error {
 	return nil
 }
 
-func decodeHexAddresses(strAddrs []string) ([][20]byte, error) {
-	addrs := make([][20]byte, len(strAddrs))
-	for i, strAddr := range strAddrs {
-		if err := decodeHex(addrs[i][:], strAddr); err != nil {
-			return nil, merry.Wrap(err)
-		}
-	}
-	return addrs, nil
-}
+// func decodeHexAddresses(strAddrs []string) ([][20]byte, error) {
+// 	addrs := make([][20]byte, len(strAddrs))
+// 	for i, strAddr := range strAddrs {
+// 		if err := decodeHex(addrs[i][:], strAddr); err != nil {
+// 			return nil, merry.Wrap(err)
+// 		}
+// 	}
+// 	return addrs, nil
+// }
 
 type EtherscanTx struct {
 	Hash         string
@@ -193,7 +193,7 @@ func fetchTransactionsFrom(db *pg.DB, addr [20]byte) (sum txFetchSummary, err er
 	return sum, nil
 }
 
-func updateDaySummary(db *pg.DB, storjAddrs [][20]byte, date time.Time) error {
+func updateDaySummary(db *pg.DB, payoutAddrs [][20]byte, date time.Time) error {
 	date = date.In(time.UTC)
 	if date.Hour() != 0 || date.Minute() != 0 || date.Second() != 0 || date.Nanosecond() != 0 {
 		return merry.Errorf("not UTC day start: %s", date)
@@ -205,10 +205,12 @@ func updateDaySummary(db *pg.DB, storjAddrs [][20]byte, date time.Time) error {
 			SELECT ?1::date, array_agg(preparings), array_agg(payouts), array_agg(payout_counts), array_agg(withdrawals)
 			FROM (
 				SELECT day,
-					coalesce(sum(value) FILTER (WHERE addr_to IN (?0)), 0) AS preparings,
-					coalesce(sum(value) FILTER (WHERE addr_from IN (?0)), 0) AS payouts,
-					count(value)            FILTER (WHERE addr_from IN (?0)) AS payout_counts,
-					coalesce(sum(value) FILTER (WHERE addr_from NOT IN (?0) AND addr_to NOT IN (?0)), 0) AS withdrawals
+					coalesce(sum(value)   FILTER (WHERE addr_to   IN (?0)), 0) AS preparings,
+					coalesce(sum(value)   FILTER (WHERE addr_from IN (?0)), 0) AS payouts,
+					coalesce(count(value) FILTER (WHERE addr_from IN (?0)), 0) AS payout_counts,
+					coalesce(sum(value) FILTER (
+						WHERE addr_from NOT IN (?0)
+						  AND addr_to NOT IN (SELECT addr FROM storj_token_addresses)), 0) AS withdrawals
 				FROM (
 					SELECT extract('epoch' FROM (created_at - ?1))::int/3600 AS day, value, addr_from, addr_to
 					FROM storj_token_transactions
@@ -224,20 +226,15 @@ func updateDaySummary(db *pg.DB, storjAddrs [][20]byte, date time.Time) error {
 			payouts = EXCLUDED.payouts,
 			payout_counts = EXCLUDED.payout_counts,
 			withdrawals = EXCLUDED.withdrawals`,
-		pg.In(storjAddrs), date)
+		pg.In(payoutAddrs), date)
 	return merry.Wrap(err)
 }
 
 func FetchAndProcess() error {
 	db := utils.MakePGConnection()
 
-	storjStrAddrs := []string{
-		"0x005f7b5faa2f8a7a647d2b2dd2c278b35429fdc6",
-		"0x00f5010ee550d6c58eb263bd46c5b9ab77943f8e",
-		"0x004374c9d59a9b34cb6298f7906e126cb3c50c70",
-		"0x0071edcf0c4dd52231bcafc7caab231062b75561",
-	}
-	storjAddrs, err := decodeHexAddresses(storjStrAddrs)
+	var payoutAddrs [][20]byte
+	_, err := db.Query(&payoutAddrs, `SELECT addr FROM storj_token_known_addresses WHERE kind = 'payout'`)
 	if err != nil {
 		return merry.Wrap(err)
 	}
@@ -248,7 +245,7 @@ func FetchAndProcess() error {
 		return merry.Wrap(err)
 	}
 
-	for _, storjAddr := range storjAddrs {
+	for _, storjAddr := range payoutAddrs {
 		found := false
 		for _, addr := range addrs {
 			if addr == storjAddr {
@@ -281,13 +278,13 @@ func FetchAndProcess() error {
 		INSERT INTO storj_token_addresses (addr, last_block_number)
 		(SELECT DISTINCT addr_to, 0 AS last_block_number FROM storj_token_transactions WHERE addr_from IN (?))
 		ON CONFLICT DO NOTHING`,
-		pg.In(storjAddrs))
+		pg.In(payoutAddrs))
 	if err != nil {
 		return merry.Wrap(err)
 	}
 
 	for date := firstCreatedAt.In(time.UTC).Truncate(24 * time.Hour); date.Before(time.Now()); date = date.AddDate(0, 0, 1) {
-		if err := updateDaySummary(db, storjAddrs, date); err != nil {
+		if err := updateDaySummary(db, payoutAddrs, date); err != nil {
 			return merry.Wrap(err)
 		}
 	}
