@@ -278,20 +278,21 @@ export function drawDailyComeLeftBars(
 		const left = leftValues[dayNum]
 		const x0 = stamp2x(rect, view, dayDate)
 		const x1 = stamp2x(rect, view, nextDayDate)
-		const dx = (x1 - x0) * 0.95
-		const k = 0.8
+		const margin = 0.05
+		const shift = 0.8
+		const dx = x1 - x0
 		const comeY = value2y(rect, view, Math.abs(come))
 		const leftY = value2y(rect, view, Math.abs(left))
 
 		if (come > left) {
 			rc.fillStyle = comeColor
-			rc.fillRect(x0, comeY, dx * k, rect.height - comeY)
+			rc.fillRect(x0 + (dx * margin) / 2, comeY, dx * (shift - margin), rect.height - comeY)
 		}
 		rc.fillStyle = leftColor
-		rc.fillRect(x0 + dx * (1 - k), leftY, dx * k, rect.height - leftY)
+		rc.fillRect(x0 + dx * (1 - shift + margin / 2), leftY, dx * (shift - margin), rect.height - leftY)
 		if (come <= left) {
 			rc.fillStyle = comeColor
-			rc.fillRect(x0, comeY, dx * k, rect.height - comeY)
+			rc.fillRect(x0 + (dx * margin) / 2, comeY, dx * (shift - margin), rect.height - comeY)
 		}
 
 		const textY = Math.min(comeY, leftY)
@@ -307,11 +308,7 @@ export function drawDailyComeLeftBars(
 			rc.save()
 			rc.translate((x0 + x1) / 2, textY - 1)
 			rc.rotate(-Math.PI / 2)
-			if (come > left) {
-				rc.fillText(signed(come), 0, 0)
-			} else {
-				rc.fillText(signed(-left), 0, 0)
-			}
+			rc.fillText(signed(come - left), 0, 0)
 			rc.restore()
 		}
 	}

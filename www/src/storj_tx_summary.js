@@ -149,14 +149,14 @@ export class StorjTxSummary extends PureComponent {
 		rc.save()
 		rc.scale(canvasExt.pixelRatio, canvasExt.pixelRatio)
 
-		drawMonthDays(canvasExt, rect, view, {})
-
 		if (arrays !== null) {
 			let start = startDate.getTime()
 			let step = 3600 * 1000
 			let func = isLogScale ? value2yLog : value2y
 			const { withdrawals, payouts, preparings } = arrays
+			rc.lineWidth = 1
 			drawLineStepped(canvasExt, rect, view, withdrawals, start, step, 'purple', true, true, func)
+			rc.lineWidth = 1.2
 			// drawLineStepped(canvasExt, rect, view, payoutCounts, start, step, 'black', true, true, func)
 			drawLineStepped(canvasExt, rect, view, payouts, start, step, 'green', true, true, func)
 			drawLineStepped(canvasExt, rect, view, preparings, start, step, 'orange', true, true, func)
@@ -175,6 +175,8 @@ export class StorjTxSummary extends PureComponent {
 		drawLabeledVScaleLeftLine(rc, rect, view, midVal, textCol, lineCol, 0, this.scalesLabelFunc, func)
 		rc.textBaseline = 'top'
 		drawLabeledVScaleLeftLine(rc, rect, view, topVal, textCol, lineCol, 0, this.scalesLabelFunc)
+
+		drawMonthDays(canvasExt, rect, view, {})
 
 		rc.restore()
 	}

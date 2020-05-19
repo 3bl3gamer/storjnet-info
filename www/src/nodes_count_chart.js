@@ -123,8 +123,7 @@ export class NodesCountChart extends PureComponent {
 		canvasExt.clear()
 		rc.save()
 		rc.scale(canvasExt.pixelRatio, canvasExt.pixelRatio)
-
-		drawMonthDays(canvasExt, rect, view, {})
+		rc.lineWidth = 1.2
 
 		if (data !== null) {
 			const { startStamp: start, counts, changes } = data
@@ -150,6 +149,8 @@ export class NodesCountChart extends PureComponent {
 		drawLabeledVScaleLeftLine(rc, rect, view, midVal, textCol, lineCol, 0, null)
 		rc.textBaseline = 'top'
 		drawLabeledVScaleLeftLine(rc, rect, view, view.topValue, textCol, lineCol, 0, null)
+
+		drawMonthDays(canvasExt, rect, view, {})
 
 		rc.restore()
 	}
