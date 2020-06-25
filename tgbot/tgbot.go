@@ -129,12 +129,12 @@ func handleVersions(bot *tgbotapi.BotAPI, db *pg.DB, update tgbotapi.Update, arg
 	sendAction(bot, update.Message.Chat.ID, "typing")
 
 	text := ""
-	for _, cfg := range core.VersionConfigs {
-		v, err := cfg.Version()
+	for _, checker := range core.MakeCurVersionCheckers() {
+		err := checker.FetchCurVersion()
 		if err == nil {
-			text += cfg.MessageCur(v) + "\n"
+			text += checker.MessageCur() + "\n"
 		} else {
-			text += cfg.Key + ": " + err.Error() + "\n"
+			text += checker.Key() + ": " + err.Error() + "\n"
 		}
 
 	}

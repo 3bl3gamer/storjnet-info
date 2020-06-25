@@ -4,10 +4,9 @@ import (
 	"net/http"
 	"storjnet/core"
 	"storjnet/utils"
+	"time"
 
 	"github.com/ansel1/merry"
-	"github.com/blang/semver"
-	"github.com/go-pg/pg/v9"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 	"github.com/rs/zerolog/log"
 	"golang.org/x/net/proxy"
@@ -31,8 +30,14 @@ func sendTGMessages(botToken, socks5ProxyAddr, text string, chatIDs []int64) err
 	}
 
 	for _, chatID := range chatIDs {
-		if err := utils.TGSendMessageMD(bot, chatID, text); err != nil {
-			return merry.Wrap(err)
+		for i := 0; i < 3; i++ {
+			err := utils.TGSendMessageMD(bot, chatID, text)
+			if err == nil {
+				break
+			} else {
+				log.Error().Err(err).Int("iter", i).Int64("chatID", chatID).Msg("message sending error")
+				time.Sleep(time.Second)
+			}
 		}
 	}
 	return nil
@@ -41,22 +46,18 @@ func sendTGMessages(botToken, socks5ProxyAddr, text string, chatIDs []int64) err
 func CheckVersions(tgBotToken, tgSocks5ProxyAddr string) error {
 	db := utils.MakePGConnection()
 
-	for _, cfg := range core.VersionConfigs {
-		prevVersion := semver.Version{}
-		_, err := db.QueryOne(&prevVersion,
-			`SELECT version FROM versions WHERE kind = ? ORDER BY created_at DESC LIMIT 1`, cfg.Key)
-		if err != nil && err != pg.ErrNoRows {
+	for _, checker := range core.MakeVersionCheckers(db) {
+		if err := checker.FetchPrevVersion(); err != nil {
 			return merry.Wrap(err)
 		}
-
-		curVersion, err := cfg.Version()
-		if err != nil {
+		if err := checker.FetchCurVersion(); err != nil {
 			return merry.Wrap(err)
 		}
-		log.Debug().Msgf("%s -> %s (%s)", prevVersion, curVersion, cfg.Key)
+		prevVersion, curVersion := checker.Versions()
+		log.Debug().Msgf("%s -> %s (%s)", prevVersion, curVersion, checker.Key())
 
-		if !curVersion.Equals(prevVersion) {
-			text := cfg.MessageNew(curVersion)
+		if checker.VersionHasChanged() {
+			text := checker.MessageNew()
 			tgChatIDs, err := core.AppConfigInt64Slice(db, "tgbot:version_notif_ids", false)
 			if err != nil {
 				return merry.Wrap(err)
@@ -64,11 +65,7 @@ func CheckVersions(tgBotToken, tgSocks5ProxyAddr string) error {
 			if err := sendTGMessages(tgBotToken, tgSocks5ProxyAddr, text, tgChatIDs); err != nil {
 				return merry.Wrap(err)
 			}
-		}
-
-		if !curVersion.Equals(prevVersion) {
-			_, err := db.Exec(`INSERT INTO versions (kind, version) VALUES (?, ?)`, cfg.Key, curVersion)
-			if err != nil {
+			if err := checker.SaveCurVersion(); err != nil {
 				return merry.Wrap(err)
 			}
 		}
