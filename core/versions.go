@@ -38,7 +38,7 @@ type VersionChecker interface {
 	FetchCurVersion() error
 	VersionHasChanged() bool
 	SaveCurVersion() error
-	Versions() (string, string)
+	DebugVersions() (string, string)
 	MessageNew() string
 	MessageCur() string
 }
@@ -49,10 +49,37 @@ type CurVersionChecker interface {
 	MessageCur() string
 }
 
+type Cursor string
+
+func (c Cursor) String() string {
+	if len(c) > 7 {
+		c = c[:3] + "…" + c[len(c)-3:]
+	}
+	return string(c)
+}
+
+func (c Cursor) IsFinal() bool {
+	for _, char := range c {
+		if char != 'f' {
+			return false
+		}
+	}
+	return len(c) > 0
+}
+
+type VersionWithCursor struct {
+	Version semver.Version
+	Cursor  Cursor
+}
+
+func (v VersionWithCursor) VString() string {
+	return fmt.Sprintf("v%s, cursor: %s", v.Version, v.Cursor)
+}
+
 type StrojIoVersionChecker struct {
 	db          *pg.DB
-	prevVersion semver.Version
-	curVersion  semver.Version
+	prevVersion VersionWithCursor
+	curVersion  VersionWithCursor
 }
 
 func (c *StrojIoVersionChecker) Key() string {
@@ -61,7 +88,8 @@ func (c *StrojIoVersionChecker) Key() string {
 
 func (c *StrojIoVersionChecker) FetchPrevVersion() error {
 	_, err := c.db.QueryOne(&c.prevVersion,
-		`SELECT version FROM versions WHERE kind = ? ORDER BY created_at DESC LIMIT 1`, c.Key())
+		`SELECT version, extra->>'cursor' AS cursor FROM versions WHERE kind = ? ORDER BY created_at DESC LIMIT 1`,
+		c.Key())
 	if err != nil && err != pg.ErrNoRows {
 		return merry.Wrap(err)
 	}
@@ -69,7 +97,8 @@ func (c *StrojIoVersionChecker) FetchPrevVersion() error {
 }
 
 func (c *StrojIoVersionChecker) SaveCurVersion() error {
-	_, err := c.db.Exec(`INSERT INTO versions (kind, version) VALUES (?, ?)`, c.Key(), c.curVersion)
+	_, err := c.db.Exec(`INSERT INTO versions (kind, version, extra) VALUES (?, ?, json_build_object('cursor', ?))`,
+		c.Key(), c.curVersion.Version, string(c.curVersion.Cursor))
 	return merry.Wrap(err)
 }
 
@@ -83,30 +112,38 @@ func (c *StrojIoVersionChecker) FetchCurVersion() error {
 		Processes struct {
 			Storagenode struct {
 				Suggested struct{ Version semver.Version }
+				Rollout   struct{ Cursor string }
 			}
 		}
 	}{}
 	if err := json.NewDecoder(resp.Body).Decode(&params); err != nil {
 		return merry.Wrap(err)
 	}
-	c.curVersion = params.Processes.Storagenode.Suggested.Version
+	c.curVersion.Version = params.Processes.Storagenode.Suggested.Version
+	c.curVersion.Cursor = Cursor(params.Processes.Storagenode.Rollout.Cursor)
 	return nil
 }
 
 func (c *StrojIoVersionChecker) VersionHasChanged() bool {
-	return !c.curVersion.Equals(c.prevVersion)
+	return !c.curVersion.Version.Equals(c.prevVersion.Version) ||
+		(c.curVersion.Cursor != c.prevVersion.Cursor && c.curVersion.Cursor.IsFinal())
 }
 
-func (c *StrojIoVersionChecker) Versions() (string, string) {
-	return c.prevVersion.String(), c.curVersion.String()
+func (c *StrojIoVersionChecker) DebugVersions() (string, string) {
+	return c.prevVersion.VString(), c.curVersion.VString()
 }
 
 func (c *StrojIoVersionChecker) MessageNew() string {
-	return fmt.Sprintf("Новая версия *v%s*\nРекомендуемая для нод на version.storj.io", c.curVersion)
+	if c.curVersion.Version.Equals(c.prevVersion.Version) && c.curVersion.Cursor.IsFinal() {
+		return fmt.Sprintf("Финальный курсор *%s* (v%s) на version.storj.io",
+			c.curVersion.Cursor, c.curVersion.Version)
+	}
+	return fmt.Sprintf("Новая версия *v%s* (cursor: %s)\nРекомендуемая для нод на version.storj.io",
+		c.curVersion.Version, c.curVersion.Cursor)
 }
 
 func (c *StrojIoVersionChecker) MessageCur() string {
-	return fmt.Sprintf("v%s (version.storj.io)", c.curVersion)
+	return fmt.Sprintf("%s (version.storj.io)", c.curVersion.VString())
 }
 
 type GitHubVersionChecker struct {
@@ -172,8 +209,8 @@ func (c *GitHubVersionChecker) VersionHasChanged() bool {
 	return !c.curVersion.Equals(c.prevVersion)
 }
 
-func (c *GitHubVersionChecker) Versions() (string, string) {
-	return c.prevVersion.String(), c.curVersion.String()
+func (c *GitHubVersionChecker) DebugVersions() (string, string) {
+	return "v" + c.prevVersion.String(), "v" + c.curVersion.String()
 }
 
 func (c *GitHubVersionChecker) MessageNew() string {

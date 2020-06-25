@@ -53,7 +53,7 @@ func CheckVersions(tgBotToken, tgSocks5ProxyAddr string) error {
 		if err := checker.FetchCurVersion(); err != nil {
 			return merry.Wrap(err)
 		}
-		prevVersion, curVersion := checker.Versions()
+		prevVersion, curVersion := checker.DebugVersions()
 		log.Debug().Msgf("%s -> %s (%s)", prevVersion, curVersion, checker.Key())
 
 		if checker.VersionHasChanged() {
