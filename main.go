@@ -3,6 +3,7 @@ package main
 import (
 	"os"
 	"storjnet/core"
+	"storjnet/nodes"
 	"storjnet/server"
 	"storjnet/tgbot"
 	"storjnet/transactions"
@@ -27,6 +28,9 @@ var tgBotCmdFlags = struct {
 	webhookURL        string
 	webhookListenAddr string
 	webhookListenPath string
+}{}
+var nodesCmdFlags = struct {
+	satelliteAddress string
 }{}
 
 var (
@@ -60,6 +64,11 @@ var (
 		Short: "fetch STORJ transactions from etherscan.io",
 		RunE:  CMDFetchTransactions,
 	}
+	fetchNodesCmd = &cobra.Command{
+		Use:   "fetch-nodes",
+		Short: "fetch some nodes from satellite",
+		RunE:  CMDFetchNodes,
+	}
 )
 
 func CMDHttp(cmd *cobra.Command, args []string) error {
@@ -87,12 +96,17 @@ func CMDFetchTransactions(cmd *cobra.Command, args []string) error {
 	return merry.Wrap(transactions.FetchAndProcess())
 }
 
+func CMDFetchNodes(cmd *cobra.Command, args []string) error {
+	return merry.Wrap(nodes.FetchAndProcess(nodesCmdFlags.satelliteAddress))
+}
+
 func init() {
 	rootCmd.AddCommand(httpCmd)
 	rootCmd.AddCommand(updateCmd)
 	rootCmd.AddCommand(tgBotCmd)
 	rootCmd.AddCommand(checkVersionsCmd)
 	rootCmd.AddCommand(fetchTransactionsCmd)
+	rootCmd.AddCommand(fetchNodesCmd)
 
 	flags := httpCmd.Flags()
 	flags.Var(&env, "env", "evironment, dev or prod")
@@ -110,6 +124,10 @@ func init() {
 	flags.StringVar(&tgBotCmdFlags.botToken, "tg-bot-token", "", "TG bot API token")
 	flags.StringVar(&tgBotCmdFlags.socks5ProxyAddr, "tg-proxy", "", "SOCKS5 proxy for TG requests")
 	flags.StringVar(&core.GitHubOAuthToken, "github-oauth-token", "", "GitHub API OAuth token (optional, for increasing API req rate)")
+
+	flags = fetchNodesCmd.Flags()
+	flags.StringVar(&nodesCmdFlags.satelliteAddress, "satellite", "", "satellite id@address:port")
+	fetchNodesCmd.MarkFlagRequired("satellite")
 }
 
 func main() {

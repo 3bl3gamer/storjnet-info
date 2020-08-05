@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/abh/geoip"
 	"github.com/ansel1/merry"
 	"github.com/go-pg/pg/v9"
 	"github.com/lib/pq"
@@ -58,6 +59,14 @@ func MakePGConnection() *pg.DB {
 	db := pg.Connect(&pg.Options{User: "storjnet", Password: "storj", Database: "storjnet_db"})
 	// db.AddQueryHook(dbLogger{})
 	return db
+}
+
+func MakeGeoIPConnection() (*geoip.GeoIP, error) {
+	gdb, err := geoip.Open("/usr/share/GeoIP/GeoIPCity.dat")
+	if err != nil {
+		return nil, merry.Wrap(err)
+	}
+	return gdb, nil
 }
 
 func IsConstrError(err error, table, kind, name string) bool {
