@@ -15,7 +15,7 @@ import (
 	"github.com/ansel1/merry"
 	"github.com/go-pg/pg/v9"
 	"github.com/julienschmidt/httprouter"
-	"storj.io/storj/pkg/storj"
+	"storj.io/common/storj"
 )
 
 func extractStartEndDatesFromQuery(query url.Values) (time.Time, time.Time) {

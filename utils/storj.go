@@ -7,7 +7,7 @@ import (
 	"storj.io/common/pb"
 	"storj.io/common/peertls/tlsopts"
 	"storj.io/common/rpc"
-	"storj.io/storj/pkg/storj"
+	"storj.io/common/storj"
 	"storj.io/storj/satellite"
 )
 
@@ -34,7 +34,7 @@ func (sat *Satellite) SetUp(identityDir string) error {
 }
 
 func (sat *Satellite) Dial(ctx context.Context, address string, id storj.NodeID) (*rpc.Conn, error) {
-	conn, err := sat.Dialer.DialAddressID(ctx, address, id)
+	conn, err := sat.Dialer.DialNodeURL(ctx, storj.NodeURL{Address: address, ID: id})
 	if err != nil {
 		return nil, merry.Wrap(err)
 	}
@@ -50,7 +50,7 @@ func (sat *Satellite) DialAndClose(ctx context.Context, address string, id storj
 }
 
 func (sat *Satellite) Ping(ctx context.Context, conn *rpc.Conn) error {
-	client := pb.NewDRPCContactClient(conn.Raw())
+	client := pb.NewDRPCContactClient(conn)
 	_, err := client.PingNode(ctx, &pb.ContactPingRequest{})
 	return merry.Wrap(err)
 }

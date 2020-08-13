@@ -3,7 +3,7 @@ package core
 import (
 	"time"
 
-	"storj.io/storj/pkg/storj"
+	"storj.io/common/storj"
 )
 
 type UserNodeHistory struct {

@@ -10,7 +10,7 @@ import (
 	"github.com/ansel1/merry"
 	"github.com/go-pg/pg/v9"
 	"github.com/rs/zerolog/log"
-	"storj.io/storj/pkg/storj"
+	"storj.io/common/storj"
 )
 
 var ErrDialFail = merry.New("dial failed")

@@ -5,7 +5,7 @@ import (
 
 	"github.com/ansel1/merry"
 	"github.com/go-pg/pg/v9"
-	"storj.io/storj/pkg/storj"
+	"storj.io/common/storj"
 )
 
 type Node struct {
