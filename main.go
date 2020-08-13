@@ -69,6 +69,11 @@ var (
 		Short: "fetch some nodes from satellite",
 		RunE:  CMDFetchNodes,
 	}
+	probeNodesCmd = &cobra.Command{
+		Use:   "probe-nodes",
+		Short: "probe saved nodes, update activity timestamp",
+		RunE:  CMDProbeNodes,
+	}
 )
 
 func CMDHttp(cmd *cobra.Command, args []string) error {
@@ -100,6 +105,10 @@ func CMDFetchNodes(cmd *cobra.Command, args []string) error {
 	return merry.Wrap(nodes.FetchAndProcess(nodesCmdFlags.satelliteAddress))
 }
 
+func CMDProbeNodes(cmd *cobra.Command, args []string) error {
+	return merry.Wrap(nodes.StartProber())
+}
+
 func init() {
 	rootCmd.AddCommand(httpCmd)
 	rootCmd.AddCommand(updateCmd)
@@ -107,6 +116,7 @@ func init() {
 	rootCmd.AddCommand(checkVersionsCmd)
 	rootCmd.AddCommand(fetchTransactionsCmd)
 	rootCmd.AddCommand(fetchNodesCmd)
+	rootCmd.AddCommand(probeNodesCmd)
 
 	flags := httpCmd.Flags()
 	flags.Var(&env, "env", "evironment, dev or prod")
