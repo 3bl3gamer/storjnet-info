@@ -4,6 +4,7 @@ import (
 	"context"
 	"storjnet/utils"
 	"strconv"
+	"strings"
 	"sync/atomic"
 	"time"
 
@@ -13,11 +14,27 @@ import (
 	"storj.io/common/storj"
 )
 
+const (
+	nodesUpdateInterval = `INTERVAL '8 minutes'`
+	noNodesPauseDuraton = 30 * time.Second
+	probeRoutinesCount  = 16
+)
+
 type ProbeNode struct {
 	RawID  []byte
 	ID     storj.NodeID
 	IPAddr string
 	Port   uint16
+}
+
+func errIsKnown(err error) bool {
+	msg := err.Error()
+	return strings.HasPrefix(msg, "rpccompat: context deadline exceeded") ||
+		(strings.HasPrefix(msg, "rpccompat: dial tcp ") &&
+			(strings.Contains(msg, ": connect: connection refused") ||
+				strings.Contains(msg, ": connect: no route to host") ||
+				strings.Contains(msg, ": i/o timeout"))) ||
+		strings.HasPrefix(msg, "rpccompat: tls peer certificate verification error: tlsopts error: peer ID did not match requested ID")
 }
 
 func probe(sat *utils.Satellite, node *ProbeNode) error {
@@ -44,7 +61,7 @@ func startOldNodesLoader(db *pg.DB, nodesChan chan *ProbeNode, chunkSize int) ut
 			err := db.RunInTransaction(func(tx *pg.Tx) error {
 				_, err := tx.Query(&nodes, `
 					SELECT id AS raw_id, ip_addr, port FROM nodes
-					WHERE checked_at IS NULL OR checked_at < NOW() - INTERVAL '10 minutes'
+					WHERE checked_at IS NULL OR checked_at < NOW() - `+nodesUpdateInterval+`
 					ORDER BY checked_at ASC NULLS FIRST
 					LIMIT ?
 					FOR UPDATE`, chunkSize)
@@ -74,7 +91,7 @@ func startOldNodesLoader(db *pg.DB, nodesChan chan *ProbeNode, chunkSize int) ut
 
 			log.Info().Int("IDs count", len(nodes)).Msg("PROBE:OLD")
 			if len(nodes) == 0 {
-				time.Sleep(10 * time.Second)
+				time.Sleep(noNodesPauseDuraton)
 			}
 			for _, node := range nodes {
 				nodesChan <- node
@@ -104,13 +121,15 @@ func startNodesProber(db *pg.DB, nodesInChan, nodesOutChan chan *ProbeNode, rout
 				err := probe(sat, node)
 				if err != nil {
 					atomic.AddInt64(&countErr, 1)
-					log.Info().Str("id", node.ID.String()).Msg(err.Error())
+					if !errIsKnown(err) {
+						log.Info().Str("id", node.ID.String()).Msg(err.Error())
+					}
 				} else {
 					atomic.AddInt64(&countOk, 1)
 					nodesOutChan <- node
 				}
 
-				if atomic.AddInt64(&countTotal, 1)%1 == 0 {
+				if atomic.AddInt64(&countTotal, 1)%100 == 0 {
 					log.Info().
 						Int64("total", countTotal).Int64("ok", countOk).Int64("err", countErr).
 						Float64("rpm", float64(countTotal)/float64(time.Now().Unix()-stamp)*60).
@@ -155,12 +174,12 @@ func startPingedNodesSaver(db *pg.DB, nodesChan chan *ProbeNode, chunkSize int) 
 
 func StartProber() error {
 	db := utils.MakePGConnection()
-	nodesInChan := make(chan *ProbeNode, 16)
-	nodesOutChan := make(chan *ProbeNode, 16)
+	nodesInChan := make(chan *ProbeNode, 32)
+	nodesOutChan := make(chan *ProbeNode, 32)
 
 	workers := []utils.Worker{
-		startOldNodesLoader(db, nodesInChan, 16),
-		startNodesProber(db, nodesInChan, nodesOutChan, 16),
+		startOldNodesLoader(db, nodesInChan, 128),
+		startNodesProber(db, nodesInChan, nodesOutChan, probeRoutinesCount),
 		startPingedNodesSaver(db, nodesOutChan, 1),
 	}
 	for {

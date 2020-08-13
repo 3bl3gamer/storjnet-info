@@ -188,7 +188,7 @@ func fetchTransactionsFrom(db *pg.DB, addr [20]byte) (sum txFetchSummary, err er
 	if err != nil {
 		return sum, merry.Wrap(err)
 	}
-	log.Printf("fetched: 0x%s, block: %d -> %d, tx: %d", hex.EncodeToString(addr[:]), curBlockNum, lastBlockNum, len(transactions))
+	// log.Printf("fetched: 0x%s, block: %d -> %d, tx: %d", hex.EncodeToString(addr[:]), curBlockNum, lastBlockNum, len(transactions))
 	sum.hasMore = len(transactions) == 10000
 	return sum, nil
 }
