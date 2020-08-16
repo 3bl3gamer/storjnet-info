@@ -2,6 +2,7 @@
 storjnet
 scripts/probe_nodes/probe_nodes
 identity
+history
 dumps
 www/node_modules
 www/dist

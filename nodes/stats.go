@@ -109,14 +109,14 @@ func SaveStats() error {
 	}
 
 	err = dailyStats("active", `
-		SELECT id FROM nodes WHERE updated_at > NOW() - INTERVAL '12 hours'`)
+		SELECT id FROM nodes WHERE updated_at > NOW() - INTERVAL '24 hours'`)
 	if err != nil {
 		return merry.Wrap(err)
 	}
 
 	err = dailyStats("offered_by_sats", `
 		SELECT DISTINCT node_id AS id FROM nodes_sat_offers
-		WHERE stamps[array_upper(stamps, 1)] > NOW() - INTERVAL '12 hours'`)
+		WHERE stamps[array_upper(stamps, 1)] > NOW() - INTERVAL '24 hours'`)
 	if err != nil {
 		return merry.Wrap(err)
 	}
@@ -124,7 +124,7 @@ func SaveStats() error {
 	var satNames []string
 	_, err = db.Query(&satNames, `
 		SELECT DISTINCT satellite_name FROM nodes_sat_offers
-		WHERE stamps[array_upper(stamps, 1)] > NOW() - INTERVAL '12 hours'`)
+		WHERE stamps[array_upper(stamps, 1)] > NOW() - INTERVAL '24 hours'`)
 	if err != nil {
 		return merry.Wrap(err)
 	}
@@ -132,7 +132,7 @@ func SaveStats() error {
 		err = dailyStats("offered_by_sat:"+satName, `
 			SELECT node_id AS id FROM nodes_sat_offers
 			WHERE satellite_name = ?
-			  AND stamps[array_upper(stamps, 1)] > NOW() - INTERVAL '12 hours'`,
+			  AND stamps[array_upper(stamps, 1)] > NOW() - INTERVAL '24 hours'`,
 			satName)
 		if err != nil {
 			return merry.Wrap(err)
