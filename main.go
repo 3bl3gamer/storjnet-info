@@ -71,8 +71,13 @@ var (
 	}
 	probeNodesCmd = &cobra.Command{
 		Use:   "probe-nodes",
-		Short: "probe saved nodes, update activity timestamp",
+		Short: "start probing saved nodes and updating activity timestamp",
 		RunE:  CMDProbeNodes,
+	}
+	statNodesCmd = &cobra.Command{
+		Use:   "stat-nodes",
+		Short: "generate and save nodes statistics",
+		RunE:  CMDStatNodes,
 	}
 )
 
@@ -109,6 +114,10 @@ func CMDProbeNodes(cmd *cobra.Command, args []string) error {
 	return merry.Wrap(nodes.StartProber())
 }
 
+func CMDStatNodes(cmd *cobra.Command, args []string) error {
+	return merry.Wrap(nodes.SaveStats())
+}
+
 func init() {
 	rootCmd.AddCommand(httpCmd)
 	rootCmd.AddCommand(updateCmd)
@@ -117,6 +126,7 @@ func init() {
 	rootCmd.AddCommand(fetchTransactionsCmd)
 	rootCmd.AddCommand(fetchNodesCmd)
 	rootCmd.AddCommand(probeNodesCmd)
+	rootCmd.AddCommand(statNodesCmd)
 
 	flags := httpCmd.Flags()
 	flags.Var(&env, "env", "evironment, dev or prod")

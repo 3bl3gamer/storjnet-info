@@ -1,0 +1,12 @@
+[Unit]
+Description=Storjnet Nodes Prober
+After=network.target
+
+[Service]
+User=storj
+WorkingDirectory=/home/storj/storjnet
+ExecStart=/home/storj/storjnet/storjnet probe-nodes
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
