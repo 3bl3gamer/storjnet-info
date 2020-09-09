@@ -70,12 +70,12 @@ export class NodesCountChart extends PureComponent {
 				const startStamp = t[0] * 1000
 				const countsLength = t[1]
 				const countsBuf = new Uint16Array(buf, 4 + 4)
-				const h3 = new Int32Array(countsLength)
-				const h12 = new Int32Array(countsLength)
+				const h05 = new Int32Array(countsLength)
+				const h8 = new Int32Array(countsLength)
 				const h24 = new Int32Array(countsLength)
 				for (let i = 0; i < countsLength; i++) {
-					h3[i] = countsBuf[i * 3 + 0]
-					h12[i] = countsBuf[i * 3 + 1]
+					h05[i] = countsBuf[i * 3 + 0]
+					h8[i] = countsBuf[i * 3 + 1]
 					h24[i] = countsBuf[i * 3 + 2]
 				}
 
@@ -92,13 +92,13 @@ export class NodesCountChart extends PureComponent {
 				this.setState({
 					data: {
 						startStamp,
-						counts: { h3, h12, h24 },
+						counts: { h05, h8, h24 },
 						changes: { left, come },
 						currentCount: h24[h24.length - 1],
 						lastDayInc: h24[h24.length - 1] - h24[Math.max(0, h24.length - 24 - 1)],
 					},
 				})
-				const minVal = getArrayMinValue(h3, Infinity, true)
+				const minVal = getArrayMinValue(h05, Infinity, true)
 				const maxVal = getArrayMaxValue(h24)
 				this.view.updateLimits(...roundRange(minVal, maxVal))
 				this.barsView.updateLimits(...roundRange(0, maxVal - minVal))
@@ -134,8 +134,8 @@ export class NodesCountChart extends PureComponent {
 
 			const step = 3600 * 1000
 			drawLineStepped(canvasExt, rect, view, counts.h24, start, step, hoursColor(24), true, false)
-			drawLineStepped(canvasExt, rect, view, counts.h12, start, step, hoursColor(12), true, false)
-			drawLineStepped(canvasExt, rect, view, counts.h3, start, step, hoursColor(3), true, false)
+			drawLineStepped(canvasExt, rect, view, counts.h8, start, step, hoursColor(12), true, false)
+			drawLineStepped(canvasExt, rect, view, counts.h05, start, step, hoursColor(3), true, false)
 		}
 
 		const textCol = 'black'
@@ -187,8 +187,8 @@ export class NodesCountChart extends PureComponent {
 				<canvas class="main-canvas" ref=${this.canvasExt.setRef}></canvas>
 				<div class="legend">
 					<${LegendItem} color="${hoursColor(24)}">${L('24 h', 'ru', '24 ч')}</${LegendItem}>
-					<${LegendItem} color="${hoursColor(12)}">${L('12 h', 'ru', '12 ч')}</${LegendItem}>
-					<${LegendItem} color="${hoursColor(3)}">${L('3 h', 'ru', '3 ч')}</${LegendItem}>
+					<${LegendItem} color="${hoursColor(12)}">${L('8 h', 'ru', '8 ч')}</${LegendItem}>
+					<${LegendItem} color="${hoursColor(3)}">${L('30 m', 'ru', '30 м')}</${LegendItem}>
 				</div>
 			</div>
 		`

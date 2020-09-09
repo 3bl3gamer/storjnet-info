@@ -348,11 +348,11 @@ func HandleNodesCounts(wr http.ResponseWriter, r *http.Request, ps httprouter.Pa
 
 	startDate, endDate := extractStartEndDatesFromQuery(r.URL.Query())
 
-	var counts []struct{ H3, H12, H24, Stamp int64 }
+	var counts []struct{ H05, H8, H24, Stamp int64 }
 	_, err := db.Query(&counts, `
 		SELECT
-			(active_count_hours->'3')::int AS h3,
-			(active_count_hours->'12')::int AS h12,
+			(active_count_hours->'0.5')::int AS h05,
+			(active_count_hours->'8')::int AS h8,
 			(active_count_hours->'24')::int AS h24,
 			extract(epoch from created_at)::bigint AS stamp
 		FROM node_stats WHERE created_at >= ? AND created_at < ?`, startDate, endDate)
@@ -405,10 +405,10 @@ func HandleNodesCounts(wr http.ResponseWriter, r *http.Request, ps httprouter.Pa
 	buf = buf[8:]
 	for _, count := range counts {
 		i := (count.Stamp - startStamp) / 3600
-		buf[i*6+0] = byte(count.H3)
-		buf[i*6+1] = byte(count.H3 >> 8)
-		buf[i*6+2] = byte(count.H12)
-		buf[i*6+3] = byte(count.H12 >> 8)
+		buf[i*6+0] = byte(count.H05)
+		buf[i*6+1] = byte(count.H05 >> 8)
+		buf[i*6+2] = byte(count.H8)
+		buf[i*6+3] = byte(count.H8 >> 8)
 		buf[i*6+4] = byte(count.H24)
 		buf[i*6+5] = byte(count.H24 >> 8)
 	}
