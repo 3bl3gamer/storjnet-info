@@ -295,7 +295,7 @@ func HandleNodesLocations(wr http.ResponseWriter, r *http.Request, ps httprouter
 	var nodeLocations []struct{ Lon, Lat float32 }
 	_, err := db.Query(&nodeLocations, `
 		SELECT (location->'longitude')::float8 AS lon, (location->'latitude')::float8 AS lat
-		FROM node_addrs WHERE location IS NOT NULL AND updated_at > NOW() - INTERVAL '1 day'`)
+		FROM nodes WHERE location IS NOT NULL AND updated_at > NOW() - INTERVAL '1 day'`)
 	if err != nil {
 		return nil, merry.Wrap(err)
 	}
@@ -335,7 +335,7 @@ func HandleNodesLocationSummary(wr http.ResponseWriter, r *http.Request, ps http
 					ORDER BY (t).value::int DESC limit 10
 				) AS t
 			) AS countries_top
-		FROM node_addrs_stats ORDER BY id DESC LIMIT 1
+		FROM node_stats ORDER BY id DESC LIMIT 1
 		`)
 	if err != nil {
 		return nil, merry.Wrap(err)
@@ -351,11 +351,11 @@ func HandleNodesCounts(wr http.ResponseWriter, r *http.Request, ps httprouter.Pa
 	var counts []struct{ H3, H12, H24, Stamp int64 }
 	_, err := db.Query(&counts, `
 		SELECT
-			(count_hours->'3')::int AS h3,
-			(count_hours->'12')::int AS h12,
-			(count_hours->'24')::int AS h24,
+			(active_count_hours->'3')::int AS h3,
+			(active_count_hours->'12')::int AS h12,
+			(active_count_hours->'24')::int AS h24,
 			extract(epoch from created_at)::bigint AS stamp
-		FROM node_addrs_stats WHERE created_at >= ? AND created_at < ?`, startDate, endDate)
+		FROM node_stats WHERE created_at >= ? AND created_at < ?`, startDate, endDate)
 	if err != nil {
 		return nil, merry.Wrap(err)
 	}
@@ -367,9 +367,11 @@ func HandleNodesCounts(wr http.ResponseWriter, r *http.Request, ps httprouter.Pa
 	}
 	_, err = db.Query(&changes, `
 		SELECT date,
-			COALESCE(array_length(left_addrs, 1), 0) AS left,
-			COALESCE(array_length(come_addrs, 1), 0) AS come
-		FROM node_daily_addrs WHERE date BETWEEN ?::date AND ?::date`, startDate, endDate)
+			COALESCE(array_length(left_node_ids, 1), 0) AS left,
+			COALESCE(array_length(come_node_ids, 1), 0) AS come
+		FROM node_daily_stats
+		WHERE kind = 'active'
+		  AND date BETWEEN ?::date AND ?::date`, startDate, endDate)
 	if err != nil {
 		return nil, merry.Wrap(err)
 	}

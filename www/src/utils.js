@@ -155,18 +155,6 @@ export function LegendItem({ color, textColor = null, children }) {
 	`
 }
 
-export function fixNodesCount(count) {
-	// Nodes are currently counted for default port only.
-	// According to the data collected for old.storjnet.info, there are 15-20% more nodes on other ports.
-	// UPD 2020.05.14:
-	//   According to official presentation https://youtu.be/m9yudFSVjz4?t=27 there are 6000 storage nodes.
-	//   At this time there was 5000 nodes on default port. So +20% seems be still correct.
-	return Math.round(count * 1.2)
-	// count *= 1.2
-	// const k = Math.pow(10, Math.max(0, Math.floor(Math.log10(count)) - 1))
-	// return Math.round(count / k) * k
-}
-
 export function zeroes(count) {
 	return new Array(count).fill(0)
 }

@@ -127,7 +127,11 @@ export class StorjTxSummary extends PureComponent {
 				let { startDate, endDate } = this.state
 				let data = processTxData(buf, startDate, endDate)
 				this.setState(data)
-				let maxVal = getArrayMaxValue(data.arrays.payouts)
+				let maxVal = Math.max(
+					getArrayMaxValue(data.arrays.payouts),
+					getArrayMaxValue(data.arrays.withdrawals),
+					getArrayMaxValue(data.arrays.preparings),
+				)
 				this.view.updateLimits(...roundRange(0, maxVal))
 				this.requestRedraw()
 			})

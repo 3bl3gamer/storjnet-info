@@ -8,7 +8,6 @@ import {
 	onError,
 	html,
 	LegendItem,
-	fixNodesCount,
 } from './utils'
 import {
 	View,
@@ -75,9 +74,9 @@ export class NodesCountChart extends PureComponent {
 				const h12 = new Int32Array(countsLength)
 				const h24 = new Int32Array(countsLength)
 				for (let i = 0; i < countsLength; i++) {
-					h3[i] = fixNodesCount(countsBuf[i * 3 + 0])
-					h12[i] = fixNodesCount(countsBuf[i * 3 + 1])
-					h24[i] = fixNodesCount(countsBuf[i * 3 + 2])
+					h3[i] = countsBuf[i * 3 + 0]
+					h12[i] = countsBuf[i * 3 + 1]
+					h24[i] = countsBuf[i * 3 + 2]
 				}
 
 				buf = buf.slice(4 + 4 + countsLength * 6)
@@ -86,8 +85,8 @@ export class NodesCountChart extends PureComponent {
 				const left = new Int32Array(changesLength)
 				const come = new Int32Array(changesLength)
 				for (let i = 0; i < changesLength; i++) {
-					come[i] = fixNodesCount(changesBuf[i * 2 + 0])
-					left[i] = fixNodesCount(changesBuf[i * 2 + 1])
+					come[i] = changesBuf[i * 2 + 0]
+					left[i] = changesBuf[i * 2 + 1]
 				}
 
 				this.setState({
@@ -180,8 +179,8 @@ export class NodesCountChart extends PureComponent {
 			}${' '}
 				<span class="dim small">${
 					lang === 'ru'
-						? `(живыми считаются ноды, к которым удалось подключиться за последние 24 часа; точность — около 10%)`
-						: `(node is considered active if it was reachable within the last 24 hours; accuracy — about 10%)`
+						? `(живыми считаются ноды, к которым удалось подключиться за последние 24 часа)`
+						: `(node is considered active if it was reachable within the last 24 hours)`
 				}</span>
 			</p>
 			<div class="chart storj-tx-summary-chart">

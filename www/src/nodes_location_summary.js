@@ -1,6 +1,6 @@
 import { apiReq } from './api'
 import { L, lang } from './i18n'
-import { PureComponent, html, onError, bindHandlers, fixNodesCount, zeroes } from './utils'
+import { PureComponent, html, onError, bindHandlers, zeroes } from './utils'
 import { createRef } from 'preact'
 
 import { TileMap } from './map/core/map'
@@ -124,7 +124,7 @@ class NodesSummary extends PureComponent {
 								item =>
 									html`<tr>
 										<td>${item.country}</td>
-										<td>${fixNodesCount(item.count)}</td>
+										<td>${item.count}</td>
 									</tr>`,
 						  )
 				}
