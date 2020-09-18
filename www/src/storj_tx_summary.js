@@ -214,9 +214,9 @@ export class StorjTxSummary extends PureComponent {
 				<p>
 					${lang == 'ru'
 						? `В текущем месяце отправлено ${L.n(count, 'платёж', 'платежа', 'платежей')} ` +
-						  `на ${L.n(total, 'STROJ', "STROJ'а", "STROJ'ей")}, ${avg} в среднем.`
+						  `на ${L.n(total, 'STORJ', "STORJ'а", "STORJ'ей")}, ${avg} в среднем.`
 						: `During this month ${L.n(count, 'payment', 'payments')} were sent ` +
-						  `for ${L.n(total, 'STROJ', 'STROJs')}, ${avg} on average.`}
+						  `for ${L.n(total, 'STORJ', 'STORJs')}, ${avg} on average.`}
 					${' '}
 					${lang == 'ru'
 						? `С кошельков получателей выведено ${L.n(withdr, 'койн', 'конйа', 'койнов')} ` +
