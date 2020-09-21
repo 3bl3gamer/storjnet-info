@@ -219,7 +219,7 @@ export class StorjTxSummary extends PureComponent {
 						  `for ${L.n(total, 'STORJ', 'STORJs')}, ${avg} on average.`}
 					${' '}
 					${lang == 'ru'
-						? `С кошельков получателей выведено ${L.n(withdr, 'койн', 'конйа', 'койнов')} ` +
+						? `С кошельков получателей выведено ${L.n(withdr, 'койн', 'койна', 'койнов')} ` +
 						  `(${withdrPerc}% от выплат).`
 						: `${L.n(withdr, 'coin', 'coins')} were withdrawn from recipient's wallets ` +
 						  `(${withdrPerc}% of payouts).`}
