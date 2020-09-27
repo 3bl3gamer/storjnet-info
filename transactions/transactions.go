@@ -199,99 +199,103 @@ func updateDaySummary(db *pg.DB, date time.Time) error {
 	}
 	log.Print("updating TX summary on " + date.Format("2006-01-02"))
 
-	var payoutAddrs [][20]byte
-	_, err := db.Query(&payoutAddrs,
-		`SELECT addr FROM storj_token_known_addresses WHERE kind = 'payout'`)
-	if err != nil {
-		return merry.Wrap(err)
-	}
-	var payoutAddrsMap = make(map[[20]byte]struct{})
-	for _, addr := range payoutAddrs {
-		payoutAddrsMap[addr] = struct{}{}
-	}
+	err := db.RunInTransaction(func(tx *pg.Tx) error {
+		var payoutAddrs [][20]byte
+		_, err := tx.Query(&payoutAddrs,
+			`SELECT addr FROM storj_token_known_addresses WHERE kind = 'payout'`)
+		if err != nil {
+			return merry.Wrap(err)
+		}
+		var payoutAddrsMap = make(map[[20]byte]struct{})
+		for _, addr := range payoutAddrs {
+			payoutAddrsMap[addr] = struct{}{}
+		}
 
-	// everythin except withdrawals
+		// everythin except withdrawals
 
-	_, err = db.Exec(`
-		INSERT INTO storj_token_tx_summaries
-		(date, preparings, payouts, payout_counts, withdrawals) (
-			SELECT ?0::date, array_agg(preparings), array_agg(payouts), array_agg(payout_counts), array_agg(withdrawals)
-			FROM (
-				SELECT day,
-					coalesce(sum(value)   FILTER (WHERE addr_to   IN (?1)), 0) AS preparings,
-					coalesce(sum(value)   FILTER (WHERE addr_from IN (?1)), 0) AS payouts,
-					coalesce(count(value) FILTER (WHERE addr_from IN (?1)), 0) AS payout_counts,
-					0 AS withdrawals
+		_, err = tx.Exec(`
+			INSERT INTO storj_token_tx_summaries
+			(date, preparings, payouts, payout_counts, withdrawals) (
+				SELECT ?0::date, array_agg(preparings), array_agg(payouts), array_agg(payout_counts), array_agg(withdrawals)
 				FROM (
-					SELECT extract('epoch' FROM (created_at - ?0))::int/3600 AS day, value, addr_from, addr_to
-					FROM storj_token_transactions
-					WHERE created_at >= ?0 AND created_at < (?0::timestamptz + INTERVAL '1 day')
-					UNION SELECT generate_series(0, 23), 0, NULL, NULL
+					SELECT day,
+						coalesce(sum(value)   FILTER (WHERE addr_to   IN (?1) AND addr_from NOT IN (?1)), 0) AS preparings,
+						coalesce(sum(value)   FILTER (WHERE addr_from IN (?1) AND addr_to   NOT IN (?1)), 0) AS payouts,
+						coalesce(count(value) FILTER (WHERE addr_from IN (?1) AND addr_to   NOT IN (?1)), 0) AS payout_counts,
+						0 AS withdrawals
+					FROM (
+						SELECT extract('epoch' FROM (created_at - ?0))::int/3600 AS day, value, addr_from, addr_to
+						FROM storj_token_transactions
+						WHERE created_at >= ?0 AND created_at < (?0::timestamptz + INTERVAL '1 day')
+						UNION SELECT generate_series(0, 23), 0, NULL, NULL
+					) AS t
+					GROUP BY day
+					ORDER BY day
 				) AS t
-				GROUP BY day
-				ORDER BY day
-			) AS t
-		)
-		ON CONFLICT (date) DO UPDATE SET
-			preparings = EXCLUDED.preparings,
-			payouts = EXCLUDED.payouts,
-			payout_counts = EXCLUDED.payout_counts,
-			withdrawals = EXCLUDED.withdrawals`,
-		date, pg.In(payoutAddrs))
-	if err != nil {
-		return merry.Wrap(err)
-	}
+			)
+			ON CONFLICT (date) DO UPDATE SET
+				preparings = EXCLUDED.preparings,
+				payouts = EXCLUDED.payouts,
+				payout_counts = EXCLUDED.payout_counts,
+				withdrawals = EXCLUDED.withdrawals`,
+			date, pg.In(payoutAddrs))
+		if err != nil {
+			return merry.Wrap(err)
+		}
 
-	// withdrawals
+		// withdrawals
 
-	// all transactions intil this day (inclusve) which have received any payout
-	var transactions []StorjTokenTransaction
-	_, err = db.Query(&transactions, `
-		WITH receipt_addrs AS (
-			SELECT DISTINCT addr_to
-			FROM storj_token_transactions
-			WHERE addr_from IN (?1)
+		// all transactions intil this day (inclusve) which have received any payout
+		var transactions []StorjTokenTransaction
+		_, err = tx.Query(&transactions, `
+			WITH receipt_addrs AS (
+				SELECT DISTINCT addr_to
+				FROM storj_token_transactions
+				WHERE addr_from IN (?1)
+				  AND addr_to NOT IN (?1)
+				  AND created_at < ?0::timestamptz + INTERVAL '1 day'
+			)
+			SELECT created_at, addr_from, addr_to, value FROM storj_token_transactions
+			WHERE created_at < ?0::timestamptz + INTERVAL '1 day'
+			  AND (addr_to IN (SELECT * FROM receipt_addrs) OR addr_from IN (SELECT * FROM receipt_addrs))
 			  AND addr_to NOT IN (?1)
-			  AND created_at < ?0::timestamptz + INTERVAL '1 day'
-		)
-		SELECT created_at, addr_from, addr_to, value FROM storj_token_transactions
-		WHERE created_at < ?0::timestamptz + INTERVAL '1 day'
-		  AND (addr_to IN (SELECT * FROM receipt_addrs) OR addr_from IN (SELECT * FROM receipt_addrs))
-		  AND addr_to NOT IN (?1)
-		ORDER BY created_at`,
-		date, pg.In(payoutAddrs))
-	if err != nil {
-		return merry.Wrap(err)
-	}
+			ORDER BY created_at`,
+			date, pg.In(payoutAddrs))
+		if err != nil {
+			return merry.Wrap(err)
+		}
 
-	limits := make(map[[20]byte]float64) // total_received_payout - total_withdrawals
-	hourWSums := make([]float64, 24)     // withdrawal sums per hours, will be save to "withdrawals" column
+		limits := make(map[[20]byte]float64) // total_received_payout - total_withdrawals
+		hourWSums := make([]float64, 24)     // withdrawal sums per hours, will be save to "withdrawals" column
 
-	for _, tx := range transactions {
-		// TXs from cur day
-		if tx.CreatedAt.After(date) {
-			delta := tx.Value + limits[tx.AddrFrom]
-			if delta > 0 {
-				hour := tx.CreatedAt.In(time.UTC).Hour()
-				hourWSums[hour] += delta
+		for _, tx := range transactions {
+			_, isFromPayout := payoutAddrsMap[tx.AddrFrom]
+
+			// TXs from cur day
+			if !isFromPayout && tx.CreatedAt.After(date) {
+				delta := tx.Value + limits[tx.AddrFrom]
+				if delta > 0 {
+					hour := tx.CreatedAt.In(time.UTC).Hour()
+					hourWSums[hour] += delta
+				}
+			}
+
+			if isFromPayout {
+				limits[tx.AddrTo] += tx.Value //payout from satellite
+			} else {
+				limits[tx.AddrFrom] -= tx.Value //withdrawal to somewhere
 			}
 		}
 
-		_, isFromPayout := payoutAddrsMap[tx.AddrFrom]
-		if isFromPayout {
-			limits[tx.AddrTo] += tx.Value //payout from satellite
-		} else {
-			limits[tx.AddrFrom] -= tx.Value //withdrawal to somewhere
+		_, err = tx.Exec(
+			`UPDATE storj_token_tx_summaries SET withdrawals = ?1 WHERE date = ?0`,
+			date, pg.Array(hourWSums))
+		if err != nil {
+			return merry.Wrap(err)
 		}
-	}
-
-	_, err = db.Exec(
-		`UPDATE storj_token_tx_summaries SET withdrawals = ?1 WHERE date = ?0`,
-		date, pg.Array(hourWSums))
-	if err != nil {
-		return merry.Wrap(err)
-	}
-	return nil
+		return nil
+	})
+	return merry.Wrap(err)
 }
 
 func FetchAndProcess(startDate time.Time) error {
