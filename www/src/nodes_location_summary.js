@@ -1,6 +1,15 @@
 import { apiReq } from './api'
 import { L, lang } from './i18n'
-import { PureComponent, html, onError, bindHandlers, zeroes } from './utils'
+import {
+	PureComponent,
+	html,
+	onError,
+	bindHandlers,
+	zeroes,
+	getDefaultHashInterval,
+	getHashInterval,
+	watchHashInterval,
+} from './utils'
 import { createRef } from 'preact'
 
 import { TileMap } from './map/core/map'
@@ -141,8 +150,34 @@ class NodesSummary extends PureComponent {
 	}
 }
 
+function intervalIsDefault() {
+	let [defStart, defEnd] = getDefaultHashInterval()
+	let [curStart, curEnd] = getHashInterval()
+	return defStart.getTime() == curStart.getTime() && defEnd.getTime() == curEnd.getTime()
+}
+
 export class NodesLocationSummary extends PureComponent {
-	render() {
-		return html`<${NodesLocationMap} /><${NodesSummary} />`
+	constructor() {
+		super()
+
+		let watch = watchHashInterval((startDate, endDate) => {
+			this.setState({ ...this.state, intervalIsDefault: intervalIsDefault() })
+		})
+		this.stopWatchingHashInterval = watch.off
+
+		this.state = { intervalIsDefault: intervalIsDefault() }
+	}
+
+	componentWillUnmount() {
+		this.stopWatchingHashInterval()
+	}
+
+	render(props, { intervalIsDefault }) {
+		return html`${!intervalIsDefault &&
+			html`<p class="warn">
+				${lang === 'ru'
+					? 'Для местоположений перемеотка не работает. Пока.'
+					: 'Locations can not rewind. Yet.'}
+			</p>`}<${NodesLocationMap} /><${NodesSummary} />`
 	}
 }

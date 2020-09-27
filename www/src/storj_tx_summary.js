@@ -1,13 +1,12 @@
 import {
 	PureComponent,
 	html,
-	startOfMonth,
-	endOfMonth,
 	toISODateStringInterval,
 	onError,
 	bindHandlers,
 	delayedRedraw,
 	LegendItem,
+	watchHashInterval,
 } from './utils'
 import { apiReq } from './api'
 import {
@@ -103,10 +102,14 @@ export class StorjTxSummary extends PureComponent {
 			topValue: 1,
 		})
 
-		let now = new Date()
+		let watch = watchHashInterval((startDate, endDate) => {
+			this.setState({ ...this.state, startDate, endDate, arrays: null }, () => this.loadData())
+		})
+		this.stopWatchingHashInterval = watch.off
+
 		this.state = {
-			startDate: startOfMonth(now),
-			endDate: endOfMonth(now),
+			startDate: watch.startDate,
+			endDate: watch.endDate,
 			arrays: null,
 			isLogScale: true,
 		}
@@ -200,6 +203,7 @@ export class StorjTxSummary extends PureComponent {
 	}
 	componentWillUnmount() {
 		removeEventListener('resize', this.onResize)
+		this.stopWatchingHashInterval()
 	}
 
 	render(props, { aggregated, isLogScale }) {

@@ -1,13 +1,12 @@
 import {
 	PureComponent,
-	endOfMonth,
 	delayedRedraw,
 	bindHandlers,
-	startOfMonth,
 	toISODateStringInterval,
 	onError,
 	html,
 	LegendItem,
+	watchHashInterval,
 } from './utils'
 import {
 	View,
@@ -51,10 +50,14 @@ export class NodesCountChart extends PureComponent {
 			topValue: 1,
 		})
 
-		let now = new Date()
+		let watch = watchHashInterval((startDate, endDate) => {
+			this.setState({ ...this.state, startDate, endDate, data: null }, () => this.loadData())
+		})
+		this.stopWatchingHashInterval = watch.off
+
 		this.state = {
-			startDate: startOfMonth(now),
-			endDate: endOfMonth(now),
+			startDate: watch.startDate,
+			endDate: watch.endDate,
 			data: null,
 		}
 	}
@@ -164,6 +167,7 @@ export class NodesCountChart extends PureComponent {
 	}
 	componentWillUnmount() {
 		removeEventListener('resize', this.onResize)
+		this.stopWatchingHashInterval()
 	}
 
 	render(params, { data }) {

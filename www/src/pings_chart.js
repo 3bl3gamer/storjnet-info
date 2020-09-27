@@ -8,6 +8,7 @@ import {
 	toISODateStringInterval,
 	onError,
 	delayedRedraw,
+	watchHashInterval,
 } from './utils'
 import {
 	CanvasExt,
@@ -97,10 +98,15 @@ class PingsChart extends PureComponent {
 			topValue: 2000,
 		})
 
-		let now = new Date()
+		let watch = watchHashInterval((startDate, endDate) => {
+			let onSet = () => this.loadData()
+			this.setState({ ...this.state, startDate, endDate, pings: null, reducedPings: null }, onSet)
+		})
+		this.stopWatchingHashInterval = watch.off
+
 		this.state = {
-			startDate: startOfMonth(now),
-			endDate: endOfMonth(now),
+			startDate: watch.startDate,
+			endDate: watch.endDate,
 			pings: null,
 			reducedPings: null,
 			zoom: { isShown: false, cusorX: null, boxX: null, boxWidth: null, pos: null, isTouch: false },
@@ -255,6 +261,7 @@ class PingsChart extends PureComponent {
 	}
 	componentWillUnmount() {
 		addEventListener('resize', this.onResize)
+		this.stopWatchingHashInterval()
 	}
 
 	render({ node, group }, { zoom }) {
@@ -280,11 +287,6 @@ class PingsChart extends PureComponent {
 
 export class PingsChartsList extends PureComponent {
 	render({ nodes, group, legendMode }, state) {
-		return nodes.map(
-			n =>
-				html`
-					<${PingsChart} group=${group} node=${n} />
-				`,
-		)
+		return nodes.map(n => html` <${PingsChart} group=${group} node=${n} /> `)
 	}
 }

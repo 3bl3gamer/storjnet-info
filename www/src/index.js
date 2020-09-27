@@ -12,6 +12,7 @@ import { sortedNodes } from './user_nodes'
 import { StorjTxSummary } from './storj_tx_summary'
 import { NodesLocationSummary } from './nodes_location_summary'
 import { NodesCountChart } from './nodes_count_chart'
+import { RewindControl } from './rewind_control'
 
 let nodes = []
 try {
@@ -19,6 +20,8 @@ try {
 } catch (ex) {
 	// ¯\_(ツ)_/¯
 }
+
+renderIfExists(html`<${RewindControl} />`, '.rewind-control')
 
 renderIfExists(
 	html`

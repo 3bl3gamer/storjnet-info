@@ -130,6 +130,74 @@ export function toISODateStringInterval({ startDate, endDate }) {
 	return { startDateStr: toISODateString(startDate), endDateStr: toISODateString(endDate) }
 }
 
+function parseHashIntervalDate(str, isEnd) {
+	if (!str) return null
+	let m = str.trim().match(/^(\d{4})-(\d\d?)(?:-(\d\d?))?$/)
+	if (m === null) return null
+	let [, year, month, date] = m
+
+	// this way Date will be at midnight in UTC
+	let res = new Date(year + '-' + month.padStart(2, '0') + '-' + (date || '1').padStart(2, '0'))
+	if (res.toString() === 'Invalid Date') return null
+
+	if (isEnd && date === undefined) {
+		res = endOfMonth(res)
+	}
+	return res
+}
+function formatHashIntervalDate(date, isEnd) {
+	let canTrimDate =
+		(!isEnd && date.getTime() === startOfMonth(date).getTime()) ||
+		(isEnd && date.getTime() === startOfMonth(date).getTime()) //yup startOfMonth too: end date is stored as first day of next month
+	if (isEnd) {
+		date = new Date(date)
+		date.setUTCDate(date.getUTCDate() - 1)
+	}
+	let str = date.getFullYear() + '-' + (date.getUTCMonth() + 1)
+	if (canTrimDate) return str
+	return str + '-' + date.getDate()
+}
+
+export function getDefaultHashInterval() {
+	let now = new Date()
+	return [startOfMonth(now), endOfMonth(now)]
+}
+
+export function getHashInterval() {
+	let hash = location.hash.substr(1)
+	let params = new URLSearchParams(hash)
+	let start = parseHashIntervalDate(params.get('start'))
+	let end = parseHashIntervalDate(params.get('end'), true)
+
+	if (start !== null && end !== null) {
+		return [start, end]
+	} else {
+		return getDefaultHashInterval()
+	}
+}
+
+export function makeUpdatedHashInterval(startDate, endDate) {
+	let hash = location.hash.substr(1)
+	let params = new URLSearchParams(hash)
+	params.set('start', formatHashIntervalDate(startDate))
+	params.set('end', formatHashIntervalDate(endDate, true))
+	return '#' + params.toString()
+}
+
+export function watchHashInterval(onChange) {
+	function listener() {
+		let [startDate, endDate] = getHashInterval()
+		onChange(startDate, endDate)
+	}
+	function off() {
+		removeEventListener('hashchange', listener)
+	}
+	addEventListener('hashchange', listener)
+
+	let [startDate, endDate] = getHashInterval()
+	return { startDate, endDate, off }
+}
+
 export function delayedRedraw(redrawFunc) {
 	let redrawRequested = false
 

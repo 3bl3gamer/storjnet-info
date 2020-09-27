@@ -30,7 +30,7 @@ func extractStartEndDatesFromQuery(query url.Values) (time.Time, time.Time) {
 	if err != nil {
 		return now, now
 	}
-	if endTime.Sub(startTime) > 40*24*time.Hour {
+	if endTime.Sub(startTime) > 94*24*time.Hour {
 		return now, now
 	}
 	return startTime, endTime
