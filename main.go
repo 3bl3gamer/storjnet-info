@@ -10,6 +10,7 @@ import (
 	"storjnet/updater"
 	"storjnet/utils"
 	"storjnet/versions"
+	"time"
 
 	"github.com/ansel1/merry"
 	"github.com/rs/zerolog"
@@ -33,6 +34,9 @@ var nodesCmdFlags = struct {
 	satelliteAddress string
 }{}
 var nodeLocsSnapFPath string
+var transactionsFlags = struct {
+	summaryStartDate string
+}{}
 
 var (
 	rootCmd = &cobra.Command{
@@ -114,7 +118,15 @@ func CMDCheckVersions(cmd *cobra.Command, args []string) error {
 }
 
 func CMDFetchTransactions(cmd *cobra.Command, args []string) error {
-	return merry.Wrap(transactions.FetchAndProcess())
+	var err error
+	var startDate time.Time
+	if transactionsFlags.summaryStartDate != "" {
+		startDate, err = time.Parse("2006-01-02", transactionsFlags.summaryStartDate)
+		if err != nil {
+			return merry.Wrap(err)
+		}
+	}
+	return merry.Wrap(transactions.FetchAndProcess(startDate))
 }
 
 func CMDFetchNodes(cmd *cobra.Command, args []string) error {
@@ -165,6 +177,9 @@ func init() {
 	flags.StringVar(&tgBotCmdFlags.botToken, "tg-bot-token", "", "TG bot API token")
 	flags.StringVar(&tgBotCmdFlags.socks5ProxyAddr, "tg-proxy", "", "SOCKS5 proxy for TG requests")
 	flags.StringVar(&core.GitHubOAuthToken, "github-oauth-token", "", "GitHub API OAuth token (optional, for increasing API req rate)")
+
+	flags = fetchTransactionsCmd.Flags()
+	flags.StringVar(&transactionsFlags.summaryStartDate, "summary-start-date", "", "start date for updating daily summaries")
 
 	flags = fetchNodesCmd.Flags()
 	flags.StringVar(&nodesCmdFlags.satelliteAddress, "satellite", "", "satellite id@address:port")
