@@ -7,6 +7,7 @@ import {
 	html,
 	LegendItem,
 	watchHashInterval,
+	DAY_DURATION,
 } from './utils'
 import {
 	View,
@@ -119,8 +120,8 @@ export class NodesCountChart extends PureComponent {
 		canvasExt.resize()
 
 		rect.update(canvasExt.cssWidth, canvasExt.cssHeight)
-		view.updateStamps(startDate.getTime(), endDate.getTime())
-		barsView.updateStamps(startDate.getTime(), endDate.getTime())
+		view.updateStamps(startDate.getTime(), endDate.getTime() + DAY_DURATION)
+		barsView.updateStamps(startDate.getTime(), endDate.getTime() + DAY_DURATION)
 
 		canvasExt.clear()
 		rc.save()

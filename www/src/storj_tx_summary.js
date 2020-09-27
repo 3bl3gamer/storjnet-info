@@ -7,6 +7,7 @@ import {
 	delayedRedraw,
 	LegendItem,
 	watchHashInterval,
+	DAY_DURATION,
 } from './utils'
 import { apiReq } from './api'
 import {
@@ -27,7 +28,7 @@ import './storj_tx_summary.css'
 
 function processTxData(buf, startDate, endDate) {
 	let startStamp = Math.floor(startDate.getTime())
-	let endStamp = Math.floor(endDate.getTime())
+	let endStamp = Math.floor(endDate.getTime() + DAY_DURATION)
 
 	let dayByteSize = 4 + 24 * (4 + 4 + 4 + 4)
 	let daysCount = buf.byteLength / dayByteSize
@@ -150,7 +151,7 @@ export class StorjTxSummary extends PureComponent {
 		canvasExt.resize()
 
 		rect.update(canvasExt.cssWidth, canvasExt.cssHeight)
-		view.updateStamps(startDate.getTime(), endDate.getTime())
+		view.updateStamps(startDate.getTime(), endDate.getTime() + DAY_DURATION)
 
 		canvasExt.clear()
 		rc.save()

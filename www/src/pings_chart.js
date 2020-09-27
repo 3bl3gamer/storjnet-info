@@ -2,13 +2,12 @@ import {
 	PureComponent,
 	bindHandlers,
 	html,
-	startOfMonth,
-	endOfMonth,
 	hoverSingle,
 	toISODateStringInterval,
 	onError,
 	delayedRedraw,
 	watchHashInterval,
+	DAY_DURATION,
 } from './utils'
 import {
 	CanvasExt,
@@ -29,7 +28,7 @@ function processPingsData(buf, startDate, endDate) {
 	let pings = new Uint16Array(buf)
 
 	let startStamp = Math.floor(startDate.getTime())
-	let endStamp = Math.floor(endDate.getTime())
+	let endStamp = Math.floor(endDate.getTime() + DAY_DURATION)
 
 	let len = Math.floor((endStamp - startStamp) / 60 / 1000)
 	let flatPings = new Uint16Array(len)
@@ -161,7 +160,7 @@ class PingsChart extends PureComponent {
 		rc.font = '9px sans-serif'
 
 		rect.update(canvasExt.cssWidth, canvasExt.cssHeight)
-		view.updateStamps(startDate.getTime(), endDate.getTime())
+		view.updateStamps(startDate.getTime(), endDate.getTime() + DAY_DURATION)
 
 		rc.fillStyle = '#EEE'
 		rc.fillRect(0, 0, rect.width, rect.top + rect.height)
@@ -211,7 +210,7 @@ class PingsChart extends PureComponent {
 		labelsRect.update(canvasExt.cssWidth, canvasExt.cssHeight)
 
 		let timeW = 24 * 3600 * 1000
-		let stamp = +startDate + zoom.pos * (endDate - startDate)
+		let stamp = +startDate + zoom.pos * (+endDate + DAY_DURATION - startDate)
 		view.updateStamps(stamp - timeW, stamp + timeW)
 
 		canvasExt.clear()

@@ -4,6 +4,8 @@ import createStore from 'unistore'
 import { sortedNodes, UserNodesList } from './user_nodes'
 import { PingsChartsList } from './pings_chart'
 
+import './user_dashboard.css'
+
 let nodes = []
 try {
 	nodes = sortedNodes(JSON.parse(document.getElementById('user_nodes_data').textContent))
@@ -36,11 +38,17 @@ let PingsChartsListS = connect('nodes', nodesActions)(PingsChartsList)
 renderIfExists(
 	html`
 		<${Provider} store=${store}>
-			<div>
-				<${UserNodesListS} />
-				<${PingsChartsListS} group="my" />
-			</div>
+			<${UserNodesListS} />
 		<//>
 	`,
-	'.user-dashboard',
+	'.user-dashboard-nodes',
+)
+
+renderIfExists(
+	html`
+		<${Provider} store=${store}>
+			<${PingsChartsListS} group="my" />
+		<//>
+	`,
+	'.user-dashboard-pings',
 )

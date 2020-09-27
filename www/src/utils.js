@@ -51,6 +51,8 @@ export function onError(error) {
 	// alert(error)
 }
 
+export const DAY_DURATION = 24 * 3600 * 1000
+
 export function startOfMonth(date) {
 	let newDate = new Date(date)
 	newDate.setUTCHours(0, 0, 0, 0)
@@ -60,6 +62,7 @@ export function startOfMonth(date) {
 export function endOfMonth(date) {
 	date = startOfMonth(date)
 	date.setUTCMonth(date.getUTCMonth() + 1)
+	date.setUTCDate(date.getUTCDate() - 1)
 	return date
 }
 
@@ -125,8 +128,6 @@ export function toISODateString(date) {
 }
 
 export function toISODateStringInterval({ startDate, endDate }) {
-	endDate = new Date(endDate)
-	endDate.setUTCDate(endDate.getUTCDate() - 1)
 	return { startDateStr: toISODateString(startDate), endDateStr: toISODateString(endDate) }
 }
 
@@ -148,14 +149,10 @@ function parseHashIntervalDate(str, isEnd) {
 function formatHashIntervalDate(date, isEnd) {
 	let canTrimDate =
 		(!isEnd && date.getTime() === startOfMonth(date).getTime()) ||
-		(isEnd && date.getTime() === startOfMonth(date).getTime()) //yup startOfMonth too: end date is stored as first day of next month
-	if (isEnd) {
-		date = new Date(date)
-		date.setUTCDate(date.getUTCDate() - 1)
-	}
+		(isEnd && date.getTime() === endOfMonth(date).getTime())
 	let str = date.getFullYear() + '-' + (date.getUTCMonth() + 1)
 	if (canTrimDate) return str
-	return str + '-' + date.getDate()
+	return str + '-' + date.getUTCDate()
 }
 
 export function getDefaultHashInterval() {

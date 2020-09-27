@@ -1,11 +1,4 @@
-import {
-	PureComponent,
-	html,
-	watchHashInterval,
-	makeUpdatedHashInterval,
-	endOfMonth,
-	startOfMonth,
-} from './utils'
+import { PureComponent, html, watchHashInterval, makeUpdatedHashInterval, endOfMonth } from './utils'
 import { lang } from './i18n'
 
 const monthLangNames = {
@@ -35,10 +28,12 @@ export class RewindControl extends PureComponent {
 		let endDate = new Date(this.state.endDate)
 		endDate.setUTCMonth(endDate.getUTCMonth() + monthDelta)
 
-		// need startOfMonth: end date is stored as first day of next month
-		if (this.state.endDate.getTime() === startOfMonth(this.state.endDate).getTime()) {
+		const hasSwitchedExtraMonth =
+			Math.abs(monthDelta + 12) % 12 !==
+			(this.state.endDate.getUTCMonth() - endDate.getUTCMonth() + 24) % 12
+		if (hasSwitchedExtraMonth) {
 			// so that 01-31 + 1 month = 02-28 but not 03-03
-			endDate.setDate(endDate.getDate() - 10)
+			endDate.setDate(endDate.getUTCDate() - 10)
 			endDate = endOfMonth(endDate)
 		}
 		return makeUpdatedHashInterval(startDate, endDate)
@@ -48,7 +43,7 @@ export class RewindControl extends PureComponent {
 		let monthNames = monthLangNames[lang] || monthLangNames.en
 
 		let curMonthName = monthNames[startDate.getUTCMonth()]
-		if (startDate.getUTCMonth() !== new Date(endDate.getTime() - 1).getUTCMonth())
+		if (startDate.getUTCMonth() !== endDate.getUTCMonth())
 			curMonthName += ' — ' + monthNames[endDate.getUTCMonth()]
 
 		let prevMonthName = monthNames[(startDate.getUTCMonth() + 11) % 12]
@@ -56,7 +51,7 @@ export class RewindControl extends PureComponent {
 
 		return html`<p>
 			<a href="${this.makeIntervalHash(-1)}">← ${prevMonthName}</a>
-			${' '}${curMonthName}${' '}
+			${' '}<b>${curMonthName}</b>${' '}
 			<a href="${this.makeIntervalHash(1)}">${nextMonthName} →</a>
 		</p>`
 	}

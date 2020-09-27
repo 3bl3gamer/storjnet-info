@@ -272,7 +272,7 @@ func updateDaySummary(db *pg.DB, date time.Time) error {
 		if tx.CreatedAt.After(date) {
 			delta := tx.Value + limits[tx.AddrFrom]
 			if delta > 0 {
-				hour := tx.CreatedAt.Hour()
+				hour := tx.CreatedAt.In(time.UTC).Hour()
 				hourWSums[hour] += delta
 			}
 		}

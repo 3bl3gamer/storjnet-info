@@ -1,8 +1,8 @@
 import { PureComponent, html, bindHandlers, onError } from './utils'
-
-import './user_nodes.css'
 import { apiReq } from './api'
 import { L } from './i18n'
+
+import './user_nodes.css'
 
 export function sortedNodes(nodes) {
 	return nodes.sort((a, b) => a.address.localeCompare(b.address))
