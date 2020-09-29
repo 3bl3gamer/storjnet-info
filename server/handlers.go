@@ -355,7 +355,8 @@ func HandleNodesCounts(wr http.ResponseWriter, r *http.Request, ps httprouter.Pa
 			(active_count_hours->'8')::int AS h8,
 			(active_count_hours->'24')::int AS h24,
 			extract(epoch from created_at)::bigint AS stamp
-		FROM node_stats WHERE created_at >= ? AND created_at < ?`, startDate, endDate)
+		FROM node_stats WHERE created_at >= ? AND created_at < ?`,
+		startDate, endDate.AddDate(0, 0, 1))
 	if err != nil {
 		return nil, merry.Wrap(err)
 	}
@@ -371,7 +372,8 @@ func HandleNodesCounts(wr http.ResponseWriter, r *http.Request, ps httprouter.Pa
 			COALESCE(array_length(come_node_ids, 1), 0) AS come
 		FROM node_daily_stats
 		WHERE kind = 'active'
-		  AND date BETWEEN ?::date AND ?::date`, startDate, endDate)
+		  AND date BETWEEN ?::date AND ?::date`,
+		startDate, endDate)
 	if err != nil {
 		return nil, merry.Wrap(err)
 	}
