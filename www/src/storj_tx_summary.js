@@ -218,8 +218,12 @@ export class StorjTxSummary extends PureComponent {
 			infoElem = html`
 				<p>
 					${lang == 'ru'
-						? `В текущем месяце отправлено ${L.n(count, 'платёж', 'платежа', 'платежей')} ` +
-						  `на ${L.n(total, 'STORJ', "STORJ'а", "STORJ'ей")}, ${avg} в среднем.`
+						? count === 0
+							? `В текущем месяце платежей нет.`
+							: `В текущем месяце отправлено ${L.n(count, 'платёж', 'платежа', 'платежей')} ` +
+							  `на ${L.n(total, 'STORJ', "STORJ'а", "STORJ'ей")}, ${avg} в среднем.`
+						: count === 0
+						? 'During this month there are no payments.'
 						: `During this month ${L.n(count, 'payment', 'payments')} were sent ` +
 						  `for ${L.n(total, 'STORJ', 'STORJs')}, ${avg} on average.`}
 					${' '}

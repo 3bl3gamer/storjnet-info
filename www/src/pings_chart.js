@@ -8,6 +8,7 @@ import {
 	delayedRedraw,
 	watchHashInterval,
 	DAY_DURATION,
+	intervalIsDefault,
 } from './utils'
 import {
 	CanvasExt,
@@ -113,6 +114,7 @@ class PingsChart extends PureComponent {
 	}
 
 	loadData() {
+		if (this.props.isPending) return
 		let { startDateStr: start, endDateStr: end } = toISODateStringInterval(this.state)
 		apiReq('GET', `/api/user_nodes/${this.props.group}/${this.props.node.id}/pings`, {
 			data: { start_date: start, end_date: end },
@@ -285,7 +287,62 @@ class PingsChart extends PureComponent {
 }
 
 export class PingsChartsList extends PureComponent {
-	render({ nodes, group, legendMode }, state) {
-		return nodes.map(n => html` <${PingsChart} group=${group} node=${n} /> `)
+	render({ nodes, group }, state) {
+		return nodes.map(n => html` <${PingsChart} group=${group} node=${n} isPending=${false} /> `)
+	}
+}
+
+export class SatsPingsChartsList extends PureComponent {
+	constructor({ defaultSatNodes }) {
+		super()
+
+		let watch = watchHashInterval((startDate, endDate) => {
+			let onSet = () => this.checkInterval()
+			this.setState({ ...this.state, startDate, endDate }, onSet)
+		})
+		this.stopWatchingHashInterval = watch.off
+
+		this.state = {
+			startDate: watch.startDate,
+			endDate: watch.endDate,
+			currentSatNodes: defaultSatNodes,
+			isLoaded: intervalIsDefault(),
+		}
+	}
+
+	checkInterval() {
+		if (intervalIsDefault()) {
+			this.setState({ currentSatNodes: this.props.defaultSatNodes, isLoaded: true })
+		} else {
+			this.loadSatNodes()
+		}
+	}
+	loadSatNodes() {
+		this.setState({ ...this.state, isLoaded: false })
+		let { startDateStr: start, endDateStr: end } = toISODateStringInterval(this.state)
+		apiReq('GET', `/api/sat_nodes`, {
+			data: { start_date: start, end_date: end },
+		})
+			.then(sats => {
+				this.setState({ ...this.state, currentSatNodes: sats, isLoaded: true })
+			})
+			.catch(onError)
+	}
+
+	componentDidMount() {
+		this.checkInterval()
+	}
+	componentWillUnmount() {
+		this.stopWatchingHashInterval()
+	}
+
+	render(props, { currentSatNodes, isLoaded }) {
+		return currentSatNodes.map(
+			(n, i) =>
+				html`
+					<!-- using key to trigger PingsChart remount (and load) on isLoaded change, TODO -->
+					<${PingsChart} key=${i + '|' + isLoaded} group="sat" node=${n} isPending=${!isLoaded} />
+				`,
+		)
 	}
 }

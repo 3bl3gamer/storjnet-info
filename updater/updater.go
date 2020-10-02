@@ -52,7 +52,7 @@ func startOldPingNodesLoader(db *pg.DB, userNodesChan chan *core.UserNode, chunk
 				_, err := tx.Query(&userNodes, `
 					SELECT user_id, node_id AS raw_id, address, ping_mode FROM user_nodes
 					WHERE ping_mode != 'off'
-					  AND last_pinged_at IS NULL OR last_pinged_at < NOW() - INTERVAL '0.9 minute'
+					  AND (last_pinged_at IS NULL OR last_pinged_at < NOW() - INTERVAL '0.9 minute')
 					ORDER BY last_pinged_at ASC NULLS FIRST
 					LIMIT ?
 					FOR UPDATE`, chunkSize)

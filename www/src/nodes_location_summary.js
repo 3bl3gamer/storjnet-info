@@ -9,6 +9,7 @@ import {
 	getDefaultHashInterval,
 	getHashInterval,
 	watchHashInterval,
+	intervalIsDefault,
 } from './utils'
 import { createRef } from 'preact'
 
@@ -148,12 +149,6 @@ class NodesSummary extends PureComponent {
 				: `Nodes are running in at least ${L.n(countriesCount, 'country', 'countries')}.`
 		}</p>`
 	}
-}
-
-function intervalIsDefault() {
-	let [defStart, defEnd] = getDefaultHashInterval()
-	let [curStart, curEnd] = getHashInterval()
-	return defStart.getTime() == curStart.getTime() && defEnd.getTime() == curEnd.getTime()
 }
 
 export class NodesLocationSummary extends PureComponent {

@@ -18,33 +18,61 @@ import (
 	"storj.io/common/storj"
 )
 
-func extractStartEndDatesFromQuery(query url.Values) (time.Time, time.Time) {
-	startDateStr := query.Get("start_date")
-	endDateStr := query.Get("end_date")
+func defaultStartEndInterval() (time.Time, time.Time) {
 	now := time.Now().In(time.UTC)
-	endTime, err := time.ParseInLocation("2006-01-02", endDateStr, time.UTC)
+	year, month, _ := now.Date()
+	monthStart := time.Date(year, month, 1, 0, 0, 0, 0, time.UTC)
+	monthEnd := monthStart.AddDate(0, 1, -1)
+	return monthStart, monthEnd
+}
+
+func parseIntervalDate(str string, isEnd bool) (time.Time, error) {
+	res, err := time.ParseInLocation("2006-1-2", str, time.UTC)
 	if err != nil {
-		return now, now
+		res, err = time.ParseInLocation("2006-1", str, time.UTC)
+		if isEnd && err != nil {
+			res = res.AddDate(0, 1, 1-res.Day())
+		}
 	}
-	startTime, err := time.ParseInLocation("2006-01-02", startDateStr, time.UTC)
 	if err != nil {
-		return now, now
+		return time.Time{}, merry.Wrap(err)
+	}
+	return res, nil
+}
+
+func extractStartEndDatesFromQuery(query url.Values, shortKeys bool) (time.Time, time.Time) {
+	var startDateStr, endDateStr string
+	if shortKeys {
+		startDateStr = query.Get("start")
+		endDateStr = query.Get("end")
+	} else {
+		startDateStr = query.Get("start_date")
+		endDateStr = query.Get("end_date")
+	}
+	endTime, err := parseIntervalDate(endDateStr, true)
+	if err != nil {
+		return defaultStartEndInterval()
+	}
+	startTime, err := parseIntervalDate(startDateStr, false)
+	if err != nil {
+		return defaultStartEndInterval()
 	}
 	if endTime.Sub(startTime) > 94*24*time.Hour {
-		return now, now
+		return defaultStartEndInterval()
 	}
 	return startTime, endTime
 }
 
-func extractStartEndDatesStrFromQuery(query url.Values) (string, string) {
-	startTime, endTime := extractStartEndDatesFromQuery(query)
+func extractStartEndDatesStrFromQuery(query url.Values, shortKeys bool) (string, string) {
+	startTime, endTime := extractStartEndDatesFromQuery(query, shortKeys)
 	return startTime.Format("2006-01-02"), endTime.Format("2006-01-02")
 }
 
 func HandleIndex(wr http.ResponseWriter, r *http.Request, ps httprouter.Params) (httputils.TemplateCtx, error) {
 	db := r.Context().Value(CtxKeyDB).(*pg.DB)
 	user := r.Context().Value(CtxKeyUser).(*core.User)
-	nodes, err := core.LoadSatNodes(db)
+	startDate, endDate := defaultStartEndInterval()
+	nodes, err := core.LoadSatNodes(db, startDate, endDate)
 	if err != nil {
 		return nil, merry.Wrap(err)
 	}
@@ -200,6 +228,12 @@ func HandleAPIDelUserNode(wr http.ResponseWriter, r *http.Request, ps httprouter
 	return "ok", nil
 }
 
+func HandleAPIGetSatNodes(wr http.ResponseWriter, r *http.Request, ps httprouter.Params) (interface{}, error) {
+	db := r.Context().Value(CtxKeyDB).(*pg.DB)
+	startDate, endDate := extractStartEndDatesFromQuery(r.URL.Query(), false)
+	return core.LoadSatNodes(db, startDate, endDate)
+}
+
 func HandleAPIUserNodePings(wr http.ResponseWriter, r *http.Request, ps httprouter.Params) (interface{}, error) {
 	db := r.Context().Value(CtxKeyDB).(*pg.DB)
 	nodeID, err := storj.NodeIDFromString(ps.ByName("node_id"))
@@ -207,7 +241,7 @@ func HandleAPIUserNodePings(wr http.ResponseWriter, r *http.Request, ps httprout
 		return httputils.JsonError{Code: 400, Error: "NODE_ID_DECODE_ERROR", Description: err.Error()}, nil
 	}
 
-	startDateStr, endDateStr := extractStartEndDatesStrFromQuery(r.URL.Query())
+	startDateStr, endDateStr := extractStartEndDatesStrFromQuery(r.URL.Query(), false)
 
 	var histories []*core.UserNodeHistory
 	histsQuery := db.Model(&histories).Column("pings", "date").
@@ -215,7 +249,8 @@ func HandleAPIUserNodePings(wr http.ResponseWriter, r *http.Request, ps httprout
 		Order("date")
 
 	if strings.Contains(r.URL.Path, "/sat/") {
-		histsQuery = histsQuery.Where("user_id = (SELECT id FROM users WHERE username = 'satellites')")
+		histsQuery = histsQuery.
+			Where("user_id = (SELECT id FROM users WHERE username = 'satellites')")
 	} else {
 		user := r.Context().Value(CtxKeyUser).(*core.User)
 		histsQuery = histsQuery.Where("user_id = ?", user.ID)
@@ -263,7 +298,7 @@ func HandleAPIUserTexts(wr http.ResponseWriter, r *http.Request, ps httprouter.P
 func HandleStorjTokenTxSummary(wr http.ResponseWriter, r *http.Request, ps httprouter.Params) (interface{}, error) {
 	db := r.Context().Value(CtxKeyDB).(*pg.DB)
 
-	startDateStr, endDateStr := extractStartEndDatesStrFromQuery(r.URL.Query())
+	startDateStr, endDateStr := extractStartEndDatesStrFromQuery(r.URL.Query(), false)
 
 	var daySums []*core.StorjTokenTxSummary
 	err := db.Model(&daySums).
@@ -346,7 +381,7 @@ func HandleNodesLocationSummary(wr http.ResponseWriter, r *http.Request, ps http
 func HandleNodesCounts(wr http.ResponseWriter, r *http.Request, ps httprouter.Params) (interface{}, error) {
 	db := r.Context().Value(ctxKey("db")).(*pg.DB)
 
-	startDate, endDate := extractStartEndDatesFromQuery(r.URL.Query())
+	startDate, endDate := extractStartEndDatesFromQuery(r.URL.Query(), false)
 
 	var counts []struct{ H05, H8, H24, Stamp int64 }
 	_, err := db.Query(&counts, `

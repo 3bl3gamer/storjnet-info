@@ -119,8 +119,8 @@ export function getArrayMaxValue(arr, initialValue = -Infinity) {
 }
 
 export function roundRange(bottomVal, topVal, sigDigits = 2) {
-	let k = Math.pow(10, Math.floor(Math.log10(topVal - bottomVal) - (sigDigits - 1)))
-	return [Math.ceil(bottomVal / k) * k, Math.ceil(topVal / k) * k]
+	let k = Math.pow(10, Math.round(0.2 + Math.log10(topVal - bottomVal) - (sigDigits - 1)))
+	return [Math.floor(bottomVal / k) * k, Math.ceil(topVal / k) * k]
 }
 
 export function stamp2x(rect, view, stamp) {

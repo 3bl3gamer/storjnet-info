@@ -7,16 +7,16 @@ import './user_nodes'
 import './user_dashboard'
 
 import { L } from './i18n'
-import { PingsChartsList } from './pings_chart'
+import { SatsPingsChartsList } from './pings_chart'
 import { sortedNodes } from './user_nodes'
 import { StorjTxSummary } from './storj_tx_summary'
 import { NodesLocationSummary } from './nodes_location_summary'
 import { NodesCountChart } from './nodes_count_chart'
 import { RewindControl } from './rewind_control'
 
-let nodes = []
+let defaultSatNodes = []
 try {
-	nodes = sortedNodes(JSON.parse(document.getElementById('sat_nodes_data').textContent))
+	defaultSatNodes = sortedNodes(JSON.parse(document.getElementById('sat_nodes_data').textContent))
 } catch (ex) {
 	// ¯\_(ツ)_/¯
 }
@@ -26,7 +26,7 @@ renderIfExists(html`<${RewindControl} />`, '.rewind-control')
 renderIfExists(
 	html`
 		<h2>${L('Satellites', 'ru', 'Сателлиты')}</h2>
-		<${PingsChartsList} group="sat" nodes=${nodes} />
+		<${SatsPingsChartsList} defaultSatNodes=${defaultSatNodes} />
 		<p class="dim small">
 			${L(
 				'Once a minute a connection is established with the satellites from a server near Paris, ' +

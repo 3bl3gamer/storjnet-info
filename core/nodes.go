@@ -8,20 +8,35 @@ import (
 	"storj.io/common/storj"
 )
 
+type BriefNode struct {
+	RawID   []byte       `json:"-"`
+	ID      storj.NodeID `json:"id"`
+	Address string       `json:"address"`
+}
+
 type Node struct {
-	RawID        []byte       `json:"-"`
-	ID           storj.NodeID `json:"id"`
-	Address      string       `json:"address"`
-	PingMode     string       `json:"pingMode"`
-	LastPingedAt time.Time    `json:"lastPingedAt"`
-	LastPing     int64        `json:"lastPing"`
-	LastUpAt     time.Time    `json:"lastUpAt"`
-	CreatedAt    time.Time    `json:"-"`
+	BriefNode
+	PingMode     string    `json:"pingMode"`
+	LastPingedAt time.Time `json:"lastPingedAt"`
+	LastPing     int64     `json:"lastPing"`
+	LastUpAt     time.Time `json:"lastUpAt"`
+	CreatedAt    time.Time `json:"-"`
 }
 
 type UserNode struct {
 	Node
 	UserID int64
+}
+
+func ConvertBriefNodeIDs(nodes []*BriefNode) error {
+	var err error
+	for _, node := range nodes {
+		node.ID, err = storj.NodeIDFromBytes(node.RawID)
+		if err != nil {
+			return merry.Wrap(err)
+		}
+	}
+	return nil
 }
 
 func ConvertNodeIDs(nodes []*Node) error {
@@ -73,15 +88,22 @@ func LoadUserNodes(db *pg.DB, user *User) ([]*Node, error) {
 	return nodes, nil
 }
 
-func LoadSatNodes(db *pg.DB) ([]*Node, error) {
-	nodes := make([]*Node, 0)
+func LoadSatNodes(db *pg.DB, startDate, endDate time.Time) ([]*BriefNode, error) {
+	nodes := make([]*BriefNode, 0)
 	_, err := db.Query(&nodes, `
 		SELECT node_id AS raw_id, address FROM user_nodes
-		WHERE user_id = (SELECT id FROM users WHERE username = 'satellites')`)
+		WHERE user_id = (SELECT id FROM users WHERE username = 'satellites')
+		  AND EXISTS (
+			SELECT 1 FROM user_nodes_history
+			WHERE node_id = user_nodes.node_id
+			  AND user_id = user_nodes.user_id
+			  AND date BETWEEN ? AND ?
+		  )`,
+		startDate.Format("2006-01-02"), endDate.Format("2006-01-02"))
 	if err != nil {
 		return nil, merry.Wrap(err)
 	}
-	if err := ConvertNodeIDs(nodes); err != nil {
+	if err := ConvertBriefNodeIDs(nodes); err != nil {
 		return nil, merry.Wrap(err)
 	}
 	return nodes, nil

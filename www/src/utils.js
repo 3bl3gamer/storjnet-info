@@ -160,6 +160,12 @@ export function getDefaultHashInterval() {
 	return [startOfMonth(now), endOfMonth(now)]
 }
 
+export function intervalIsDefault() {
+	let [defStart, defEnd] = getDefaultHashInterval()
+	let [curStart, curEnd] = getHashInterval()
+	return defStart.getTime() == curStart.getTime() && defEnd.getTime() == curEnd.getTime()
+}
+
 export function getHashInterval() {
 	let hash = location.hash.substr(1)
 	let params = new URLSearchParams(hash)
