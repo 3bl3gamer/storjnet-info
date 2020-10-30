@@ -3,6 +3,7 @@ package core
 import (
 	"net/http"
 	"storjnet/utils"
+	"strings"
 	"time"
 
 	"github.com/ansel1/merry"
@@ -53,6 +54,11 @@ func FindUserBySessid(db *pg.DB, sessid string) (*User, error) {
 	err := db.Model(user).Where("sessid = ?", sessid).Select()
 	if err == pg.ErrNoRows {
 		return nil, ErrUserNotFound.Here()
+	}
+	if perr, ok := merry.Unwrap(err).(pg.Error); ok {
+		if strings.HasPrefix(perr.Field('M'), "invalid input syntax for type uuid:") {
+			return nil, ErrUserNotFound.Here()
+		}
 	}
 	if err != nil {
 		return nil, merry.Wrap(err)

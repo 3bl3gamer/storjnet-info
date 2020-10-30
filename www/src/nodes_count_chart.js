@@ -171,9 +171,20 @@ export class NodesCountChart extends PureComponent {
 		this.stopWatchingHashInterval()
 	}
 
-	render(params, { data }) {
+	render(params, { data, startDate, endDate }) {
 		const countNow = data && data.currentCount
 		const countInc = data ? signed(data.lastDayInc) : '...'
+
+		const noteDate = new Date('2020-10-30T12:00:00Z')
+		const note =
+			startDate < noteDate && endDate > noteDate
+				? lang === 'ru'
+					? '750 нод добавились после исправления бага: ранее нода переставала учитываться, ' +
+					  'если была в оффлайне больше недели (даже если потом снова появлялась в сети).'
+					: '750 nodes were added as a result of a bugfix: previously, a node was no longer counted ' +
+					  'if has been offline for more than a week (even if it later got back online).'
+				: null
+
 		return html`
 			<p>${
 				lang === 'ru'
@@ -188,6 +199,7 @@ export class NodesCountChart extends PureComponent {
 						: `(node is considered active if it was reachable within the last 24 hours)`
 				}</span>
 			</p>
+			${note && html`<p class="dim small"><b>${noteDate.toISOString().substr(0, 10)}:</b> ${note}</p>`}
 			<div class="chart storj-tx-summary-chart">
 				<canvas class="main-canvas" ref=${this.canvasExt.setRef}></canvas>
 				<div class="legend">

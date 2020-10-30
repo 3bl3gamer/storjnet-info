@@ -62,7 +62,8 @@ func startOldNodesLoader(db *pg.DB, nodesChan chan *ProbeNode, chunkSize int) ut
 				_, err := tx.Query(&nodes, `
 					SELECT id AS raw_id, ip_addr, port FROM nodes
 					WHERE checked_at IS NULL
-					   OR (checked_at < NOW() - `+nodesUpdateInterval+` AND updated_at > NOW() - INTERVAL '7 days')
+					   OR (checked_at < NOW() - `+nodesUpdateInterval+`
+					       AND greatest(updated_at, last_received_from_sat_at) > NOW() - INTERVAL '7 days')
 					ORDER BY checked_at ASC NULLS FIRST
 					LIMIT ?
 					FOR UPDATE`, chunkSize)
