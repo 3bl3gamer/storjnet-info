@@ -1,5 +1,6 @@
 import { h, render, Component } from 'preact'
 import htm from 'htm'
+import { sendError } from './errors'
 
 export const html = htm.bind(h)
 
@@ -48,7 +49,7 @@ PureComponent.prototype.shouldComponentUpdate = function (props, state) {
 export function onError(error) {
 	// eslint-disable-next-line no-console
 	console.error(error)
-	// alert(error)
+	sendError(error + '', error)
 }
 
 export const DAY_DURATION = 24 * 3600 * 1000

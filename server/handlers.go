@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"database/sql"
 	"encoding/binary"
 	"io/ioutil"
 	"net/http"
@@ -379,7 +380,7 @@ func HandleNodesLocationSummary(wr http.ResponseWriter, r *http.Request, ps http
 }
 
 func HandleNodesCounts(wr http.ResponseWriter, r *http.Request, ps httprouter.Params) (interface{}, error) {
-	db := r.Context().Value(ctxKey("db")).(*pg.DB)
+	db := r.Context().Value(CtxKeyDB).(*pg.DB)
 
 	startDate, endDate := extractStartEndDatesFromQuery(r.URL.Query(), false)
 
@@ -462,6 +463,30 @@ func HandleNodesCounts(wr http.ResponseWriter, r *http.Request, ps httprouter.Pa
 
 	wr.Header().Set("Content-Type", "application/octet-stream")
 	_, err = wr.Write(fullBuf)
+	return nil, merry.Wrap(err)
+}
+
+func HandleClientErrors(wr http.ResponseWriter, r *http.Request, ps httprouter.Params) (interface{}, error) {
+	db := r.Context().Value(CtxKeyDB).(*pg.DB)
+
+	user := r.Context().Value(CtxKeyUser).(*core.User)
+	var userID sql.NullInt64
+	if user != nil {
+		userID = sql.NullInt64{Int64: user.ID, Valid: true}
+	}
+
+	params := &struct {
+		URL     string
+		Message string
+		Stack   string
+	}{}
+	if jsonErr := unmarshalFromBody(r, params); jsonErr != nil {
+		return *jsonErr, nil
+	}
+
+	_, err := db.Exec(
+		"INSERT INTO client_errors (url, user_id, user_agent, lang, message, stack) VALUES (?,?,?,?,?,?)",
+		params.URL, userID, r.UserAgent(), langFromRequest(r), params.Message, params.Stack)
 	return nil, merry.Wrap(err)
 }
 

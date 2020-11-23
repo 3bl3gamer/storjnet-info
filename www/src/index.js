@@ -1,3 +1,4 @@
+import './errors'
 import './shame'
 
 import './main.css'

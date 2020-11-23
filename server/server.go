@@ -259,6 +259,7 @@ func StartHTTPServer(address string, env utils.Env) error {
 	route("GET", "/api/nodes/locations", WithGzip, HandleNodesLocations)
 	route("GET", "/api/nodes/location_summary", HandleNodesLocationSummary)
 	route("GET", "/api/nodes/counts", WithGzip, HandleNodesCounts)
+	route("POST", "/api/client_errors", WithOptUser, HandleClientErrors)
 
 	route("GET", "/api/explode", func(wr http.ResponseWriter, r *http.Request, ps httprouter.Params) (interface{}, error) {
 		return nil, merry.New("test API error")
