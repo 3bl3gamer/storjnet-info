@@ -18,7 +18,7 @@ window.addEventListener('unhandledrejection', e => {
  * @param {Error} [error]
  * @param {boolean} [silent]
  */
-export function sendError(message, error, silent) {
+export function sendError(message, error) {
 	const stack = error && error.stack
 	const body = JSON.stringify({ message, stack, url: location.href })
 	const headers = { 'Content-Type': 'application/json' }

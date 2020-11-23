@@ -7,7 +7,7 @@ export function L(defaultText, ...texts) {
 	return defaultText
 }
 
-function pluralize(val, ...words) {
+export function pluralize(val, ...words) {
 	if (val < 0) {
 		val = -val
 	}
@@ -34,6 +34,6 @@ L.n = function L_n(val, ...words) {
 	return (val == null ? '...' : val.toLocaleString(lang)) + ' ' + pluralize(val || 0, ...words)
 }
 
-L.ns = function L_n(val, suffix, ...words) {
+L.ns = function L_ns(val, suffix, ...words) {
 	return (val === null ? '...' : val.toLocaleString(lang)) + suffix + ' ' + pluralize(val || 0, ...words)
 }

@@ -84,6 +84,10 @@ func HandlePingMyNode(wr http.ResponseWriter, r *http.Request, ps httprouter.Par
 	return map[string]interface{}{"FPath": "ping_my_node.html"}, nil
 }
 
+func HandleNeighbors(wr http.ResponseWriter, r *http.Request, ps httprouter.Params) (httputils.TemplateCtx, error) {
+	return map[string]interface{}{"FPath": "neighbors.html"}, nil
+}
+
 func HandleUserDashboard(wr http.ResponseWriter, r *http.Request, ps httprouter.Params) (httputils.TemplateCtx, error) {
 	db := r.Context().Value(CtxKeyDB).(*pg.DB)
 	user := r.Context().Value(CtxKeyUser).(*core.User)
@@ -158,6 +162,24 @@ func HandleAPIPingMyNode(wr http.ResponseWriter, r *http.Request, ps httprouter.
 		pingDuration = time.Now().Sub(stt).Seconds()
 	}
 	return map[string]interface{}{"pingDuration": pingDuration, "dialDuration": dialDuration}, nil
+}
+
+func HandleAPINeighbors(wr http.ResponseWriter, r *http.Request, ps httprouter.Params) (interface{}, error) {
+	db := r.Context().Value(CtxKeyDB).(*pg.DB)
+	subnet := ps.ByName("subnet")
+
+	var count int64
+	_, err := db.QueryOne(&count,
+		"SELECT count(*) FROM nodes WHERE node_ip_subnet(ip_addr) = node_ip_subnet(?::inet)", subnet)
+	if err != nil {
+		if perr, ok := merry.Unwrap(err).(pg.Error); ok {
+			if strings.HasPrefix(perr.Field('M'), "invalid input syntax for type inet") {
+				return httputils.JsonError{Code: 400, Error: "WRONG_SUBNET_FORMAT"}, nil
+			}
+		}
+		return nil, merry.Wrap(err)
+	}
+	return map[string]interface{}{"count": count}, nil
 }
 
 func HandleAPIRegister(wr http.ResponseWriter, r *http.Request, ps httprouter.Params) (interface{}, error) {
@@ -296,7 +318,7 @@ func HandleAPIUserTexts(wr http.ResponseWriter, r *http.Request, ps httprouter.P
 	return "ok", nil
 }
 
-func HandleStorjTokenTxSummary(wr http.ResponseWriter, r *http.Request, ps httprouter.Params) (interface{}, error) {
+func HandleAPIStorjTokenTxSummary(wr http.ResponseWriter, r *http.Request, ps httprouter.Params) (interface{}, error) {
 	db := r.Context().Value(CtxKeyDB).(*pg.DB)
 
 	startDateStr, endDateStr := extractStartEndDatesStrFromQuery(r.URL.Query(), false)
@@ -325,7 +347,7 @@ func HandleStorjTokenTxSummary(wr http.ResponseWriter, r *http.Request, ps httpr
 	return nil, nil
 }
 
-func HandleNodesLocations(wr http.ResponseWriter, r *http.Request, ps httprouter.Params) (interface{}, error) {
+func HandleAPINodesLocations(wr http.ResponseWriter, r *http.Request, ps httprouter.Params) (interface{}, error) {
 	db := r.Context().Value(ctxKey("db")).(*pg.DB)
 
 	var nodeLocations []struct{ Lon, Lat float32 }
@@ -351,7 +373,7 @@ func HandleNodesLocations(wr http.ResponseWriter, r *http.Request, ps httprouter
 	return nil, merry.Wrap(err)
 }
 
-func HandleNodesLocationSummary(wr http.ResponseWriter, r *http.Request, ps httprouter.Params) (interface{}, error) {
+func HandleAPINodesLocationSummary(wr http.ResponseWriter, r *http.Request, ps httprouter.Params) (interface{}, error) {
 	db := r.Context().Value(CtxKeyDB).(*pg.DB)
 
 	var stats struct {
@@ -379,7 +401,7 @@ func HandleNodesLocationSummary(wr http.ResponseWriter, r *http.Request, ps http
 	return stats, nil
 }
 
-func HandleNodesCounts(wr http.ResponseWriter, r *http.Request, ps httprouter.Params) (interface{}, error) {
+func HandleAPINodesCounts(wr http.ResponseWriter, r *http.Request, ps httprouter.Params) (interface{}, error) {
 	db := r.Context().Value(CtxKeyDB).(*pg.DB)
 
 	startDate, endDate := extractStartEndDatesFromQuery(r.URL.Query(), false)
@@ -466,7 +488,7 @@ func HandleNodesCounts(wr http.ResponseWriter, r *http.Request, ps httprouter.Pa
 	return nil, merry.Wrap(err)
 }
 
-func HandleClientErrors(wr http.ResponseWriter, r *http.Request, ps httprouter.Params) (interface{}, error) {
+func HandleAPIClientErrors(wr http.ResponseWriter, r *http.Request, ps httprouter.Params) (interface{}, error) {
 	db := r.Context().Value(CtxKeyDB).(*pg.DB)
 
 	user := r.Context().Value(CtxKeyUser).(*core.User)

@@ -1,5 +1,5 @@
 import { h } from 'preact'
-import { PureComponent, renderIfExists, html, bindHandlers } from './utils'
+import { PureComponent, renderIfExists, html, bindHandlers, onError } from './utils'
 
 import './ping_my_node.css'
 import { apiReq } from './api'
@@ -66,6 +66,7 @@ class PingMyNodeModule extends PureComponent {
 						break
 					default:
 						log('O_o ' + JSON.stringify(err))
+						onError(err)
 				}
 
 				this.setState({ logText })

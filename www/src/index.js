@@ -5,6 +5,7 @@ import './main.css'
 import { html, renderIfExists } from './utils'
 
 import './ping_my_node'
+import './search_neighbors'
 import './auth'
 import './user_nodes'
 import './user_dashboard'
