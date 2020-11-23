@@ -1,3 +1,5 @@
+import './shame'
+
 import './main.css'
 import { html, renderIfExists } from './utils'
 
@@ -30,7 +32,7 @@ renderIfExists(
 		<p class="dim small">
 			${L(
 				'Once a minute a connection is established with the satellites from a server near Paris, ' +
-					'elapsed time is saved. Timeous is 2 s. ' +
+					'elapsed time is saved. Timeout is 2 s. ' +
 					'Narrow red stripes are not a sign of offline: just for some reason a single response was not received.',
 				'ru',
 				'Раз в минуту с сателлитами устанавливается соединение из сервера под Парижем, ' +
