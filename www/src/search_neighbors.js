@@ -67,9 +67,16 @@ class SearchNeighbors extends PureComponent {
 						? '\xA0' //nbsp
 						: lang === 'ru'
 						? html`В подсети ${pluralize(count, 'нашлась', 'нашлось', 'нашлось')}${' '}
-								<b>${L.n(count, 'нода', 'ноды', 'нод')}</b>.`
-						: html`<b>${L.n(count, 'node', 'nodes')}</b> ${pluralize(count, 'was', 'were')} fount
-								in the subnet.`
+								<b>${L.n(count, 'нода', 'ноды', 'нод')}</b>${' '}
+								<span class="dim">
+									${pluralize(count, 'активная', 'активные', 'активных')} за последние 24
+									часа
+								</span>`
+						: html`<b>${L.n(count, 'node', 'nodes')}</b> ${pluralize(count, 'was', 'were')} found
+								in the subnet${' '}
+								<span class="dim">
+									reachable within the last 24 hours
+								</span>`
 				}
 			</p>
 			<p class="dim">

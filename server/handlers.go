@@ -169,8 +169,10 @@ func HandleAPINeighbors(wr http.ResponseWriter, r *http.Request, ps httprouter.P
 	subnet := ps.ByName("subnet")
 
 	var count int64
-	_, err := db.QueryOne(&count,
-		"SELECT count(*) FROM nodes WHERE node_ip_subnet(ip_addr) = node_ip_subnet(?::inet)", subnet)
+	_, err := db.QueryOne(&count, `
+		SELECT count(*) FROM nodes
+		WHERE node_ip_subnet(ip_addr) = node_ip_subnet(?::inet)
+		  AND updated_at > NOW() - INTERVAL '1 day'`, subnet)
 	if err != nil {
 		if perr, ok := merry.Unwrap(err).(pg.Error); ok {
 			if strings.HasPrefix(perr.Field('M'), "invalid input syntax for type inet") {
