@@ -2,16 +2,9 @@ function encodeKeyValue(key, value) {
 	return encodeURIComponent(key) + '=' + encodeURIComponent(value)
 }
 
-function handleRawResult(res) {
-	if (res.headers.get('Content-Type') === 'application/json') {
-		return res.json().then(processJsonResult)
-	}
-	return res
-}
-
 class APIError extends Error {
-	constructor(res) {
-		let msg = res.error
+	constructor(method, url, res) {
+		let msg = `${method}:${url} -> ${res.error}`
 		if (res.description) msg += ': ' + res.description
 		super(msg)
 		this.error = res.error
@@ -19,14 +12,7 @@ class APIError extends Error {
 	}
 }
 
-function processJsonResult(res) {
-	if (!res.ok) {
-		throw new APIError(res)
-	}
-	return res.result
-}
-
-export function apiReq(method, path, params) {
+export async function apiReq(method, path, params) {
 	params = params || {}
 	params.method = method
 
@@ -50,5 +36,11 @@ export function apiReq(method, path, params) {
 		delete params.data
 	}
 
-	return fetch(path, params).then(handleRawResult)
+	const res = await fetch(path, params)
+	if (res.headers.get('Content-Type') === 'application/json') {
+		const data = await res.json()
+		if (!data.ok) throw new APIError(method, path, res)
+		return data.result
+	}
+	return res
 }

@@ -101,7 +101,7 @@ PointsLayer.prototype._initBuffer = function (posConv) {
 }
 
 PointsLayer.prototype._resizeIfNeed = function (map) {
-	if (map.canvas.width == this.canvas.width && map.canvas.height == this.canvas.height) return
+	if (this.gl && map.canvas.width == this.canvas.width && map.canvas.height == this.canvas.height) return
 	this.canvas.width = map.canvas.width
 	this.canvas.height = map.canvas.height
 	if (!this.gl) {

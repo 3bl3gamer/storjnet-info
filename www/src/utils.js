@@ -173,7 +173,7 @@ export function getHashInterval() {
 	let start = parseHashIntervalDate(params.get('start'))
 	let end = parseHashIntervalDate(params.get('end'), true)
 
-	if (start !== null && end !== null) {
+	if (start !== null && end !== null && start.getTime() < end.getTime()) {
 		return [start, end]
 	} else {
 		return getDefaultHashInterval()

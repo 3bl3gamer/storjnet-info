@@ -253,7 +253,7 @@ func StartHTTPServer(address string, env utils.Env) error {
 	route("GET", "/api/neighbors/:subnet", HandleAPINeighbors)
 	route("POST", "/api/user_nodes", WithUser, HandleAPISetUserNode)
 	route("DELETE", "/api/user_nodes", WithUser, HandleAPIDelUserNode)
-	route("GET", "/api/sat_nodes", WithUser, HandleAPIGetSatNodes)
+	route("GET", "/api/sat_nodes", HandleAPIGetSatNodes)
 	route("GET", "/api/user_nodes/my/:node_id/pings", WithUser, WithGzip, HandleAPIUserNodePings)
 	route("GET", "/api/user_nodes/sat/:node_id/pings", WithGzip, HandleAPIUserNodePings)
 	route("POST", "/api/user_texts", WithUser, HandleAPIUserTexts)
