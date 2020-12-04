@@ -1,8 +1,9 @@
 .node-ping-form {
 	display: flex;
 	flex-direction: row;
-	width: 100%;
 	max-width: 620px;
+	margin-left: 8px;
+	margin-right: 8px;
 }
 
 .node-ping-form .node-address-input,
@@ -23,6 +24,8 @@
 }
 
 .remembered-nodes-list {
+	margin-left: 8px;
+	margin-right: 8px;
 	margin-bottom: 16px;
 }
 

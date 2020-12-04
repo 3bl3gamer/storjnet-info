@@ -75,7 +75,7 @@ class NewUserNodeForm extends PureComponent {
 			.filter(x => x != '')
 			.map(x => {
 				let [id, address] = x.split(/\s+/, 2)
-				return { id, address, pingMode: 'off' }
+				return { id, address: address || '', pingMode: 'off' }
 			})
 			.forEach(this.props.onNodeAdd)
 	}

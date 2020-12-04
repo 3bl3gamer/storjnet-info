@@ -39,7 +39,7 @@ export async function apiReq(method, path, params) {
 	const res = await fetch(path, params)
 	if (res.headers.get('Content-Type') === 'application/json') {
 		const data = await res.json()
-		if (!data.ok) throw new APIError(method, path, res)
+		if (!data.ok) throw new APIError(method, path, data)
 		return data.result
 	}
 	return res

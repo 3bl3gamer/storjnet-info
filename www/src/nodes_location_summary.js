@@ -171,7 +171,7 @@ export class NodesLocationSummary extends PureComponent {
 		return html`${!intervalIsDefault &&
 			html`<p class="warn">
 				${lang === 'ru'
-					? 'Для местоположений перемеотка не работает. Пока.'
+					? 'Для местоположений перемотка не работает. Пока.'
 					: 'Locations can not rewind. Yet.'}
 			</p>`}<${NodesLocationMap} /><${NodesSummary} />`
 	}
