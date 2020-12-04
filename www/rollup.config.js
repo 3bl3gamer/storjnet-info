@@ -6,7 +6,7 @@ function mustImport(name) {
 	})
 }
 
-export default function(commandOptions) {
+export default function (commandOptions) {
 	const isProd = process.env.NODE_ENV === 'production'
 
 	let devPlugins = []
@@ -20,7 +20,7 @@ export default function(commandOptions) {
 				}),
 			),
 			mustImport('rollup-plugin-livereload').then(({ default: livereload }) =>
-				livereload({ verbose: true, watch: 'dist/bundle.js' }),
+				livereload({ verbose: true }),
 			),
 		)
 
@@ -78,16 +78,11 @@ function css(options = {}) {
 			for (const id in styles) {
 				concat.add(id, styles[id])
 			}
-			let hash = crypto
-				.createHash('md5')
-				.update(concat.content)
-				.digest('hex')
-				.substr(0, 8)
+			let hash = crypto.createHash('md5').update(concat.content).digest('hex').substr(0, 8)
 			let contentFPath = output.replace('[hash]', hash)
 			let sourceMapFPath = contentFPath + '.map'
 			let dirname = path.dirname(contentFPath)
-			let content =
-				concat.content + `\n/*# sourceMappingURL=${path.basename(sourceMapFPath)} */`
+			let content = concat.content + `\n/*# sourceMappingURL=${path.basename(sourceMapFPath)} */`
 			let sourceMap = concat.sourceMap
 
 			return fs

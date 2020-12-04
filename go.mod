@@ -17,14 +17,14 @@ require (
 	github.com/lucas-clemente/quic-go v0.19.3 // indirect
 	github.com/minio/sha256-simd v0.1.1 // indirect
 	github.com/rs/zerolog v1.20.0
-	github.com/sirupsen/logrus v1.5.0 // indirect
+	github.com/sirupsen/logrus v1.7.0 // indirect
 	github.com/spf13/cobra v1.1.1
 	github.com/technoweenie/multipartstreamer v1.0.1 // indirect
 	golang.org/x/crypto v0.0.0-20201203163018-be400aefbc4c // indirect
 	golang.org/x/net v0.0.0-20201202161906-c7110b5ffcbb
 	golang.org/x/sync v0.0.0-20201020160332-67f06af15bc9 // indirect
 	golang.org/x/sys v0.0.0-20201202213521-69691e467435 // indirect
-	golang.org/x/tools v0.0.0-20200428211428-0c9eba77bc32 // indirect
+	golang.org/x/tools v0.0.0-20201204062850-545788942d5f // indirect
 	storj.io/common v0.0.0-20201124202331-31c1d1dc486d
 	storj.io/storj v1.18.1
 	storj.io/uplink v1.4.0
