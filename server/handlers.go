@@ -4,7 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/binary"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/url"
 	"storjnet/core"
@@ -306,7 +306,7 @@ func HandleAPIUserTexts(wr http.ResponseWriter, r *http.Request, ps httprouter.P
 	db := r.Context().Value(CtxKeyDB).(*pg.DB)
 	user := r.Context().Value(CtxKeyUser).(*core.User)
 
-	buf, err := ioutil.ReadAll(r.Body)
+	buf, err := io.ReadAll(r.Body)
 	if err != nil {
 		return nil, merry.Wrap(err)
 	}

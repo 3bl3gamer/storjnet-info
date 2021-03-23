@@ -15,7 +15,7 @@ import (
 	"time"
 
 	"github.com/ansel1/merry"
-	"storj.io/storj/pkg/storj"
+	"storj.io/common/storj"
 )
 
 var ignoredSuffixes = []string{

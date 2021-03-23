@@ -3,7 +3,7 @@ package core
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 
 	"github.com/ansel1/merry"
@@ -190,7 +190,7 @@ func (c *GitHubVersionChecker) FetchCurVersion() error {
 	// if err := json.NewDecoder(resp.Body).Decode(&params); err != nil {
 	// 	return merry.Wrap(err)
 	// }
-	buf, err := ioutil.ReadAll(resp.Body)
+	buf, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return merry.Wrap(err)
 	}

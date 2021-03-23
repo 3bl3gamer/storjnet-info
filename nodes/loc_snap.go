@@ -3,7 +3,7 @@ package nodes
 import (
 	"encoding/binary"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"os"
 	"path/filepath"
 	"sort"
@@ -92,7 +92,7 @@ func PrintLocsSnapshot(fpath string) error {
 	}
 	defer fd.Close()
 
-	buf, err := ioutil.ReadAll(fd)
+	buf, err := io.ReadAll(fd)
 	if err != nil {
 		return merry.Wrap(err)
 	}
