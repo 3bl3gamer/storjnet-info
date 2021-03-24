@@ -74,8 +74,8 @@ func pluralize(val int64, lang string, words ...string) string {
 }
 
 var monthNames = map[string][]string{
-	"en": []string{"january", "february", "march", "april", "may", "june", "july", "august", "september", "october", "november", "december"},
-	"ru": []string{"январь", "февраль", "март", "апрель", "май", "июнь", "июль", "август", "сентябрь", "октябрь", "ноябрь", "декабрь"},
+	"en": {"january", "february", "march", "april", "may", "june", "july", "august", "september", "october", "november", "december"},
+	"ru": {"январь", "февраль", "март", "апрель", "май", "июнь", "июль", "август", "сентябрь", "октябрь", "ноябрь", "декабрь"},
 }
 
 type L10nUtls struct {
@@ -168,7 +168,22 @@ func (l L10nUtls) Pluralize(valI interface{}, words ...string) string {
 	return pluralize(val, l.Lang, words...)
 }
 
-func langOrDefault(lang string) string {
+func chooseLang(lang string, langWithCountry string) string {
+	if lang == "uk" || //Ukrainian
+		lang == "be" || //Belarusian
+		lang == "et" || //Estonian
+		lang == "lz" || //Latvian
+		lang == "lt" || //Lithuanian
+		langWithCountry == "ro-MD" || //Romanian (Moldova)
+		lang == "tk" || //Turkmen
+		lang == "kk" || //Kazakh
+		lang == "uz" || //Uzbek
+		lang == "ky" || //Kyrgyz
+		lang == "tg" || //Tajik
+		lang == "hy" || //Armenian
+		lang == "ka" { //Georgian
+		return "ru"
+	}
 	if lang == "en" || lang == "ru" {
 		return lang
 	}
@@ -176,11 +191,15 @@ func langOrDefault(lang string) string {
 }
 func langFromRequest(r *http.Request) string {
 	if c, err := r.Cookie("lang"); err == nil {
-		return langOrDefault(c.Value)
+		return chooseLang(c.Value, "")
 	}
-	if langs := r.Header.Get("Accept-Language"); len(langs) > 2 {
+	if langs := r.Header.Get("Accept-Language"); len(langs) >= 2 {
 		// TODO: maybe support smth like "Accept-Language: fr-CH, fr;q=0.9, en;q=0.8, de;q=0.7, *;q=0.5"
-		return langOrDefault(langs[:2])
+		withCountry := ""
+		if len(langs) >= 5 {
+			withCountry = langs[:5]
+		}
+		return chooseLang(langs[:2], withCountry)
 	}
 	return "en"
 }
