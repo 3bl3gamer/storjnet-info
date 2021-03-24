@@ -24,3 +24,9 @@ export function sendError(message, error) {
 	const headers = { 'Content-Type': 'application/json' }
 	fetch('/api/client_errors', { method: 'POST', headers, credentials: 'same-origin', body })
 }
+
+export function onError(error) {
+	// eslint-disable-next-line no-console
+	console.error(error)
+	sendError(error + '', error)
+}

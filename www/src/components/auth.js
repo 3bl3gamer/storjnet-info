@@ -1,11 +1,13 @@
-import { h } from 'preact'
-import { PureComponent, renderIfExists, html, bindHandlers, onError } from './utils'
+import { PureComponent } from '../utils/preact_compat'
+import { onError } from '../errors'
+import { bindHandlers } from '../utils/elems'
+import { apiReq } from '../api'
+import { html } from '../utils/htm'
+import { L } from '../i18n'
 
 import './auth.css'
-import { apiReq } from './api'
-import { L } from './i18n'
 
-class AuthForm extends PureComponent {
+export class AuthForm extends PureComponent {
 	constructor() {
 		super()
 		bindHandlers(this)
@@ -86,5 +88,3 @@ class AuthForm extends PureComponent {
 		`
 	}
 }
-
-renderIfExists(h(AuthForm), '.auth-forms')

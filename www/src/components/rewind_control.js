@@ -1,5 +1,7 @@
-import { PureComponent, html, watchHashInterval, makeUpdatedHashInterval, endOfMonth } from './utils'
-import { lang } from './i18n'
+import { lang } from '../i18n'
+import { html } from '../utils/htm'
+import { PureComponent } from '../utils/preact_compat'
+import { endOfMonth, makeUpdatedHashInterval, watchHashInterval } from '../utils/time'
 
 const monthLangNames = {
 	en: 'january february march april may june july august september october november december'.split(' '),

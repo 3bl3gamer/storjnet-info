@@ -1,12 +1,12 @@
-import { PureComponent, html, bindHandlers, onError } from './utils'
-import { apiReq } from './api'
-import { L } from './i18n'
+import { apiReq } from '../api'
+import { L } from '../i18n'
+import { onError } from '../errors'
+import { sortedNodes } from '../utils/nodes'
+import { bindHandlers } from '../utils/elems'
+import { PureComponent } from '../utils/preact_compat'
+import { html } from '../utils/htm'
 
 import './user_nodes.css'
-
-export function sortedNodes(nodes) {
-	return nodes.sort((a, b) => a.address.localeCompare(b.address))
-}
 
 class UserNodeItem extends PureComponent {
 	constructor() {

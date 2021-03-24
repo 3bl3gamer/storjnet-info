@@ -1,14 +1,6 @@
-import {
-	PureComponent,
-	delayedRedraw,
-	bindHandlers,
-	toISODateStringInterval,
-	onError,
-	html,
-	LegendItem,
-	watchHashInterval,
-	DAY_DURATION,
-} from './utils'
+import { apiReq } from '../api'
+import { onError } from '../errors'
+import { L, lang } from '../i18n'
 import {
 	View,
 	RectCenter,
@@ -21,9 +13,12 @@ import {
 	getArrayMinValue,
 	drawDailyComeLeftBars,
 	signed,
-} from './chart_utils'
-import { apiReq } from './api'
-import { L, lang } from './i18n'
+	LegendItem,
+} from '../utils/charts'
+import { bindHandlers, delayedRedraw } from '../utils/elems'
+import { html } from '../utils/htm'
+import { PureComponent } from '../utils/preact_compat'
+import { DAY_DURATION, toISODateStringInterval, watchHashInterval } from '../utils/time'
 
 function hoursColor(hours) {
 	return 'hsl(240, 100%, ' + (50 + (1 - hours / 24) * 40) + '%)'
@@ -186,26 +181,26 @@ export class NodesCountChart extends PureComponent {
 				: null
 
 		return html`
-			<p>${
-				lang === 'ru'
+			<h2>${L('Network size', 'ru', 'Размер сети')}</h2>
+			<p>
+				${lang === 'ru'
 					? `Всего в сети ~${L.n(countNow, 'живая нода', 'живые ноды', 'живых нод')},
 						${countInc} за последний день`
 					: `There are ~${L.n(countNow, 'active node', 'active nodes')},
-						${countInc} during the last day`
-			}${' '}
-				<span class="dim small">${
-					lang === 'ru'
+						${countInc} during the last day`}${' '}
+				<span class="dim small"
+					>${lang === 'ru'
 						? `(живыми считаются ноды, к которым удалось подключиться за последние 24 часа)`
-						: `(node is considered active if it was reachable within the last 24 hours)`
-				}</span>
+						: `(node is considered active if it was reachable within the last 24 hours)`}</span
+				>
 			</p>
 			${note && html`<p class="dim small"><b>${noteDate.toISOString().substr(0, 10)}:</b> ${note}</p>`}
 			<div class="chart storj-tx-summary-chart">
 				<canvas class="main-canvas" ref=${this.canvasExt.setRef}></canvas>
 				<div class="legend">
-					<${LegendItem} color="${hoursColor(24)}">${L('24 h', 'ru', '24 ч')}</${LegendItem}>
-					<${LegendItem} color="${hoursColor(12)}">${L('8 h', 'ru', '8 ч')}</${LegendItem}>
-					<${LegendItem} color="${hoursColor(3)}">${L('30 m', 'ru', '30 м')}</${LegendItem}>
+					<${LegendItem} color="${hoursColor(24)}" text=${L('24 h', 'ru', '24 ч')} />
+					<${LegendItem} color="${hoursColor(12)}" text=${L('8 h', 'ru', '8 ч')} />
+					<${LegendItem} color="${hoursColor(3)}" text=${L('30 m', 'ru', '30 м')} />
 				</div>
 			</div>
 		`

@@ -1,23 +1,19 @@
-import { apiReq } from './api'
-import { L, lang } from './i18n'
-import {
-	PureComponent,
-	html,
-	onError,
-	bindHandlers,
-	zeroes,
-	getDefaultHashInterval,
-	getHashInterval,
-	watchHashInterval,
-	intervalIsDefault,
-} from './utils'
 import { createRef } from 'preact'
 
-import { TileMap } from './map/core/map'
-import { MapTileContainer } from './map/core/tile_container'
-import { MapTileLayer } from './map/core/tile_layer'
-import { MapControlLayer, MapControlHintLayer } from './map/core/control_layer'
-import { PointsLayer } from './map/points_layer'
+import { apiReq } from '../api'
+import { L, lang } from '../i18n'
+import { bindHandlers } from '../utils/elems'
+import { PureComponent } from '../utils/preact_compat'
+import { onError } from '../errors'
+import { html } from '../utils/htm'
+import { zeroes } from '../utils/arrays'
+import { intervalIsDefault, watchHashInterval } from '../utils/time'
+
+import { TileMap } from '../map/core/map'
+import { MapTileContainer } from '../map/core/tile_container'
+import { MapTileLayer } from '../map/core/tile_layer'
+import { MapControlLayer, MapControlHintLayer } from '../map/core/control_layer'
+import { PointsLayer } from '../map/points_layer'
 
 import './nodes_location_summary.css'
 
@@ -168,11 +164,16 @@ export class NodesLocationSummary extends PureComponent {
 	}
 
 	render(props, { intervalIsDefault }) {
-		return html`${!intervalIsDefault &&
+		return html`
+			<h2>${L('Nodes location', 'ru', 'Расположение нод')}</h2>
+			${!intervalIsDefault &&
 			html`<p class="warn">
 				${lang === 'ru'
 					? 'Для местоположений перемотка не работает. Пока.'
 					: 'Locations can not rewind. Yet.'}
-			</p>`}<${NodesLocationMap} /><${NodesSummary} />`
+			</p>`}
+			<${NodesLocationMap} />
+			<${NodesSummary} />
+		`
 	}
 }

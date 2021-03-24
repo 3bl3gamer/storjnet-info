@@ -1,3 +1,5 @@
+import { html } from './htm'
+
 export class CanvasExt {
 	constructor() {
 		this.canvas = null
@@ -480,4 +482,18 @@ export function roundedRect(rc, x, y, w, h, r) {
 	rc.moveTo(x + w - r, y + h)
 	roundedRectLeft(rc, x, y, h, r)
 	roundedRectRight(rc, x + w, y, h, r)
+}
+
+/**
+ * От нормального <${LegendItem}>children</${LegendItem}> ломает автоформатирование,
+ * в качестве фикса — свойство text.
+ */
+export function LegendItem({ color, textColor = null, text = null, children }) {
+	if (textColor === null) textColor = color
+	return html`
+		<div class="item" style="color: ${color}">
+			<div class="example" style="background-color: ${textColor}"></div>
+			${text || children}
+		</div>
+	`
 }

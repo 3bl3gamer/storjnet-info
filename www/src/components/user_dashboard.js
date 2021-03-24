@@ -1,7 +1,9 @@
-import { html, renderIfExists } from './utils'
-import { Provider, connect } from 'unistore/src/integrations/preact'
 import createStore from 'unistore'
-import { sortedNodes, UserNodesList } from './user_nodes'
+import { Provider, connect } from 'unistore/src/integrations/preact'
+
+import { html } from '../utils/htm'
+import { sortedNodes } from '../utils/nodes'
+import { UserNodesList } from './user_nodes'
 import { PingsChartsList } from './pings_chart'
 
 import './user_dashboard.css'
@@ -35,20 +37,18 @@ let nodesActions = {
 let UserNodesListS = connect('nodes', nodesActions)(UserNodesList)
 let PingsChartsListS = connect('nodes', nodesActions)(PingsChartsList)
 
-renderIfExists(
-	html`
+export function UserDashboardNodes() {
+	return html`
 		<${Provider} store=${store}>
 			<${UserNodesListS} />
 		<//>
-	`,
-	'.user-dashboard-nodes',
-)
+	`
+}
 
-renderIfExists(
-	html`
+export function UserDashboardPings() {
+	return html`
 		<${Provider} store=${store}>
 			<${PingsChartsListS} group="my" />
 		<//>
-	`,
-	'.user-dashboard-pings',
-)
+	`
+}

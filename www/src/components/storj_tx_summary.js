@@ -1,15 +1,4 @@
-import {
-	PureComponent,
-	html,
-	toISODateStringInterval,
-	onError,
-	bindHandlers,
-	delayedRedraw,
-	LegendItem,
-	watchHashInterval,
-	DAY_DURATION,
-} from './utils'
-import { apiReq } from './api'
+import { apiReq } from '../api'
 import {
 	CanvasExt,
 	RectCenter,
@@ -21,8 +10,14 @@ import {
 	getArrayMaxValue,
 	drawLabeledVScaleLeftLine,
 	roundRange,
-} from './chart_utils'
-import { L, lang } from './i18n'
+	LegendItem,
+} from '../utils/charts'
+import { onError } from '../errors'
+import { L, lang } from '../i18n'
+import { bindHandlers, delayedRedraw } from '../utils/elems'
+import { html } from '../utils/htm'
+import { PureComponent } from '../utils/preact_compat'
+import { DAY_DURATION, toISODateStringInterval, watchHashInterval } from '../utils/time'
 
 import './storj_tx_summary.css'
 
@@ -208,7 +203,7 @@ export class StorjTxSummary extends PureComponent {
 	}
 
 	render(props, { aggregated, isLogScale }) {
-		let infoElem = '...'
+		let infoElem = html`<p>...</p>`
 		if (aggregated) {
 			let total = Math.round(aggregated.payoutTotal)
 			let count = Math.round(aggregated.payoutsCount)
@@ -236,13 +231,14 @@ export class StorjTxSummary extends PureComponent {
 			`
 		}
 		return html`
+			<h2>${L('Payouts', 'ru', 'Выплаты')}</h2>
 			${infoElem}
 			<div class="chart storj-tx-summary-chart">
 				<canvas class="main-canvas" ref=${this.canvasExt.setRef}></canvas>
 				<div class="legend">
-					<${LegendItem} color="orange">${L('preparation', 'ru', 'подготовка')}</${LegendItem}>
-					<${LegendItem} color="green">${L('payouts', 'ru', 'выплаты')}</${LegendItem}>
-					<${LegendItem} color="purple">${L('withdrawals', 'ru', 'вывод')}</${LegendItem}>
+					<${LegendItem} color="orange" text=${L('preparation', 'ru', 'подготовка')} />
+					<${LegendItem} color="green" text=${L('payouts', 'ru', 'выплаты')} />
+					<${LegendItem} color="purple" text=${L('withdrawals', 'ru', 'вывод')} />
 					<div class="scale-mode-wrap">
 						${L('scale', 'ru', 'шкала')}:
 						<button class="${isLogScale ? '' : 'active'}" onClick=${this.onScaleModeClick}>
@@ -260,19 +256,17 @@ export class StorjTxSummary extends PureComponent {
 			</div>
 			<p class="dim small">
 				<b>${L('preparation', 'ru', 'подготовка')}</b>
-				${
-					lang == 'ru'
-						? " — входящие переводы в Storj'евый кошелёк выплат"
-						: ' — incoming transfers to Storj payout wallet(s)'
-				},${' '}
+				${lang == 'ru'
+					? " — входящие переводы в Storj'евый кошелёк выплат"
+					: ' — incoming transfers to Storj payout wallet(s)'},${' '}
 				<b>${L('payouts', 'ru', 'выплаты')}</b>
-				${lang == 'ru' ? ' — собственно выплаты операторам нод' : ' — actual payouts to Storj Node Operators'},${' '}
+				${lang == 'ru'
+					? ' — собственно выплаты операторам нод'
+					: ' — actual payouts to Storj Node Operators'},${' '}
 				<b>${L('withdrawals', 'ru', 'вывод')}</b>
-				${
-					lang == 'ru'
-						? ' — переводы токенов из кошельков SNO (в обменники или просто на другие адреса)'
-						: ' — token transfers from SNO wallets (to exchangers or just other addresses)'
-				}.
+				${lang == 'ru'
+					? ' — переводы токенов из кошельков SNO (в обменники или просто на другие адреса)'
+					: ' — token transfers from SNO wallets (to exchangers or just other addresses)'}.
 			</p>
 		`
 	}

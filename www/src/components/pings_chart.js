@@ -1,15 +1,6 @@
-import {
-	PureComponent,
-	bindHandlers,
-	html,
-	hoverSingle,
-	toISODateStringInterval,
-	onError,
-	delayedRedraw,
-	watchHashInterval,
-	DAY_DURATION,
-	intervalIsDefault,
-} from './utils'
+import { apiReq } from '../api'
+import { L } from '../i18n'
+import { onError } from '../errors'
 import {
 	CanvasExt,
 	RectCenter,
@@ -20,8 +11,12 @@ import {
 	RectTop,
 	roundedRect,
 	drawPingRegions,
-} from './chart_utils'
-import { apiReq } from './api'
+} from '../utils/charts'
+import { sortedNodes } from '../utils/nodes'
+import { DAY_DURATION, intervalIsDefault, toISODateStringInterval, watchHashInterval } from '../utils/time'
+import { PureComponent } from '../utils/preact_compat'
+import { bindHandlers, delayedRedraw, hoverSingle } from '../utils/elems'
+import { html } from '../utils/htm'
 
 import './pings_chart.css'
 
@@ -344,5 +339,37 @@ export class SatsPingsChartsList extends PureComponent {
 					<${PingsChart} key=${i + '|' + isLoaded} group="sat" node=${n} isPending=${!isLoaded} />
 				`,
 		)
+	}
+}
+
+export class SatsPingsCharts extends PureComponent {
+	constructor() {
+		super()
+		this.defaultSatNodes = []
+	}
+	componentDidMount() {
+		try {
+			let nodes = sortedNodes(JSON.parse(document.getElementById('sat_nodes_data').textContent))
+			this.defaultSatNodes = nodes
+		} catch (ex) {
+			// ¯\_(ツ)_/¯
+		}
+	}
+	render() {
+		return html`
+			<h2>${L('Satellites', 'ru', 'Сателлиты')}</h2>
+			<${SatsPingsChartsList} defaultSatNodes=${this.defaultSatNodes} />
+			<p class="dim small">
+				${L(
+					'Once a minute a connection is established with the satellites from a server near Paris, ' +
+						'elapsed time is saved. Timeout is 2 s. ' +
+						'Narrow red stripes are not a sign of offline: just for some reason a single response was not received.',
+					'ru',
+					'Раз в минуту с сателлитами устанавливается соединение из сервера под Парижем, ' +
+						'затраченное время сохраняется. Таймаут — 2 с. ' +
+						'Узкие красные полосы — не 100%-признак оффлайна: просто по какой-то причине не вернулся одиночный ответ.',
+				)}
+			</p>
+		`
 	}
 }

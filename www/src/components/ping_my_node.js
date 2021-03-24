@@ -1,11 +1,13 @@
-import { h } from 'preact'
-import { PureComponent, renderIfExists, html, bindHandlers, onError } from './utils'
+import { apiReq } from '../api'
+import { onError } from '../errors'
+import { L } from '../i18n'
+import { bindHandlers } from '../utils/elems'
+import { html } from '../utils/htm'
+import { PureComponent } from '../utils/preact_compat'
 
 import './ping_my_node.css'
-import { apiReq } from './api'
-import { L } from './i18n'
 
-class PingMyNodeModule extends PureComponent {
+export class PingMyNode extends PureComponent {
 	constructor() {
 		super()
 		let pingedNodes = []
@@ -160,5 +162,3 @@ class PingMyNodeModule extends PureComponent {
 		`
 	}
 }
-
-renderIfExists(h(PingMyNodeModule), '.module.ping-my-node')

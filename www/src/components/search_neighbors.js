@@ -1,7 +1,9 @@
-import { h } from 'preact'
-import { apiReq } from './api'
-import { L, lang, pluralize } from './i18n'
-import { bindHandlers, html, onError, PureComponent, renderIfExists } from './utils'
+import { apiReq } from '../api'
+import { onError } from '../errors'
+import { L, lang, pluralize } from '../i18n'
+import { bindHandlers } from '../utils/elems'
+import { html } from '../utils/htm'
+import { PureComponent } from '../utils/preact_compat'
 
 function findMeaningfulOctets(value) {
 	const m = value.trim().match(/^(\d+\.\d+\.\d+)(?:\.\d+(?:\/24)?)?$/)
@@ -49,7 +51,7 @@ function unexpectedErrText(err) {
 	return L(`Something went wrong`, 'ru', 'Что-то пошло не так') + ': ' + err
 }
 
-class SearchNeighbors extends PureComponent {
+export class SearchNeighbors extends PureComponent {
 	constructor() {
 		super()
 		this.state = { isLoading: false, logText: '', count: null }
@@ -164,9 +166,7 @@ class SearchNeighbors extends PureComponent {
 								</span>`
 						: html`<b>${L.n(count, 'node', 'nodes')}</b> ${pluralize(count, 'was', 'were')} found
 								in the subnet${' '}
-								<span class="dim">
-									reachable within the last 24 hours
-								</span>`
+								<span class="dim"> reachable within the last 24 hours </span>`
 				}
 			</p>
 			${logText && html`<pre>${logText}</pre>`}
@@ -182,5 +182,3 @@ class SearchNeighbors extends PureComponent {
 		`
 	}
 }
-
-renderIfExists(h(SearchNeighbors), '.module.search-neighbors')
