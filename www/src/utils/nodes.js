@@ -15,6 +15,14 @@ export function shortNodeID(name) {
 	return name.slice(0, 4) + '-' + name.slice(-2)
 }
 
+/**
+ * @param {string} addr
+ */
+export function withoutPort(addr) {
+	let index = addr.lastIndexOf(':')
+	return index === -1 ? addr : addr.slice(0, index)
+}
+
 export function PingModeDescription() {
 	return html`
 		<p>

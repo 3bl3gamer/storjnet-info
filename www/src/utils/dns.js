@@ -1,10 +1,21 @@
 import { onError } from '../errors'
 
+/**
+ * @param {string} value
+ */
 export function findMeaningfulOctets(value) {
 	const m = value.trim().match(/^(\d+\.\d+\.\d+)(?:\.\d+(?:\/24)?)?$/)
 	if (m === null) return null
 	if (m[1].split('.').some(x => parseInt(x) > 255)) return null
 	return m[1]
+}
+
+/**
+ * @param {string} value
+ */
+export function isIPv4(value) {
+	const m = value.trim().match(/^(\d+)\.(\d+)\.(\d+)\.(\d+)$/)
+	return m && m[1] < 256 && m[2] < 256 && m[3] < 256 && m[4] < 256
 }
 
 // https://www.iana.org/assignments/dns-parameters/dns-parameters.xhtml#dns-parameters-6
@@ -38,12 +49,24 @@ const RESOLVE_STATUS_NAMES_MAP = {
 	// 65535: Reserved, can be allocated by Standards Action
 }
 
+export class ResolveError extends Error {
+	constructor(message, response) {
+		super(message)
+		this.response = response
+	}
+	get messageLines() {
+		return [
+			'ResolveError: ' + this.message,
+			'Full response: ' + JSON.stringify(this.response, null, '  '),
+		]
+	}
+}
+
 /**
  * @param {string} name
- * @param {(...lines:string[]) => void} onLogLines
- * @returns {Promise<string>}
+ * @returns {Promise<string[]>}
  */
-export function resolveSubnet(name, onLogLines) {
+export function resolve(name) {
 	const nameEnc = encodeURIComponent(name)
 	const ct = encodeURIComponent('application/dns-json')
 	// https://developers.cloudflare.com/1.1.1.1/dns-over-https/json-format
@@ -52,28 +75,42 @@ export function resolveSubnet(name, onLogLines) {
 		.then(response => {
 			if (response.Status !== 0) {
 				const status = RESOLVE_STATUS_NAMES_MAP[response.Status] || 'Unknown Error'
-				onLogLines(
-					`Error: Can not resolve ${name}: ${status}`,
-					'Full response: ' + JSON.stringify(response, null, '  '),
-				)
-				return null
+				throw new ResolveError(`Can not resolve ${name}: ${status}`, response)
 			}
-			const ip = (response.Answer && response.Answer[0] && response.Answer[0].data) + ''
-			const subnet = findMeaningfulOctets(ip)
-			if (subnet === null) {
-				onLogLines(
-					`Error: Expected IPv4-addres in Answer[0].data, got ${ip}`,
-					'Full response: ' + JSON.stringify(response, null, '  '),
+			let ips = Array.isArray(response.Answer) ? response.Answer.map(x => x.data + '') : []
+			if (ips.length === 0 || !ips.every(isIPv4))
+				throw new ResolveError(
+					`Expected IPv4-addres in Answer[i].data, got ${JSON.stringify(ips)}`,
+					response,
 				)
-				return null
-			}
-			onLogLines(`resolved to [${response.Answer.map(x => x.data).join(', ')}], using ${subnet}.0`)
-			return subnet
+			return ips
 		})
-		.catch(err => {
+}
+
+function catchToLog(onLogLines) {
+	return err => {
+		if (err instanceof ResolveError) {
+			onLogLines(...err.messageLines)
+		} else {
 			onLogLines('Something went wrong: ' + err)
-			throw err
+		}
+		onError(err)
+		return null
+	}
+}
+
+/**
+ * @param {string} name
+ * @param {(...lines:string[]) => void} onLogLines
+ * @returns {Promise<string|null>}
+ */
+export function resolveOneOrNull(name, onLogLines) {
+	return resolve(name)
+		.then(ips => {
+			onLogLines(`resolved to [${ips.join(', ')}], using ${ips[0]}`)
+			return ips[0]
 		})
+		.catch(catchToLog)
 }
 
 /**
@@ -82,8 +119,11 @@ export function resolveSubnet(name, onLogLines) {
  * @returns {Promise<string|null>}
  */
 export function resolveSubnetOrNull(name, onLogLines) {
-	return resolveSubnet(name, onLogLines).catch(err => {
-		onError(err)
-		return null
-	})
+	return resolve(name)
+		.then(ips => {
+			const subnet = findMeaningfulOctets(ips[0])
+			onLogLines(`resolved to [${ips.join(', ')}], using ${subnet}.0`)
+			return subnet
+		})
+		.catch(catchToLog)
 }

@@ -1,21 +1,42 @@
+import { h } from 'preact'
+import { useCallback } from 'preact/hooks'
+
 import { apiReq } from '../api'
-import { L } from '../i18n'
+import { L, lang } from '../i18n'
 import { onError } from '../errors'
-import { PingModeDescription, shortNodeID, sortedNodes } from '../utils/nodes'
+import { PingModeDescription, shortNodeID, sortedNodes, withoutPort } from '../utils/nodes'
 import { bindHandlers } from '../utils/elems'
 import { PureComponent } from '../utils/preact_compat'
 import { html } from '../utils/htm'
+import { Help } from './help'
+import { isIPv4, resolve, ResolveError } from '../utils/dns'
+import { isPromise } from '../utils/types'
 
 import './user_nodes.css'
-import { Help } from './help'
-import { h } from 'preact'
+
+function HighlightedSubnet({ ip }) {
+	let index = ip.lastIndexOf('.')
+	return html`${ip.slice(0, index)}<span class="dim">${ip.slice(index)}</span>`
+}
+
+function NodeIPError({ error }) {
+	const content = useCallback(
+		() =>
+			html`<pre>${error instanceof ResolveError ? error.messageLines.join('\n') : error.message}</pre>`,
+		[error],
+	)
+	return html`
+		<${Help} contentFunc=${content} />
+		${error.message}
+	`
+}
 
 class UserNodeItem extends PureComponent {
 	constructor() {
 		super()
 		bindHandlers(this)
-		this.state = {}
 	}
+
 	onChange(e) {
 		let changed = { ...this.props.node }
 		changed[e.target.name] = e.target.value
@@ -24,7 +45,8 @@ class UserNodeItem extends PureComponent {
 	onRemoveClick(e) {
 		this.props.onRemove(this.props.node)
 	}
-	render({ node }, state) {
+
+	render({ node, resolvedIP }, state) {
 		const pingModes = [
 			['ping', 'ping'],
 			['dial', 'dial'],
@@ -61,6 +83,13 @@ class UserNodeItem extends PureComponent {
 							)}
 						</select>
 					</div>
+				</td>
+				<td class="node-ip">
+					${!resolvedIP || isPromise(resolvedIP)
+						? '…'
+						: resolvedIP instanceof Error //TODO ResolveError
+						? h(NodeIPError, { error: resolvedIP })
+						: h(HighlightedSubnet, { ip: resolvedIP })}
 				</td>
 				<!-- <td>1<span class="dim">/2</span></td> -->
 				<td>
@@ -127,18 +156,55 @@ function getPingModeHelpContent() {
 		<${PingModeDescription} />
 	`
 }
+function getResolvedIPHelpContent() {
+	return html`
+		<p>
+			${lang === 'ru'
+				? 'IP и подсеть. Если в качестве адреса ноды указано доменное имя, оно отрезолвится через '
+				: 'IP and subnet. If a domain name is used as the node address, it will be resolved via '}
+			<a href="https://developers.cloudflare.com/1.1.1.1/dns-over-https/json-format">cloudflare-dns</a>.
+		</p>
+	`
+}
 
 export class UserNodesList extends PureComponent {
 	constructor() {
 		super()
 		bindHandlers(this)
 		this.state = { nodeError: null, pendingNodes: {} }
+		this.resolvedAddrs = {}
 	}
 
 	sortedNodes() {
 		let nodes = this.props.nodes.filter(n => !(n.id in this.state.pendingNodes))
 		nodes = nodes.concat(Object.values(this.state.pendingNodes))
 		return sortedNodes(nodes)
+	}
+
+	resolveIfNeed(node) {
+		let address = withoutPort(node.address)
+
+		if (address in this.resolvedAddrs) return
+
+		if (isIPv4(address)) {
+			this.resolvedAddrs[address] = address
+			this.forceUpdate()
+			return
+		}
+
+		let promise = resolve(address)
+		this.resolvedAddrs[address] = promise
+		this.forceUpdate()
+		promise
+			.then(ips => {
+				this.resolvedAddrs[address] = ips[0]
+			})
+			.catch(err => {
+				this.resolvedAddrs[address] = err
+			})
+			.finally(() => {
+				this.forceUpdate()
+			})
 	}
 
 	setPendingNode(node) {
@@ -198,6 +264,13 @@ export class UserNodesList extends PureComponent {
 		this.delNode(node)
 	}
 
+	componentWillMount() {
+		for (const node of this.props.nodes) this.resolveIfNeed(node)
+	}
+	componentDidUpdate(prevProps) {
+		for (const node of this.props.nodes) this.resolveIfNeed(node)
+	}
+
 	render(props, { nodeError }) {
 		let nodes = this.sortedNodes()
 		return html`
@@ -213,6 +286,10 @@ export class UserNodesList extends PureComponent {
 								${L('Test', 'ru', 'Тест')}${' '}
 								<${Help} contentFunc=${getPingModeHelpContent} />
 							</td>
+							<td>
+								${L('Subnet', 'ru', 'Подсеть')}${' '}
+								<${Help} contentFunc=${getResolvedIPHelpContent} />
+							</td>
 							<!-- <td>${L('Neighbors', 'ru', 'Соседи')} <${Help} textFunc=${() =>
 								'asd'} /></td> -->
 							<td></td>
@@ -224,6 +301,7 @@ export class UserNodesList extends PureComponent {
 								<${UserNodeItem}
 									key=${n.id}
 									node=${n}
+									resolvedIP=${this.resolvedAddrs[withoutPort(n.address)]}
 									onChange=${this.onNodeChange}
 									onRemove=${this.onNodeRemove}
 								/>
