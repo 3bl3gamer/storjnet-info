@@ -12,7 +12,7 @@ import {
 	roundedRect,
 	drawPingRegions,
 } from '../utils/charts'
-import { sortedNodes } from '../utils/nodes'
+import { shortNodeID, sortedNodes } from '../utils/nodes'
 import { DAY_DURATION, intervalIsDefault, toISODateStringInterval, watchHashInterval } from '../utils/time'
 import { PureComponent } from '../utils/preact_compat'
 import { bindHandlers, delayedRedraw, hoverSingle } from '../utils/elems'
@@ -270,7 +270,7 @@ class PingsChart extends PureComponent {
 					style="width: ${zoom.boxWidth}px; transform: translateX(${zoom.boxX}px)"
 				></canvas>
 			`
-		let legend = group == 'sat' ? node.address.match(/^(.*?)(:7777)?$/)[1] : node.id
+		let legend = group == 'sat' ? node.address.match(/^(.*?)(:7777)?$/)[1] : shortNodeID(node.id)
 		return html`
 			<div class="chart pings-chart" ref=${this.hoverCtl.setRef}>
 				<canvas class="main-canvas" ref=${this.canvasExt.setRef}></canvas>

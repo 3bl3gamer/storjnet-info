@@ -3,6 +3,7 @@ import { onError } from '../errors'
 import { L } from '../i18n'
 import { bindHandlers } from '../utils/elems'
 import { html } from '../utils/htm'
+import { PingModeDescription } from '../utils/nodes'
 import { PureComponent } from '../utils/preact_compat'
 
 import './ping_my_node.css'
@@ -133,15 +134,7 @@ export class PingMyNode extends PureComponent {
 					`,
 				)}
 			</div>
-			<p>
-				<b>Dial</b> —
-				${L(' just try to connect to node.', 'ru', ' просто попытаться подключиться к ноде.')}
-			</p>
-			<p>
-				<b>Ping</b> —
-				${L(' connect and send ping. Will update', 'ru', ' подключиться и отправить пинг. Обновит')}
-				${' '}<code>Last Contact</code>.
-			</p>
+			<${PingModeDescription} />
 			<form class="node-ping-form">
 				<input
 					class="node-id-input"

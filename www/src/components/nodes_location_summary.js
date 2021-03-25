@@ -110,16 +110,16 @@ class NodesSummary extends PureComponent {
 	render(props, { stats }) {
 		const countriesCount = stats && stats.countriesCount
 
-		return html`<p>
-			<table>
-				<thead>
-					<tr>
-						<td>${L('Country', 'ru', 'Страна')}</td>
-						<td>${L('Nodes', 'ru', 'Кол-во')}</td>
-					</tr>
-				</thead>
-				${
-					stats === null
+		return html`
+			<div class="p-like">
+				<table class="underlined wide-padded">
+					<thead>
+						<tr>
+							<td>${L('Country', 'ru', 'Страна')}</td>
+							<td>${L('Nodes', 'ru', 'Кол-во')}</td>
+						</tr>
+					</thead>
+					${stats === null
 						? zeroes(10).map(
 								(_, i) => html`<tr>
 									<td class="dim">${L('loading...', 'ru', 'загрузка...')}</td>
@@ -132,18 +132,18 @@ class NodesSummary extends PureComponent {
 										<td>${item.country}</td>
 										<td>${item.count}</td>
 									</tr>`,
-						  )
-				}
-			</table>
-			<span class="dim small">
-				${L('top 10 countries by nodes number', 'ru', 'топ-10 стран по кол-ву нод')}
-			</span>
-		</p>
-		<p>${
-			lang === 'ru'
-				? `Ноды запущены как минимум в ${L.n(countriesCount, 'стране', 'странах', 'странах')}.`
-				: `Nodes are running in at least ${L.n(countriesCount, 'country', 'countries')}.`
-		}</p>`
+						  )}
+				</table>
+				<span class="dim small">
+					${L('top 10 countries by nodes number', 'ru', 'топ-10 стран по кол-ву нод')}
+				</span>
+			</div>
+			<p>
+				${lang === 'ru'
+					? `Ноды запущены как минимум в ${L.n(countriesCount, 'стране', 'странах', 'странах')}.`
+					: `Nodes are running in at least ${L.n(countriesCount, 'country', 'countries')}.`}
+			</p>
+		`
 	}
 }
 

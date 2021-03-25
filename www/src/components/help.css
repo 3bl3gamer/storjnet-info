@@ -1,0 +1,50 @@
+button.help {
+	background: #eee;
+	color: gray;
+	border: none;
+	border-radius: 50%;
+	width: 20px;
+	height: 20px;
+	padding: 0;
+	transition: background-color ease 0.1s, color ease 0.1s;
+}
+button.help:hover {
+	background: #ddd;
+	color: black;
+}
+
+.popup {
+	position: fixed;
+	display: flex;
+	flex-direction: column;
+	justify-content: space-around;
+	align-items: center;
+	width: 100%;
+	height: 100%;
+	background-color: rgba(0, 0, 0, 0.5);
+}
+.popup .popup-frame {
+	position: relative;
+	display: inline-block;
+	background-color: white;
+	border-radius: 2px;
+	max-width: min(800px, 90vw);
+	max-height: 90vh;
+}
+.popup .popup-close {
+	position: absolute;
+	top: 0;
+	right: 0;
+	background: none;
+	border: none;
+	transition: transform ease 0.1s;
+}
+.popup .popup-close:hover {
+	transform: scale(1.2);
+}
+.popup .popup-content {
+	padding: 3px 14px; /*10px 16px*/
+	box-sizing: border-box;
+	overflow-y: auto;
+	max-height: 100%;
+}

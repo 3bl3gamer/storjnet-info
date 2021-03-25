@@ -1,17 +1,20 @@
 import { apiReq } from '../api'
 import { L } from '../i18n'
 import { onError } from '../errors'
-import { sortedNodes } from '../utils/nodes'
+import { PingModeDescription, shortNodeID, sortedNodes } from '../utils/nodes'
 import { bindHandlers } from '../utils/elems'
 import { PureComponent } from '../utils/preact_compat'
 import { html } from '../utils/htm'
 
 import './user_nodes.css'
+import { Help } from './help'
+import { h } from 'preact'
 
 class UserNodeItem extends PureComponent {
 	constructor() {
 		super()
 		bindHandlers(this)
+		this.state = {}
 	}
 	onChange(e) {
 		let changed = { ...this.props.node }
@@ -28,17 +31,25 @@ class UserNodeItem extends PureComponent {
 			['off', L('off', 'ru', 'выкл')],
 		]
 		return html`
-			<div class="node ${node.isLoading ? 'loading' : ''}">
-				<div class="node-id">${node.id}</div>
-				<div class="node-params">
+			<tr class="node ${node.isLoading ? 'loading' : ''}">
+				<td><div class="node-status"></div></td>
+				<td>
+					<div class="node-id">
+						<span class="short">${shortNodeID(node.id)}</span>
+						<span class="full">${node.id}</span>
+					</div>
+				</td>
+				<td>
 					<input
 						class="node-address"
 						name="address"
 						value=${node.address}
 						onchange=${this.onChange}
 					/>
+				</td>
+				<td>
 					<div class="node-ping-mode">
-						${L('Uptime check', 'ru', 'Проверка аптайма')}:
+						<!-- ${L('Uptime check', 'ru', 'Проверка аптайма')}: -->
 						<select name="pingMode" onchange=${this.onChange}>
 							${pingModes.map(
 								([name, label]) =>
@@ -50,9 +61,12 @@ class UserNodeItem extends PureComponent {
 							)}
 						</select>
 					</div>
+				</td>
+				<!-- <td>1<span class="dim">/2</span></td> -->
+				<td>
 					<button class="node-remove-button" onclick=${this.onRemoveClick}>✕</button>
-				</div>
-			</div>
+				</td>
+			</tr>
 		`
 	}
 }
@@ -105,6 +119,13 @@ class NewUserNodeForm extends PureComponent {
 			</form>
 		`
 	}
+}
+
+function getPingModeHelpContent() {
+	return html`
+		<p>${L('Availability check (once a minute)', 'ru', 'Проверка доступности (раз в минуту).')}</p>
+		<${PingModeDescription} />
+	`
 }
 
 export class UserNodesList extends PureComponent {
@@ -182,17 +203,33 @@ export class UserNodesList extends PureComponent {
 		return html`
 			<div class="user-nodes-list">
 				${nodes.length == 0 && L('No nodes yet', 'ru', 'Нод нет')}
-				${nodes.map(
-					n =>
-						html`
-							<${UserNodeItem}
-								key=${n.id}
-								node=${n}
-								onChange=${this.onNodeChange}
-								onRemove=${this.onNodeRemove}
-							/>
-						`,
-				)}
+				<table class="user-nodes-table">
+					<thead>
+						<tr>
+							<td></td>
+							<td>${L('Node ID', 'ru', 'ID ноды')}</td>
+							<td>${L('Address', 'ru', 'Адрес')}</td>
+							<td>
+								${L('Test', 'ru', 'Тест')}${' '}
+								<${Help} contentFunc=${getPingModeHelpContent} />
+							</td>
+							<!-- <td>${L('Neighbors', 'ru', 'Соседи')} <${Help} textFunc=${() =>
+								'asd'} /></td> -->
+							<td></td>
+						</tr>
+					</thead>
+					${nodes.map(
+						n =>
+							html`
+								<${UserNodeItem}
+									key=${n.id}
+									node=${n}
+									onChange=${this.onNodeChange}
+									onRemove=${this.onNodeRemove}
+								/>
+							`,
+					)}
+				</table>
 				<${NewUserNodeForm} onNodeAdd=${this.onNodeAdd} />
 				${nodeError}
 			</div>

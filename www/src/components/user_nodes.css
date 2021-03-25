@@ -7,20 +7,35 @@
 	margin-bottom: 16px;
 }
 
+.user-nodes-list .user-nodes-table thead td {
+	border-bottom: 2px solid transparent;
+}
+
 .user-nodes-list .node {
 	/* border-bottom: 1px solid lightgray; */
 	margin-bottom: 8px;
 }
+.user-nodes-list .node td {
+	padding: 1px 5px;
+}
 
 .user-nodes-list .node .node-id {
-	text-overflow: ellipsis;
-	overflow: hidden;
+	position: relative;
+	white-space: nowrap;
 	font-weight: bold;
 	font-family: monospace;
 	font-size: 16px;
 }
-.user-nodes-list .node .node-id::before {
-	content: '';
+.user-nodes-list .node .node-id .full {
+	position: absolute;
+	left: 0;
+	top: 0;
+	background-color: rgba(255, 255, 255, 0.9);
+}
+.user-nodes-list .node .node-id:not(:hover) .full {
+	display: none;
+}
+.user-nodes-list .node .node-status {
 	display: inline-block;
 	width: 10px;
 	height: 10px;
@@ -30,29 +45,31 @@
 	box-sizing: border-box;
 	background-color: darkgray;
 }
-.user-nodes-list .node.status-ok .node-id::before {
+.user-nodes-list .node.status-ok .node-status {
 	background-color: green;
 }
-.user-nodes-list .node.status-warn .node-id::before {
+.user-nodes-list .node.status-warn .node-status {
 	background-color: yellow;
 	border: 1px solid lightgray;
 }
-.user-nodes-list .node.status-error .node-id::before {
+.user-nodes-list .node.status-error .node-status {
 	background-color: red;
 }
-.user-nodes-list .node.loading .node-id::before {
-	content: '⌛';
+.user-nodes-list .node.loading .node-status {
 	background-color: transparent;
 }
+.user-nodes-list .node.loading .node-status::after {
+	content: '⌛';
+}
 
-.user-nodes-list .node .node-params {
+/* .user-nodes-list .node .node-params {
 	display: flex;
 	flex-wrap: wrap;
 }
 
 .user-nodes-list .node .node-params > * {
 	margin: 2px 4px;
-}
+} */
 
 .user-nodes-list .node .node-remove-button {
 	color: darkred;

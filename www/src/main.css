@@ -37,12 +37,12 @@ thead {
 	text-align: center;
 }
 
-tr {
+table.underlined tr {
 	border-bottom: 1px solid lightgray;
 }
 
-td:not(:first-child) {
-	padding: 1px 15px;
+table.wide-padded td:not(:first-child) {
+	padding: 1px 0 1px 15px;
 	text-align: right;
 }
 
@@ -56,9 +56,13 @@ pre {
 	overflow: auto;
 }
 
-p, h2 {
+p, .p-like, h2 {
 	margin-left: 8px;
 	margin-right: 8px;
+}
+p, .p-like {
+	margin-top: 16px;
+	margin-bottom: 16px;
 }
 
 /* =================== */
