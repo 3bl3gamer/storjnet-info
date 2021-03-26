@@ -310,7 +310,7 @@ func StartHTTPServer(address string, env utils.Env) error {
 		}
 		bundleFPath = "/dist/" + bundleFPath
 		stylesFPath = "/dist/" + stylesFPath
-		router.ServeFiles("/dist/*filepath", http.Dir(distPath))
+		// router.ServeFiles("/dist/*filepath", http.Dir(distPath))
 	}
 	log.Info().Str("fpath", bundleFPath).Msg("bundle")
 	log.Info().Str("fpath", stylesFPath).Msg("styles")

@@ -43,8 +43,9 @@ function NodeIPError({ error }) {
 	`
 }
 
-/** @param {{counts:NeighborCounts}} props */
+/** @param {{counts:NeighborCounts|Promise<unknown>}} props */
 function NodeNeighbors({ counts }) {
+	if (isPromise(counts)) return '…'
 	if (!counts) return html`<span class="dim">${L('N/a', 'ru', 'Н/д')}</span>`
 	let status = counts.foreignNodesCount === 0 ? '' : 'warn'
 	return html`
@@ -62,7 +63,7 @@ function NodeNeighbors({ counts }) {
  * @prop {(node:UserNode) => void} onChange
  * @prop {(node:UserNode) => void} onRemove
  * @prop {undefined|Error|Promise<unknown>|string} resolvedIP
- * @prop {NeighborCounts} neighborCounts
+ * @prop {NeighborCounts|Promise<unknown>} neighborCounts
  * @extends {PureComponent<UNI_Props, {}>}
  */
 class UserNodeItem extends PureComponent {
@@ -244,7 +245,7 @@ function getNeighborsHelpContent() {
  * @typedef UNL_State
  * @prop {string|null} nodeError
  * @prop {Record<string, UserNode>} pendingNodes
- * @prop {Record<string, NeighborCounts>} neighborCounts
+ * @prop {Record<string, NeighborCounts|Promise<unknown>>} neighborCounts
  * @extends {PureComponent<UNL_Props, UNL_State>}
  */
 export class UserNodesList extends PureComponent {
@@ -352,7 +353,8 @@ export class UserNodesList extends PureComponent {
 				.map(x => this.resolvedAddrs[withoutPort(x.address)])
 				.filter(x => typeof x === 'string')
 			let myNodeIds = this.props.nodes.map(x => x.id)
-			apiReq('POST', '/api/neighbors', { data: { subnets, myNodeIds } }).then(res => {
+
+			let promise = apiReq('POST', '/api/neighbors', { data: { subnets, myNodeIds } }).then(res => {
 				let countsMap = {}
 				for (let item of res.counts) countsMap[item.subnet] = item
 				let neighborCounts = /** @type {Record<string, NeighborCounts>} */ ({})
@@ -365,6 +367,10 @@ export class UserNodesList extends PureComponent {
 				}
 				this.setState({ neighborCounts })
 			})
+
+			let neighborCounts = /** @type {Record<string, Promise<unknown>>} */ ({})
+			for (const node of this.props.nodes) neighborCounts[node.id] = promise
+			this.setState({ neighborCounts })
 		})
 	}
 	componentDidUpdate(prevProps) {

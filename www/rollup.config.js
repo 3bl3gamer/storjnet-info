@@ -1,30 +1,9 @@
 import nodeResolve from 'rollup-plugin-node-resolve'
 
-function mustImport(name) {
-	return import(name).catch(err => {
-		throw err
-	})
-}
-
-export default function (commandOptions) {
+export default async function (commandOptions) {
 	const isProd = process.env.NODE_ENV === 'production'
 
-	let devPlugins = []
-	if (!isProd)
-		devPlugins.push(
-			mustImport('rollup-plugin-serve').then(({ default: serve }) =>
-				serve({
-					contentBase: 'dist',
-					host: commandOptions.configHost || 'localhost',
-					port: commandOptions.configPort || '12345',
-				}),
-			),
-			mustImport('rollup-plugin-livereload').then(({ default: livereload }) =>
-				livereload({ verbose: true }),
-			),
-		)
-
-	return Promise.all(devPlugins).then(devPlugins => ({
+	return {
 		input: 'src/index.js',
 		output: {
 			format: 'esm',
@@ -33,13 +12,25 @@ export default function (commandOptions) {
 			sourcemap: true,
 		},
 		plugins: [
-			...devPlugins,
 			css({ output: `dist/bundle${isProd ? '.[hash]' : ''}.css` }),
 			// commonjs({}), //rollup-plugin-commonjs
 			nodeResolve({ mainFields: (isProd ? [] : ['source']).concat(['module', 'main']) }),
+			isProd && (await import('rollup-plugin-terser').then(({ terser }) => terser())),
+			!isProd &&
+				(await import('rollup-plugin-serve').then(({ default: serve }) =>
+					serve({
+						contentBase: 'dist',
+						host: commandOptions.configHost || 'localhost',
+						port: commandOptions.configPort || '12345',
+					}),
+				)),
+			!isProd &&
+				(await import('rollup-plugin-livereload').then(({ default: livereload }) => livereload())),
+			commandOptions['config-stats'] &&
+				(await import('rollup-plugin-visualizer').then(({ default: visualizer }) => visualizer())),
 		],
 		watch: { clearScreen: false },
-	}))
+	}
 }
 
 import { createFilter } from 'rollup-pluginutils'
