@@ -128,7 +128,7 @@ func startNodesPinger(db *pg.DB, userNodesInChan chan *core.UserNode, userNodesO
 				}
 				userNodesOutChan <- nodeWithErr
 
-				if atomic.AddInt64(&countTotal, 1)%1 == 0 {
+				if atomic.AddInt64(&countTotal, 1)%100 == 0 {
 					log.Info().
 						Int64("total", countTotal).Int64("ok", countOk).
 						Int64("err", countErrTotal).Int64("errDial", countErrDial).Int64("errPing", countErrPing).
@@ -223,8 +223,8 @@ func StartUpdater() error {
 
 	workers := []utils.Worker{
 		startOldPingNodesLoader(db, userNodesInChan, 16),
-		startNodesPinger(db, userNodesInChan, userNodesOutChan, 4),
-		startPingedNodesSaver(db, userNodesOutChan, 1),
+		startNodesPinger(db, userNodesInChan, userNodesOutChan, 16),
+		startPingedNodesSaver(db, userNodesOutChan, 8),
 	}
 	for {
 		for _, worker := range workers {
