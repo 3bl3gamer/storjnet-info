@@ -4,6 +4,9 @@
 	"description": "",
 	"main": "index.js",
 	"dependencies": {
+		"@babel/core": "^7.13.10",
+		"@rollup/plugin-babel": "^5.3.0",
+		"babel-plugin-htm": "^3.0.0",
 		"concat-with-sourcemaps": "^1.1.0",
 		"htm": "^3.0.4",
 		"preact": "^10.5.13",

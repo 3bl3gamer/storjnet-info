@@ -28,19 +28,35 @@ export default async function (commandOptions) {
 			// commonjs({}), //rollup-plugin-commonjs
 			// 'source' is first: trying to import original non-minified source
 			nodeResolve({ mainFields: ['source', 'module', 'main'] }),
-			isProd && (await import('rollup-plugin-terser').then(({ terser }) => terser())),
-			!isProd &&
-				(await import('rollup-plugin-serve').then(({ default: serve }) =>
-					serve({
-						contentBase: 'dist',
-						host: commandOptions.configHost || 'localhost',
-						port: commandOptions.configPort || '12345',
+			isProd &&
+				(await import('@rollup/plugin-babel')).babel({
+					babelHelpers: 'inline',
+					plugins: [
+						[
+							'babel-plugin-htm',
+							{
+								import: { module: 'preact', export: 'h' },
+								pragma: '_h',
+								useNativeSpread: true,
+							},
+						],
+					],
+				}),
+			isProd &&
+				(await import('rollup-plugin-terser').then(({ terser }) =>
+					terser({
+						format: { semicolons: false },
+						compress: { keep_fargs: false, ecma: 2020, passes: 2 },
 					}),
 				)),
 			!isProd &&
-				(await import('rollup-plugin-livereload').then(({ default: livereload }) => livereload())),
-			commandOptions['config-stats'] &&
-				(await import('rollup-plugin-visualizer').then(({ default: visualizer }) => visualizer())),
+				(await import('rollup-plugin-serve')).default({
+					contentBase: 'dist',
+					host: commandOptions.configHost || 'localhost',
+					port: commandOptions.configPort || '12345',
+				}),
+			!isProd && (await import('rollup-plugin-livereload')).default(),
+			commandOptions['config-stats'] && (await import('rollup-plugin-visualizer')).default(),
 		],
 		watch: { clearScreen: false },
 	}
