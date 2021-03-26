@@ -1,4 +1,3 @@
-import { h } from 'preact'
 import { useCallback } from 'preact/hooks'
 
 import { apiReq } from '../api'
@@ -20,11 +19,16 @@ import { isPromise } from '../utils/types'
 
 import './user_nodes.css'
 
+/** @typedef {{id:string, address:string, pingMode:'off'|'dial'|'ping', isLoading:boolean}} UserNode */
+/** @typedef {{foreignNodesCount:number, nodesTotal:number}} NeighborCounts */
+
+/** @param {{ip:string}} props */
 function HighlightedSubnet({ ip }) {
 	let index = ip.lastIndexOf('.')
 	return html`${ip.slice(0, index)}<span class="dim">${ip.slice(index)}</span>`
 }
 
+/** @param {{error:Error}} props */
 function NodeIPError({ error }) {
 	const content = useCallback(
 		() =>
@@ -39,6 +43,7 @@ function NodeIPError({ error }) {
 	`
 }
 
+/** @param {{counts:NeighborCounts}} props */
 function NodeNeighbors({ counts }) {
 	if (!counts) return html`<span class="dim">${L('N/a', 'ru', 'Н/д')}</span>`
 	let status = counts.foreignNodesCount === 0 ? '' : 'warn'
@@ -50,6 +55,16 @@ function NodeNeighbors({ counts }) {
 	`
 }
 
+/**
+ * @class
+ * @typedef UNI_Props
+ * @prop {UserNode} node
+ * @prop {(node:UserNode) => void} onChange
+ * @prop {(node:UserNode) => void} onRemove
+ * @prop {undefined|Error|Promise<unknown>|string} resolvedIP
+ * @prop {NeighborCounts} neighborCounts
+ * @extends {PureComponent<UNI_Props, {}>}
+ */
 class UserNodeItem extends PureComponent {
 	constructor() {
 		super()
@@ -65,6 +80,10 @@ class UserNodeItem extends PureComponent {
 		this.props.onRemove(this.props.node)
 	}
 
+	/**
+	 * @param {UNI_Props} props
+	 * @param {{}} state
+	 */
 	render({ node, resolvedIP, neighborCounts }, state) {
 		const pingModes = [
 			['ping', 'ping'],
@@ -107,8 +126,8 @@ class UserNodeItem extends PureComponent {
 					${!resolvedIP || isPromise(resolvedIP)
 						? '…'
 						: resolvedIP instanceof Error //TODO ResolveError
-						? h(NodeIPError, { error: resolvedIP })
-						: h(HighlightedSubnet, { ip: resolvedIP })}
+						? html`<${NodeIPError} error=${resolvedIP} />`
+						: html`<${HighlightedSubnet} ip=${resolvedIP} />`}
 				</td>
 				<td class="node-neighbors">
 					<${NodeNeighbors} counts=${neighborCounts} />
@@ -121,10 +140,19 @@ class UserNodeItem extends PureComponent {
 	}
 }
 
+/**
+ * @class
+ * @typedef NUNF_Props
+ * @prop {(node:UserNode) => void} onNodeAdd
+ * @typedef NUNF_State
+ * @prop {boolean} minimized
+ * @extends {PureComponent<NUNF_Props, NUNF_State>}
+ */
 class NewUserNodeForm extends PureComponent {
 	constructor() {
 		super()
 		bindHandlers(this)
+		/** @type {NUNF_State} */
 		this.state = { minimized: true }
 		this.ignoreSubmitsUntil = 0
 	}
@@ -132,20 +160,24 @@ class NewUserNodeForm extends PureComponent {
 		e.preventDefault()
 		if (Date.now() < this.ignoreSubmitsUntil) return
 
-		new FormData(e.target)
-			.get('nodes_data')
-			.split('\n')
+		let pingMode = /** @type {'off'} */ ('off')
+		let data = new FormData(e.target).get('nodes_data') + ''
+		data.split('\n')
 			.map(x => x.trim())
 			.filter(x => x != '')
 			.map(x => {
 				let [id, address] = x.split(/\s+/, 2)
-				return { id, address: address || '', pingMode: 'off' }
+				return { id, address: address || '', pingMode, isLoading: false }
 			})
 			.forEach(this.props.onNodeAdd)
 	}
 	onEnterForm(e) {
 		this.ignoreSubmitsUntil = Date.now() + 100
 	}
+	/**
+	 * @param {NUNF_Props} props
+	 * @param {NUNF_State} state
+	 */
 	render(props, { minimized }) {
 		return html`
 			<form
@@ -203,10 +235,23 @@ function getNeighborsHelpContent() {
 	`
 }
 
+/**
+ * @class
+ * @typedef UNL_Props
+ * @prop {UserNode[]} nodes
+ * @prop {(node:UserNode) => void} setNode
+ * @prop {(node:UserNode) => void} delNode
+ * @typedef UNL_State
+ * @prop {string|null} nodeError
+ * @prop {Record<string, UserNode>} pendingNodes
+ * @prop {Record<string, NeighborCounts>} neighborCounts
+ * @extends {PureComponent<UNL_Props, UNL_State>}
+ */
 export class UserNodesList extends PureComponent {
 	constructor() {
 		super()
 		bindHandlers(this)
+		/** @type {UNL_State} */
 		this.state = { nodeError: null, pendingNodes: {}, neighborCounts: {} }
 		this.resolvedAddrs = {}
 	}
@@ -310,7 +355,7 @@ export class UserNodesList extends PureComponent {
 			apiReq('POST', '/api/neighbors', { data: { subnets, myNodeIds } }).then(res => {
 				let countsMap = {}
 				for (let item of res.counts) countsMap[item.subnet] = item
-				let neighborCounts = {}
+				let neighborCounts = /** @type {Record<string, NeighborCounts>} */ ({})
 				for (const node of this.props.nodes) {
 					let addr = this.resolvedAddrs[withoutPort(node.address)]
 					if (typeof addr === 'string') {
@@ -326,6 +371,10 @@ export class UserNodesList extends PureComponent {
 		for (const node of this.props.nodes) this.resolveIfNeed(node)
 	}
 
+	/**
+	 * @param {UNL_Props} props
+	 * @param {UNL_State} state
+	 */
 	render(props, { nodeError, neighborCounts }) {
 		let nodes = this.sortedNodes()
 		return html`

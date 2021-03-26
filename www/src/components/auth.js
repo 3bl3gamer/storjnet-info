@@ -7,10 +7,18 @@ import { L } from '../i18n'
 
 import './auth.css'
 
+/**
+ * @class
+ * @typedef AF_State
+ * @prop {'register'|'login'} mode
+ * @prop {string|null} authError
+ * @extends {PureComponent<{}, AF_State>}
+ */
 export class AuthForm extends PureComponent {
 	constructor() {
 		super()
 		bindHandlers(this)
+		/** @type {AF_State} */
 		this.state = { mode: 'register', authError: null }
 	}
 
@@ -63,6 +71,10 @@ export class AuthForm extends PureComponent {
 		}
 	}
 
+	/**
+	 * @param {{}} props
+	 * @param {AF_State} state
+	 */
 	render(props, { mode, authError }) {
 		const regButType = mode == 'register' ? 'submit' : 'button'
 		const logButType = mode == 'login' ? 'submit' : 'button'

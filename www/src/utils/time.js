@@ -1,11 +1,13 @@
 export const DAY_DURATION = 24 * 3600 * 1000
 
+/** @param {Date|number} date */
 export function startOfMonth(date) {
 	let newDate = new Date(date)
 	newDate.setUTCHours(0, 0, 0, 0)
 	newDate.setUTCDate(1)
 	return newDate
 }
+/** @param {Date|number} date */
 export function endOfMonth(date) {
 	date = startOfMonth(date)
 	date.setUTCMonth(date.getUTCMonth() + 1)
@@ -13,14 +15,20 @@ export function endOfMonth(date) {
 	return date
 }
 
+/** @param {Date} date */
 export function toISODateString(date) {
 	return date.toISOString().substr(0, 10)
 }
 
+/** @param {{startDate:Date, endDate:Date}} date */
 export function toISODateStringInterval({ startDate, endDate }) {
 	return { startDateStr: toISODateString(startDate), endDateStr: toISODateString(endDate) }
 }
 
+/**
+ * @param {string|null} str
+ * @param {boolean} [isEnd]
+ */
 function parseHashIntervalDate(str, isEnd) {
 	if (!str) return null
 	let m = str.trim().match(/^(\d{4})-(\d\d?)(?:-(\d\d?))?$/)
@@ -36,6 +44,10 @@ function parseHashIntervalDate(str, isEnd) {
 	}
 	return res
 }
+/**
+ * @param {Date} date
+ * @param {boolean} [isEnd]
+ */
 function formatHashIntervalDate(date, isEnd) {
 	let canTrimDate =
 		(!isEnd && date.getTime() === startOfMonth(date).getTime()) ||
@@ -45,6 +57,7 @@ function formatHashIntervalDate(date, isEnd) {
 	return str + '-' + date.getUTCDate()
 }
 
+/** @returns {[Date, Date]} */
 export function getDefaultHashInterval() {
 	let now = new Date()
 	return [startOfMonth(now), endOfMonth(now)]
@@ -56,6 +69,7 @@ export function intervalIsDefault() {
 	return defStart.getTime() == curStart.getTime() && defEnd.getTime() == curEnd.getTime()
 }
 
+/** @returns {[Date, Date]} */
 export function getHashInterval() {
 	let hash = location.hash.substr(1)
 	let params = new URLSearchParams(hash)
@@ -69,6 +83,10 @@ export function getHashInterval() {
 	}
 }
 
+/**
+ * @param {Date} startDate
+ * @param {Date} endDate
+ */
 export function makeUpdatedHashInterval(startDate, endDate) {
 	let hash = location.hash.substr(1)
 	let params = new URLSearchParams(hash)
@@ -77,6 +95,9 @@ export function makeUpdatedHashInterval(startDate, endDate) {
 	return '#' + params.toString()
 }
 
+/**
+ * @param {(startDate:Date, endDate:Date) => void} onChange
+ */
 export function watchHashInterval(onChange) {
 	function listener() {
 		let [startDate, endDate] = getHashInterval()

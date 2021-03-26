@@ -16,7 +16,7 @@ class APIError extends Error {
  *
  * @param {'GET'|'POST'|'DELETE'} method
  * @param {string} path
- * @param {(Parameters<typeof fetch>[1] & {data:unknown})?} [params]
+ * @param {(Parameters<typeof fetch>[1] & {data?:Record<string,unknown>})?} [params]
  */
 export async function apiReq(method, path, params) {
 	params = params || {}

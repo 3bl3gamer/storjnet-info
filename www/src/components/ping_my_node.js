@@ -1,6 +1,5 @@
 import { apiReq } from '../api'
 import { onError } from '../errors'
-import { L } from '../i18n'
 import { bindHandlers } from '../utils/elems'
 import { html } from '../utils/htm'
 import { PingModeDescription } from '../utils/nodes'
@@ -8,6 +7,16 @@ import { PureComponent } from '../utils/preact_compat'
 
 import './ping_my_node.css'
 
+/** @typedef {{id:string, address:string}} PingNode */
+
+/**
+ * @class
+ * @typedef PMN_State
+ * @prop {string} logText
+ * @prop {PingNode[]} pingedNodes
+ * @prop {PingNode} curNode
+ * @extends {PureComponent<{}, PMN_State>}
+ */
 export class PingMyNode extends PureComponent {
 	constructor() {
 		super()
@@ -17,6 +26,7 @@ export class PingMyNode extends PureComponent {
 		} catch (ex) {
 			// ¯\_(ツ)_/¯
 		}
+		/** @type {PMN_State} */
 		this.state = { pingedNodes, curNode: { id: '', address: '' }, logText: '' }
 		this.pingAbortController = null
 		bindHandlers(this)
@@ -119,6 +129,10 @@ export class PingMyNode extends PureComponent {
 		localStorage.pingedNodes = JSON.stringify(this.state.pingedNodes)
 	}
 
+	/**
+	 * @param {{}} props
+	 * @param {PMN_State} state
+	 */
 	render(props, { pingedNodes, curNode, logText }) {
 		return html`
 			<div class="remembered-nodes-list">

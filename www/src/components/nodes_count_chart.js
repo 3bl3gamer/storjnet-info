@@ -111,7 +111,7 @@ export class NodesCountChart extends PureComponent {
 		let { startDate, endDate, data } = this.state
 		let { rc } = canvasExt
 
-		if (!canvasExt.created()) return
+		if (!canvasExt.created() || rc === null) return
 		canvasExt.resize()
 
 		rect.update(canvasExt.cssWidth, canvasExt.cssHeight)
@@ -129,12 +129,12 @@ export class NodesCountChart extends PureComponent {
 
 			const comeCol = 'rgba(0,200,0,0.25)'
 			const leftCol = 'rgba(255,0,0,0.18)'
-			drawDailyComeLeftBars(canvasExt, rect, barsView, come, left, comeCol, leftCol, '#CCC')
+			drawDailyComeLeftBars(rc, rect, barsView, come, left, comeCol, leftCol, '#CCC')
 
 			const step = 3600 * 1000
-			drawLineStepped(canvasExt, rect, view, counts.h24, start, step, hoursColor(24), true, false)
-			drawLineStepped(canvasExt, rect, view, counts.h8, start, step, hoursColor(12), true, false)
-			drawLineStepped(canvasExt, rect, view, counts.h05, start, step, hoursColor(3), true, false)
+			drawLineStepped(rc, rect, view, counts.h24, start, step, hoursColor(24), true, false)
+			drawLineStepped(rc, rect, view, counts.h8, start, step, hoursColor(12), true, false)
+			drawLineStepped(rc, rect, view, counts.h05, start, step, hoursColor(3), true, false)
 		}
 
 		const textCol = 'black'

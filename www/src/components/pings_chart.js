@@ -11,15 +11,22 @@ import {
 	RectTop,
 	roundedRect,
 	drawPingRegions,
+	PING_ERR,
+	PING_OK,
 } from '../utils/charts'
 import { shortNodeID, sortedNodes } from '../utils/nodes'
 import { DAY_DURATION, intervalIsDefault, toISODateStringInterval, watchHashInterval } from '../utils/time'
 import { PureComponent } from '../utils/preact_compat'
-import { bindHandlers, delayedRedraw, hoverSingle } from '../utils/elems'
+import { bindHandlers, delayedRedraw, getJSONContent, hoverSingle } from '../utils/elems'
 import { html } from '../utils/htm'
 
 import './pings_chart.css'
 
+/**
+ * @param {ArrayBuffer} buf
+ * @param {Date} startDate
+ * @param {Date} endDate
+ */
 function processPingsData(buf, startDate, endDate) {
 	let pings = new Uint16Array(buf)
 
@@ -64,6 +71,27 @@ function processPingsData(buf, startDate, endDate) {
 	}
 }
 
+/** @param {string} address */
+function cutOffDefaultSatPort(address) {
+	let m = address.match(/^(.*?)(:7777)?$/)
+	return m ? m[1] : address
+}
+
+/**
+ * @class
+ * @typedef PC_Props
+ * @prop {{id:string, address:string}} node
+ * @prop {'my'|'sat'} group
+ * @prop {boolean} isPending
+ * @typedef PC_State
+ * @prop {Date} startDate
+ * @prop {Date} endDate
+ * @prop {Uint16Array|null} pings
+ * @prop {Uint16Array|null} reducedPings
+ * @prop {number} reducedPingsN
+ * @prop {{isShown:boolean, cusorX:number, boxX:number, boxWidth:number, pos:number, isTouch:boolean}} zoom
+ * @extends {PureComponent<PC_Props, PC_State>}
+ */
 class PingsChart extends PureComponent {
 	constructor() {
 		super()
@@ -99,12 +127,14 @@ class PingsChart extends PureComponent {
 		})
 		this.stopWatchingHashInterval = watch.off
 
+		/** @type {PC_State} */
 		this.state = {
 			startDate: watch.startDate,
 			endDate: watch.endDate,
 			pings: null,
 			reducedPings: null,
-			zoom: { isShown: false, cusorX: null, boxX: null, boxWidth: null, pos: null, isTouch: false },
+			reducedPingsN: 0,
+			zoom: { isShown: false, cusorX: 0, boxX: 0, boxWidth: 0, pos: 0, isTouch: false },
 		}
 	}
 
@@ -145,10 +175,10 @@ class PingsChart extends PureComponent {
 
 	onRedraw() {
 		let { canvasExt, rect, view } = this
-		let { pings, startDate, endDate } = this.state
+		let { pings, reducedPings, reducedPingsN, startDate, endDate } = this.state
 		let { rc } = canvasExt
 
-		if (!canvasExt.created()) return
+		if (!canvasExt.created() || rc === null) return
 		canvasExt.resize()
 
 		canvasExt.clear()
@@ -162,20 +192,20 @@ class PingsChart extends PureComponent {
 		rc.fillStyle = '#EEE'
 		rc.fillRect(0, 0, rect.width, rect.top + rect.height)
 
-		if (pings != null) {
-			drawPingRegions(rc, rect, view, pings, +startDate, 60 * 1000, 2, 'limegreen', 0.5)
+		if (pings !== null && reducedPings !== null) {
+			drawPingRegions(rc, rect, view, pings, +startDate, 60 * 1000, PING_OK, 'limegreen', 0.5)
 
 			drawPingLine(
 				rc,
 				rect,
 				view,
-				this.state.reducedPings,
+				reducedPings,
 				+startDate,
-				60 * 1000 * this.state.reducedPingsN,
+				60 * 1000 * reducedPingsN,
 				'rgba(0,0,0,0.4)',
 			)
 
-			drawPingRegions(rc, rect, view, pings, +startDate, 60 * 1000, 1, 'red', 0.5)
+			drawPingRegions(rc, rect, view, pings, +startDate, 60 * 1000, PING_ERR, 'red', 0.5)
 		}
 
 		drawMonthDays(canvasExt, rect, view, { hLineColor: 'rgba(0,0,0,0.1)' })
@@ -200,14 +230,14 @@ class PingsChart extends PureComponent {
 		let { zoom, pings, startDate, endDate } = this.state
 		let { rc } = canvasExt
 
-		if (!canvasExt.created()) return
+		if (!canvasExt.created() || rc === null) return
 		canvasExt.resize()
 
 		rect.update(canvasExt.cssWidth, canvasExt.cssHeight)
 		labelsRect.update(canvasExt.cssWidth, canvasExt.cssHeight)
 
 		let timeW = 24 * 3600 * 1000
-		let stamp = +startDate + zoom.pos * (+endDate + DAY_DURATION - startDate)
+		let stamp = +startDate + zoom.pos * (+endDate + DAY_DURATION - startDate.getTime())
 		view.updateStamps(stamp - timeW, stamp + timeW)
 
 		canvasExt.clear()
@@ -260,6 +290,10 @@ class PingsChart extends PureComponent {
 		this.stopWatchingHashInterval()
 	}
 
+	/**
+	 * @param {PC_Props} props
+	 * @param {PC_State} state
+	 */
 	render({ node, group }, { zoom }) {
 		let zoomElem =
 			zoom.isShown &&
@@ -270,7 +304,7 @@ class PingsChart extends PureComponent {
 					style="width: ${zoom.boxWidth}px; transform: translateX(${zoom.boxX}px)"
 				></canvas>
 			`
-		let legend = group == 'sat' ? node.address.match(/^(.*?)(:7777)?$/)[1] : shortNodeID(node.id)
+		let legend = group == 'sat' ? cutOffDefaultSatPort(node.address) : shortNodeID(node.id)
 		return html`
 			<div class="chart pings-chart" ref=${this.hoverCtl.setRef}>
 				<canvas class="main-canvas" ref=${this.canvasExt.setRef}></canvas>
@@ -345,11 +379,11 @@ export class SatsPingsChartsList extends PureComponent {
 export class SatsPingsCharts extends PureComponent {
 	constructor() {
 		super()
-		this.defaultSatNodes = []
+		this.defaultSatNodes = /** @type {{id:string}[]} */ ([])
 	}
 	componentDidMount() {
 		try {
-			let nodes = sortedNodes(JSON.parse(document.getElementById('sat_nodes_data').textContent))
+			let nodes = sortedNodes(getJSONContent('sat_nodes_data'))
 			this.defaultSatNodes = nodes
 		} catch (ex) {
 			// ¯\_(ツ)_/¯

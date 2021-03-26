@@ -142,7 +142,7 @@ export class StorjTxSummary extends PureComponent {
 		let { arrays, startDate, endDate, isLogScale } = this.state
 		let { rc } = canvasExt
 
-		if (!canvasExt.created()) return
+		if (!canvasExt.created() || rc === null) return
 		canvasExt.resize()
 
 		rect.update(canvasExt.cssWidth, canvasExt.cssHeight)
@@ -158,11 +158,11 @@ export class StorjTxSummary extends PureComponent {
 			let func = isLogScale ? value2yLog : value2y
 			const { withdrawals, payouts, preparings } = arrays
 			rc.lineWidth = 1
-			drawLineStepped(canvasExt, rect, view, withdrawals, start, step, 'purple', true, true, func)
+			drawLineStepped(rc, rect, view, withdrawals, start, step, 'purple', true, true, func)
 			rc.lineWidth = 1.2
-			// drawLineStepped(canvasExt, rect, view, payoutCounts, start, step, 'black', true, true, func)
-			drawLineStepped(canvasExt, rect, view, payouts, start, step, 'green', true, true, func)
-			drawLineStepped(canvasExt, rect, view, preparings, start, step, 'orange', true, true, func)
+			// drawLineStepped(rc, rect, view, payoutCounts, start, step, 'black', true, true, func)
+			drawLineStepped(rc, rect, view, payouts, start, step, 'green', true, true, func)
+			drawLineStepped(rc, rect, view, preparings, start, step, 'orange', true, true, func)
 		}
 
 		let textCol = 'black'

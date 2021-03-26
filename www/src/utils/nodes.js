@@ -2,7 +2,8 @@ import { L, lang } from '../i18n'
 import { html } from './htm'
 
 /**
- * @param {{address:string}[]} nodes
+ * @template {{address:string}} T
+ * @param {T[]} nodes
  */
 export function sortedNodes(nodes) {
 	return nodes.sort((a, b) => a.address.localeCompare(b.address))

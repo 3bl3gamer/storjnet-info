@@ -1,9 +1,16 @@
+import { h } from 'preact'
 import { bindHandlers } from '../utils/elems'
 import { html } from '../utils/htm'
 import { createPortal, PureComponent } from '../utils/preact_compat'
 
 import './help.css'
 
+/**
+ * @class
+ * @typedef P_Props
+ * @prop {() => void} onClose
+ * @extends {PureComponent<P_Props, {}>}
+ */
 class Popup extends PureComponent {
 	constructor() {
 		super()
@@ -42,10 +49,19 @@ class Popup extends PureComponent {
 	}
 }
 
+/**
+ * @class
+ * @typedef H_Props
+ * @prop {() => import('preact').JSX.Element} contentFunc
+ * @typedef H_State
+ * @prop {boolean} isShown
+ * @extends {PureComponent<H_Props, {}>}
+ */
 export class Help extends PureComponent {
 	constructor() {
 		super()
 		bindHandlers(this)
+		/** @type {H_State} */
 		this.state = { isShown: false }
 	}
 
@@ -56,12 +72,16 @@ export class Help extends PureComponent {
 		this.setState({ isShown: false })
 	}
 
+	/**
+	 * @param {H_Props} props
+	 * @param {H_State} state
+	 */
 	render({ contentFunc }, { isShown }) {
 		return html`
 			<button class="help" onclick=${this.onClick}>?</button>
 			${isShown &&
 			createPortal(
-				html`<${Popup} onClose=${this.onPopupClose}>${contentFunc()}</${Popup}>`,
+				h(Popup, { onClose: this.onPopupClose }, contentFunc()), //
 				document.body,
 			)}
 		`

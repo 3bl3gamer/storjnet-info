@@ -15,7 +15,7 @@ export function findMeaningfulOctets(value) {
  */
 export function isIPv4(value) {
 	const m = value.trim().match(/^(\d+)\.(\d+)\.(\d+)\.(\d+)$/)
-	return m && m[1] < 256 && m[2] < 256 && m[3] < 256 && m[4] < 256
+	return m && +m[1] < 256 && +m[2] < 256 && +m[3] < 256 && +m[4] < 256
 }
 
 // https://www.iana.org/assignments/dns-parameters/dns-parameters.xhtml#dns-parameters-6
@@ -29,13 +29,11 @@ const RESOLVE_STATUS_NAMES_MAP = {
 	6: 'Name Exists when it should not',
 	7: 'RR Set Exists when it should not',
 	8: 'RR Set that should exist does not',
-	9: 'Server Not Authoritative for zone',
-	9: 'Not Authorized',
+	9: 'Server Not Authoritative for zone / Not Authorized',
 	10: 'Name not contained in zone',
 	11: 'DSO-TYPE Not Implemented',
 	// 12-15: Unassigned
-	16: 'Bad OPT Version',
-	16: 'TSIG Signature Failure',
+	16: 'Bad OPT Version / TSIG Signature Failure',
 	17: 'Key not recognized',
 	18: 'Signature out of time window',
 	19: 'Bad TKEY Mode',

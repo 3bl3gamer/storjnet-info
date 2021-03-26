@@ -2,7 +2,7 @@ import { h, render } from 'preact'
 
 export function renderIfExists(Comp, selector) {
 	let elem = document.querySelector(selector)
-	if (elem !== null) render(h(Comp), elem)
+	if (elem !== null) render(h(Comp, null), elem)
 }
 
 export function bindHandlers(comp) {
@@ -33,6 +33,13 @@ export function delayedRedraw(redrawFunc) {
 		redrawRequested = true
 		requestAnimationFrame(onRedraw)
 	}
+}
+
+/** @param {string} elemId */
+export function getJSONContent(elemId) {
+	let elem = document.getElementById(elemId)
+	if (elem === null) throw new Error(`elem #${elemId} not found`)
+	return JSON.parse(elem.textContent + '')
 }
 
 export function hoverSingle({ onHover, onLeave }) {

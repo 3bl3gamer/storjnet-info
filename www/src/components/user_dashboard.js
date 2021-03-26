@@ -1,16 +1,20 @@
 import createStore from 'unistore'
-import { Provider, connect } from 'unistore/src/integrations/preact'
+import { Provider, connect as connect_ } from 'unistore/src/integrations/preact'
 
 import { html } from '../utils/htm'
 import { sortedNodes } from '../utils/nodes'
 import { UserNodesList } from './user_nodes'
 import { PingsChartsList } from './pings_chart'
+import { getJSONContent } from '../utils/elems'
 
 import './user_dashboard.css'
 
+// fixig types. could import it just from unistore/preact, but will have to add rollup commonjs plugin
+const connect = /** @type {import('unistore/preact').connect} */ (/**@type {*}*/ (connect_))
+
 let nodes = []
 try {
-	nodes = sortedNodes(JSON.parse(document.getElementById('user_nodes_data').textContent))
+	nodes = sortedNodes(getJSONContent('user_nodes_data'))
 } catch (ex) {
 	// ¯\_(ツ)_/¯
 }

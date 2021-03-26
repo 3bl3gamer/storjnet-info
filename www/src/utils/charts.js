@@ -1,9 +1,13 @@
 import { html } from './htm'
 
+/** @typedef {{left:number, right:number, top:number, bottom:number, width:number, height:number}} Rect */
+
+/** @typedef {Array<number>|Int32Array|Float32Array} NumericArray */
+
 export class CanvasExt {
 	constructor() {
-		this.canvas = null
-		this.rc = null
+		this.canvas = /**@type {HTMLCanvasElement|null}*/ (null)
+		this.rc = /**@type {CanvasRenderingContext2D|null}*/ (null)
 		this.pixelRatio = 1
 		this.cssWidth = 0
 		this.cssHeight = 0
@@ -13,6 +17,7 @@ export class CanvasExt {
 		}
 	}
 	_setRealSize(w, h) {
+		if (this.canvas === null) return false
 		if (this.canvas.width == w && this.canvas.height == h) return false
 		this.canvas.width = w
 		this.canvas.height = h
@@ -22,6 +27,7 @@ export class CanvasExt {
 		return this.canvas !== null
 	}
 	resize() {
+		if (this.canvas === null) return false
 		let rect = this.canvas.getBoundingClientRect()
 		let { width: cssWidth, height: cssHeight } = rect
 		let dpr = window.devicePixelRatio
@@ -33,11 +39,13 @@ export class CanvasExt {
 		return this._setRealSize(width, height)
 	}
 	clear() {
+		if (this.canvas === null || this.rc === null) return
 		this.rc.clearRect(0, 0, this.canvas.width, this.canvas.height)
 	}
 }
 
 export class RectCenter {
+	/** @param {{left:number, right:number, top:number, bottom:number}} params */
 	constructor({ left, right, top, bottom }) {
 		this.left = left
 		this.right = right
@@ -47,6 +55,10 @@ export class RectCenter {
 		this.height = 0
 	}
 
+	/**
+	 * @param {number} outerWidth
+	 * @param {number} outerHeight
+	 */
 	update(outerWidth, outerHeight) {
 		this.width = outerWidth - this.left - this.right
 		this.height = outerHeight - this.top - this.bottom
@@ -54,6 +66,7 @@ export class RectCenter {
 }
 
 export class RectBottom {
+	/** @param {{left:number, right:number, bottom:number, height:number}} params */
 	constructor({ left, right, bottom, height }) {
 		this.left = left
 		this.right = right
@@ -63,6 +76,10 @@ export class RectBottom {
 		this.height = height
 	}
 
+	/**
+	 * @param {number} outerWidth
+	 * @param {number} outerHeight
+	 */
 	update(outerWidth, outerHeight) {
 		this.width = outerWidth - this.left - this.right
 		this.top = outerHeight - this.bottom - this.height
@@ -70,6 +87,7 @@ export class RectBottom {
 }
 
 export class RectTop {
+	/** @param {{left:number, right:number, top:number, height:number}} params */
 	constructor({ left, right, top, height }) {
 		this.left = left
 		this.right = right
@@ -79,6 +97,10 @@ export class RectTop {
 		this.height = height
 	}
 
+	/**
+	 * @param {number} outerWidth
+	 * @param {number} outerHeight
+	 */
 	update(outerWidth, outerHeight) {
 		this.width = outerWidth - this.left - this.right
 		this.bottom = outerHeight - this.top - this.height
@@ -86,6 +108,7 @@ export class RectTop {
 }
 
 export class View {
+	/** @param {{startStamp:number, endStamp:number, bottomValue:number, topValue:number}} params */
 	constructor({ startStamp, endStamp, bottomValue, topValue }) {
 		this.startStamp = startStamp
 		this.endStamp = endStamp
@@ -95,12 +118,20 @@ export class View {
 		this.height = this.topValue - this.bottomValue
 	}
 
+	/**
+	 * @param {number} startStamp
+	 * @param {number} endStamp
+	 */
 	updateStamps(startStamp, endStamp) {
 		this.startStamp = startStamp
 		this.endStamp = endStamp
 		this.duration = this.endStamp - this.startStamp
 	}
 
+	/**
+	 * @param {number} bottomValue
+	 * @param {number} topValue
+	 */
 	updateLimits(bottomValue, topValue) {
 		this.bottomValue = bottomValue
 		this.topValue = topValue
@@ -108,38 +139,83 @@ export class View {
 	}
 }
 
+/**
+ * @param {NumericArray} arr
+ * @param {number} [initialValue=Infinity]
+ * @param {boolean} [skipZero=false]
+ */
 export function getArrayMinValue(arr, initialValue = Infinity, skipZero = false) {
 	let val = initialValue
 	for (let i = 0; i < arr.length; i++) if (val > arr[i] && (!skipZero || arr[i] !== 0)) val = arr[i]
 	return val
 }
 
+/**
+ * @param {NumericArray} arr
+ * @param {number} [initialValue=Infinity]
+ */
 export function getArrayMaxValue(arr, initialValue = -Infinity) {
 	let val = initialValue
 	for (let i = 0; i < arr.length; i++) if (val < arr[i]) val = arr[i]
 	return val
 }
 
+/**
+ * @param {number} bottomVal
+ * @param {number} topVal
+ * @param {number} [sigDigits=2]
+ * @returns {[number, number]}
+ */
 export function roundRange(bottomVal, topVal, sigDigits = 2) {
 	let k = Math.pow(10, Math.round(0.2 + Math.log10(topVal - bottomVal) - (sigDigits - 1)))
 	return [Math.floor(bottomVal / k) * k, Math.ceil(topVal / k) * k]
 }
 
+/**
+ * @param {Rect} rect
+ * @param {View} view
+ * @param {number|Date} stamp
+ */
 export function stamp2x(rect, view, stamp) {
-	return rect.left + ((stamp - view.startStamp) / view.duration) * rect.width
+	return rect.left + ((+stamp - view.startStamp) / view.duration) * rect.width
 }
+/**
+ * @param {Rect} rect
+ * @param {View} view
+ * @param {number} value
+ */
 export function value2y(rect, view, value) {
 	return rect.top + rect.height - ((value - view.bottomValue) / view.height) * rect.height
 }
+/**
+ * @param {Rect} rect
+ * @param {View} view
+ * @param {number} value
+ */
 export function value2yLog(rect, view, value) {
 	let maxLogVal = Math.log(view.height)
 	value = ((Math.log(1 + Math.abs(value)) * Math.sign(value)) / maxLogVal) * view.height
 	return rect.top + rect.height - ((value - view.bottomValue) / view.height) * rect.height
 }
+/** @param {number} value */
 export function signed(value) {
 	return (value >= 0 ? '+' : '') + value
 }
 
+export const PING_UNDEF = 0
+export const PING_ERR = 1
+export const PING_OK = 2
+/** @typedef {typeof PING_OK | typeof PING_ERR | typeof PING_UNDEF} PingKind */
+
+/**
+ * @param {CanvasRenderingContext2D} rc
+ * @param {Rect} rect
+ * @param {View} view
+ * @param {Uint16Array} pings
+ * @param {number} startStamp
+ * @param {number} itemWidth
+ * @param {string} color
+ */
 export function drawPingLine(rc, rect, view, pings, startStamp, itemWidth, color) {
 	let iFrom = Math.max(0, Math.floor((view.startStamp - startStamp) / itemWidth))
 	let iTo = Math.min(pings.length, Math.ceil((view.endStamp - startStamp) / itemWidth))
@@ -168,6 +244,15 @@ export function drawPingLine(rc, rect, view, pings, startStamp, itemWidth, color
 	rc.stroke()
 }
 
+/**
+ * @param {Rect} rect
+ * @param {View} view
+ * @param {Uint16Array} pings
+ * @param {number} startStamp
+ * @param {number} itemWidth
+ * @param {PingKind} needKind
+ * @param {(prevX:number, x:number) => void} func
+ */
 export function forEachPingRegion(rect, view, pings, startStamp, itemWidth, needKind, func) {
 	let prevKind = null
 	let prevKindX = 0
@@ -195,6 +280,17 @@ export function forEachPingRegion(rect, view, pings, startStamp, itemWidth, need
 		func(prevKindX, lastX)
 	}
 }
+/**
+ * @param {CanvasRenderingContext2D} rc
+ * @param {Rect} rect
+ * @param {View} view
+ * @param {Uint16Array} pings
+ * @param {number} startStamp
+ * @param {number} itemWidth
+ * @param {PingKind} needKind
+ * @param {string} color
+ * @param {number} ext - extend region to left and right (in pixels)
+ */
 export function drawPingRegions(rc, rect, view, pings, startStamp, itemWidth, needKind, color, ext) {
 	rc.fillStyle = color
 	forEachPingRegion(rect, view, pings, startStamp, itemWidth, needKind, (xFrom, xTo) => {
@@ -202,8 +298,20 @@ export function drawPingRegions(rc, rect, view, pings, startStamp, itemWidth, ne
 	})
 }
 
+/**
+ * @param {CanvasRenderingContext2D} rc
+ * @param {Rect} rect
+ * @param {View} view
+ * @param {NumericArray} values
+ * @param {number} startStamp
+ * @param {number} itemWidth
+ * @param {string} color
+ * @param {boolean} [skipZero=false]
+ * @param {boolean} [joinZero=false]
+ * @param {(rect:Rect, view:View, value:number) => number} [yFunc=value2y]
+ */
 export function drawLineStepped(
-	canvasExt,
+	rc,
 	rect,
 	view,
 	values,
@@ -214,7 +322,6 @@ export function drawLineStepped(
 	joinZero = false,
 	yFunc = value2y,
 ) {
-	let rc = canvasExt.rc
 	rc.beginPath()
 	let started = false
 	let prevX = 0,
@@ -252,8 +359,18 @@ export function drawLineStepped(
 	rc.stroke()
 }
 
+/**
+ * @param {CanvasRenderingContext2D} rc
+ * @param {Rect} rect
+ * @param {View} view
+ * @param {NumericArray} comeValues
+ * @param {NumericArray} leftValues
+ * @param {string} comeColor
+ * @param {string} leftColor
+ * @param {string} textColor
+ */
 export function drawDailyComeLeftBars(
-	canvasExt,
+	rc,
 	rect,
 	view,
 	comeValues,
@@ -262,8 +379,6 @@ export function drawDailyComeLeftBars(
 	leftColor,
 	textColor,
 ) {
-	let rc = canvasExt.rc
-
 	let maxLabelWidth = 1
 	for (let i = 0; i < comeValues.length; i++) {
 		const width = Math.max(
@@ -316,6 +431,13 @@ export function drawDailyComeLeftBars(
 	}
 }
 
+/**
+ * @param {Date|number} startDate
+ * @param {Date|number} endDate
+ * @param {number} [step=1]
+ * @param {boolean} [utc=false]
+ * @returns {Generator<[number, Date, Date], void, void>}
+ */
 export function* iterateDays(startDate, endDate, step = 1, utc = false) {
 	if (step < 1) step = 1
 	startDate = new Date(startDate)
@@ -337,10 +459,17 @@ export function* iterateDays(startDate, endDate, step = 1, utc = false) {
 	}
 }
 
+/**
+ * @param {CanvasExt} canvasExt
+ * @param {Rect} rect
+ * @param {View} view
+ * @param {{textColor?:string, vLinesColor?:string|null, hLineColor?:string, textYShift?:number}} [params={}]
+ */
 export function drawMonthDays(canvasExt, rect, view, params = {}) {
 	let { textColor = 'black', vLinesColor = null, hLineColor = '#555', textYShift = 2 } = params
 
 	let rc = canvasExt.rc
+	if (rc === null) return
 	rc.fillStyle = 'black'
 	rc.textAlign = 'center'
 	rc.textBaseline = 'top'
@@ -368,7 +497,7 @@ export function drawMonthDays(canvasExt, rect, view, params = {}) {
 			rc.fillRect(x, y, 1, -rect.height)
 		}
 		rc.fillStyle = textColor
-		rc.fillText(dayDate.getDate(), x, y + textYShift)
+		rc.fillText(dayDate.getDate() + '', x, y + textYShift)
 	}
 
 	if (hLineColor !== null) {
@@ -376,11 +505,22 @@ export function drawMonthDays(canvasExt, rect, view, params = {}) {
 		rc.fillRect(rect.left, rect.top + rect.height - 0.5, rect.width, 1)
 	}
 }
+/**
+ * @param {CanvasExt} canvasExt
+ * @param {number} dateDrawFrom
+ * @param {number} dateDrawTo
+ * @param {Date} curDayDate
+ * @param {Date} nextDayDate
+ * @param {number} y
+ * @param {number} markHeight
+ * @param {string|null} markColor
+ */
 function drawHours(canvasExt, dateDrawFrom, dateDrawTo, curDayDate, nextDayDate, y, markHeight, markColor) {
 	let rc = canvasExt.rc
+	if (rc === null) return
 
 	let labelWidth = rc.measureText('12:00').width * 1.5
-	let dayWidth = (canvasExt.cssWidth * (nextDayDate - curDayDate)) / (dateDrawTo - dateDrawFrom)
+	let dayWidth = (canvasExt.cssWidth * (+nextDayDate - +curDayDate)) / (dateDrawTo - dateDrawFrom)
 	let maxLabels = dayWidth / labelWidth
 	let step = [1, 2, 3, 4, 6, 12].find(x => x > 24 / maxLabels)
 	if (step == null) return
@@ -391,7 +531,7 @@ function drawHours(canvasExt, dateDrawFrom, dateDrawTo, curDayDate, nextDayDate,
 		let curDate = new Date(curDayDate)
 		curDate.setHours(curDate.getHours() + hourNum)
 		if (curDate >= nextDayDate) break
-		let x = ((curDate - dateDrawFrom) / (dateDrawTo - dateDrawFrom)) * canvasExt.cssWidth
+		let x = ((curDate.getTime() - dateDrawFrom) / (dateDrawTo - dateDrawFrom)) * canvasExt.cssWidth
 		if (markColor !== null) {
 			rc.fillStyle = markColor
 			rc.fillRect(x, y - 2, 1, -markHeight)
@@ -402,6 +542,11 @@ function drawHours(canvasExt, dateDrawFrom, dateDrawTo, curDayDate, nextDayDate,
 	}
 }
 
+/**
+ * @param {number} bottomValue
+ * @param {number} topValue
+ * @param {number} roundN
+ */
 function roundLabelValues(bottomValue, topValue, roundN) {
 	let k = Math.pow(10, roundN)
 
@@ -431,6 +576,17 @@ function roundLabelValues(bottomValue, topValue, roundN) {
 	}
 	return [bottomValue, midValue, topValue]
 }
+/**
+ * @param {CanvasRenderingContext2D} rc
+ * @param {Rect} rect
+ * @param {View} view
+ * @param {number} value
+ * @param {string} textColor
+ * @param {string|null} lineColor
+ * @param {number} roundN
+ * @param {((value:number) => string)|null} [textFunc=null]
+ * @param {(rect:Rect, view:View, value:number) => number} [yFunc=value2y]
+ */
 export function drawLabeledVScaleLeftLine(
 	rc,
 	rect,
@@ -454,8 +610,15 @@ export function drawLabeledVScaleLeftLine(
 		rc.fillRect(rect.left, rect.top + lineY - 0.5, rect.width, 1)
 	}
 }
-export function drawVScalesLeft(canvasExt, rect, view, textColor, lineColor, textFunc = null) {
-	let rc = canvasExt.rc
+/**
+ * @param {CanvasRenderingContext2D} rc
+ * @param {Rect} rect
+ * @param {View} view
+ * @param {string} textColor
+ * @param {string} lineColor
+ * @param {((value:number) => string)|null} [textFunc=null]
+ */
+export function drawVScalesLeft(rc, rect, view, textColor, lineColor, textFunc = null) {
 	let roundN = Math.floor(Math.log10(view.topValue - view.bottomValue) - 1)
 	// let topOffset = (view.height / rect.height) * 11 //font height
 	let topOffset = 0 //Math.exp(Math.log(view.height) - (Math.log(view.height) / rect.height) * 11) //font height
@@ -466,18 +629,39 @@ export function drawVScalesLeft(canvasExt, rect, view, textColor, lineColor, tex
 		drawLabeledVScaleLeftLine(rc, rect, view, values[i], textColor, lineColor, roundN, textFunc, value2y)
 }
 
+/**
+ * @param {CanvasRenderingContext2D} rc
+ * @param {number} x
+ * @param {number} y
+ * @param {number} h
+ * @param {number} r
+ */
 export function roundedRectLeft(rc, x, y, h, r) {
 	rc.lineTo(x + r, y + h)
 	rc.arcTo(x, y + h, x, y + h - r, r)
 	rc.lineTo(x, y + y + r)
 	rc.arcTo(x, y, x + r, y, r)
 }
+/**
+ * @param {CanvasRenderingContext2D} rc
+ * @param {number} x
+ * @param {number} y
+ * @param {number} h
+ * @param {number} r
+ */
 export function roundedRectRight(rc, x, y, h, r) {
 	rc.lineTo(x - r, y)
 	rc.arcTo(x, y, x, y + r, r)
 	rc.lineTo(x, y + h - r)
 	rc.arcTo(x, y + h, x - r, y + h, r)
 }
+/**
+ * @param {CanvasRenderingContext2D} rc
+ * @param {number} x
+ * @param {number} y
+ * @param {number} h
+ * @param {number} r
+ */
 export function roundedRect(rc, x, y, w, h, r) {
 	rc.moveTo(x + w - r, y + h)
 	roundedRectLeft(rc, x, y, h, r)
@@ -485,8 +669,9 @@ export function roundedRect(rc, x, y, w, h, r) {
 }
 
 /**
- * От нормального <${LegendItem}>children</${LegendItem}> ломает автоформатирование,
+ * От нормального <${LegendItem}>children</${LegendItem}> ломается автоформатирование,
  * в качестве фикса — свойство text.
+ * @param {{color:string, textColor:string|null, text:string|null, children:import('preact').JSX.Element}} params
  */
 export function LegendItem({ color, textColor = null, text = null, children }) {
 	if (textColor === null) textColor = color

@@ -16,7 +16,6 @@ window.addEventListener('unhandledrejection', e => {
 /**
  * @param {string} message
  * @param {Error} [error]
- * @param {boolean} [silent]
  */
 export function sendError(message, error) {
 	const stack = error && error.stack

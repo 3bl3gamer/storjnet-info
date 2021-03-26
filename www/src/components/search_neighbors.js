@@ -15,9 +15,18 @@ function unexpectedErrText(err) {
 	return L(`Something went wrong`, 'ru', 'Что-то пошло не так') + ': ' + err
 }
 
+/**
+ * @class
+ * @typedef SN_State
+ * @prop {boolean} isLoading
+ * @prop {string} logText
+ * @prop {number|null} count
+ * @extends {PureComponent<{}, SN_State>}
+ */
 export class SearchNeighbors extends PureComponent {
 	constructor() {
 		super()
+		/** @type {SN_State} */
 		this.state = { isLoading: false, logText: '', count: null }
 		this.abortController = null
 		bindHandlers(this)
@@ -33,7 +42,7 @@ export class SearchNeighbors extends PureComponent {
 
 	async onSubmit(e) {
 		e.preventDefault()
-		const address = (new FormData(e.target).get('address') || '').trim()
+		const address = (new FormData(e.target).get('address') + '').trim()
 		if (address === '') return
 
 		this.setState({ isLoading: true, logText: '', count: null })
