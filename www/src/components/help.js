@@ -1,89 +1,100 @@
 import { h } from 'preact'
-import { bindHandlers } from 'src/utils/elems'
+import { useCallback, useLayoutEffect, useState } from 'preact/hooks'
 import { html } from 'src/utils/htm'
-import { createPortal, PureComponent } from 'src/utils/preact_compat'
+import { createPortal } from 'src/utils/preact_compat'
 
 import './help.css'
 
 /**
- * @class
- * @typedef P_Props
- * @prop {() => void} onClose
- * @extends {PureComponent<P_Props, {}>}
+ * @param {{
+ *   onClose(): void,
+ *   children:import('preact').JSX.Element
+ * }} props
  */
-class Popup extends PureComponent {
-	constructor() {
-		super()
-		bindHandlers(this)
-	}
+export function Popup({ onClose, children }) {
+	const onKeyDown = useCallback(
+		e => {
+			if (e.key === 'Escape') {
+				e.preventDefault()
+				onClose()
+			}
+		},
+		[onClose],
+	)
+	const onBackgroundClick = useCallback(
+		e => {
+			if (e.target.classList.contains('popup')) {
+				onClose()
+			}
+		},
+		[onClose],
+	)
 
-	componentDidMount() {
-		addEventListener('keydown', this.onKeyDown)
-	}
-	componentWillUnmount() {
-		removeEventListener('keydown', this.onKeyDown)
-	}
+	useLayoutEffect(() => {
+		addEventListener('keydown', onKeyDown)
+		return () => removeEventListener('keydown', onKeyDown)
+	}, [onKeyDown])
 
-	onKeyDown(e) {
-		if (e.key === 'Escape') {
-			e.preventDefault()
-			this.props.onClose()
-		}
-	}
-	onBackgroundClick(e) {
-		if (e.target.classList.contains('popup')) {
-			this.props.onClose()
-		}
-	}
-
-	render({ children, onClose }) {
-		return html`
-			<div class="popup" onclick=${this.onBackgroundClick}>
-				<div class="popup-frame">
-					<button class="popup-close" onclick=${onClose}>✕</button>
-					<div class="popup-content">${children}</div>
-				</div>
-				<div></div>
+	return html`
+		<div class="popup" onclick=${onBackgroundClick}>
+			<div class="popup-frame">
+				<button class="popup-close" onclick=${onClose}>✕</button>
+				<div class="popup-content">${children}</div>
 			</div>
-		`
-	}
+			<div>
+				<!-- this div moves popup-frame a bit upper -->
+			</div>
+		</div>
+	`
 }
 
 /**
- * @class
- * @typedef H_Props
- * @prop {() => import('preact').JSX.Element} contentFunc
- * @typedef H_State
- * @prop {boolean} isShown
- * @extends {PureComponent<H_Props, {}>}
+ * @param {{
+ *   contentFunc(): import('preact').JSX.Element,
+ * }} props
  */
-export class Help extends PureComponent {
-	constructor() {
-		super()
-		bindHandlers(this)
-		/** @type {H_State} */
-		this.state = { isShown: false }
-	}
+export function Help({ contentFunc }) {
+	const [isShown, setIsShown] = useState(false)
 
-	onClick() {
-		this.setState({ isShown: true })
-	}
-	onPopupClose() {
-		this.setState({ isShown: false })
-	}
+	const onClick = useCallback(() => {
+		setIsShown(true)
+	}, [setIsShown])
+	const onPopupClose = useCallback(() => {
+		setIsShown(false)
+	}, [setIsShown])
 
-	/**
-	 * @param {H_Props} props
-	 * @param {H_State} state
-	 */
-	render({ contentFunc }, { isShown }) {
-		return html`
-			<button class="help" onclick=${this.onClick}>?</button>
-			${isShown &&
-			createPortal(
-				h(Popup, { onClose: this.onPopupClose }, contentFunc()), //
-				document.body,
-			)}
-		`
-	}
+	return html`
+		<button class="help" onclick=${onClick}>?</button>
+		${isShown &&
+		createPortal(
+			h(Popup, { onClose: onPopupClose }, contentFunc()), //
+			document.body,
+		)}
+	`
+}
+
+/**
+ * @param {{
+ *   contentFunc(): import('preact').JSX.Element,
+ *   children:import('preact').JSX.Element
+ * }} props
+ */
+export function HelpLine({ contentFunc, children }) {
+	const [isShown, setIsShown] = useState(false)
+
+	const onClick = useCallback(() => {
+		setIsShown(true)
+	}, [setIsShown])
+	const onPopupClose = useCallback(() => {
+		setIsShown(false)
+	}, [setIsShown])
+
+	return html`
+		<button class="help-line" onclick=${onClick}>${children}</button>
+		${isShown &&
+		createPortal(
+			h(Popup, { onClose: onPopupClose }, contentFunc()), //
+			document.body,
+		)}
+	`
 }

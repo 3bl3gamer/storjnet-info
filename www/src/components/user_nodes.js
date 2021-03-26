@@ -13,7 +13,7 @@ import {
 import { bindHandlers } from 'src/utils/elems'
 import { PureComponent } from 'src/utils/preact_compat'
 import { html } from 'src/utils/htm'
-import { Help } from './help'
+import { Help, HelpLine } from './help'
 import { findMeaningfulOctets, isIPv4, resolve, ResolveError } from 'src/utils/dns'
 import { isPromise } from 'src/utils/types'
 
@@ -36,10 +36,9 @@ function NodeIPError({ error }) {
 		[error],
 	)
 	return html`
-		<span class="warn">
-			<${Help} contentFunc=${content} />
-			${error.message}
-		</span>
+		<${HelpLine} contentFunc=${content}>
+			<code class="warn">${error.message}</code>
+		<//>
 	`
 }
 
@@ -155,12 +154,9 @@ class NewUserNodeForm extends PureComponent {
 		bindHandlers(this)
 		/** @type {NUNF_State} */
 		this.state = { minimized: true }
-		this.ignoreSubmitsUntil = 0
 	}
 	onSubmit(e) {
 		e.preventDefault()
-		if (Date.now() < this.ignoreSubmitsUntil) return
-
 		let pingMode = /** @type {'off'} */ ('off')
 		let data = new FormData(e.target).get('nodes_data') + ''
 		data.split('\n')
@@ -172,8 +168,8 @@ class NewUserNodeForm extends PureComponent {
 			})
 			.forEach(this.props.onNodeAdd)
 	}
-	onEnterForm(e) {
-		this.ignoreSubmitsUntil = Date.now() + 100
+	onUnfoldClick() {
+		this.setState({ minimized: !this.state.minimized })
 	}
 	/**
 	 * @param {NUNF_Props} props
@@ -181,24 +177,22 @@ class NewUserNodeForm extends PureComponent {
 	 */
 	render(props, { minimized }) {
 		return html`
-			<form
-				class="node-add-form ${minimized ? 'minimized' : ''}"
-				onmouseenter=${this.onEnterForm}
-				onsubmit=${this.onSubmit}
-			>
-				<button type="button" class="unfold-button">➕</button>
-				<div class="unfolding-elems">
-					<button class="node-add-button">➕</button>
-					<textarea
-						class="nodes-data"
-						name="nodes_data"
-						placeholder=${L(
-							'<node id> <address>\n<node id> <address>\n...',
-							'ru',
-							'<айди ноды> <адрес>\n<айди ноды> <адрес>\n...',
-						)}
-					></textarea>
+			<form class="node-add-form ${minimized ? 'minimized' : ''}" onsubmit=${this.onSubmit}>
+				<div class="buttons-wrap">
+					<button class="submit-button">Ok</button>
+					<button type="button" class="unfold-button" onclick=${this.onUnfoldClick}>
+						${minimized ? '➕' : '⮟'}
+					</button>
 				</div>
+				<textarea
+					class="nodes-data"
+					name="nodes_data"
+					placeholder=${L(
+						'<node id> <address>\n<node id> <address>\n...',
+						'ru',
+						'<айди ноды> <адрес>\n<айди ноды> <адрес>\n...',
+					)}
+				></textarea>
 			</form>
 		`
 	}
@@ -384,46 +378,53 @@ export class UserNodesList extends PureComponent {
 	render(props, { nodeError, neighborCounts }) {
 		let nodes = this.sortedNodes()
 		return html`
-			<div class="user-nodes-list">
-				${nodes.length == 0 && L('No nodes yet', 'ru', 'Нод нет')}
-				<table class="user-nodes-table">
-					<thead>
-						<tr>
-							<td></td>
-							<td>${L('Node ID', 'ru', 'ID ноды')}</td>
-							<td>${L('Address', 'ru', 'Адрес')}</td>
-							<td>
-								${L('Test', 'ru', 'Тест')}${' '}
-								<${Help} contentFunc=${getPingModeHelpContent} />
-							</td>
-							<td>
-								${L('Subnet', 'ru', 'Подсеть')}${' '}
-								<${Help} contentFunc=${getResolvedIPHelpContent} />
-							</td>
-							<td>
-								${L('Neighbors', 'ru', 'Соседи')}${' '}
-								<${Help} contentFunc=${getNeighborsHelpContent} />
-							</td>
-							<td></td>
-						</tr>
-					</thead>
-					${nodes.map(
-						n =>
-							html`
-								<${UserNodeItem}
-									key=${n.id}
-									node=${n}
-									resolvedIP=${this.resolvedAddrs[withoutPort(n.address)]}
-									neighborCounts=${neighborCounts[n.id]}
-									onChange=${this.onNodeChange}
-									onRemove=${this.onNodeRemove}
-								/>
-							`,
-					)}
-				</table>
+			<div class="user-nodes-list-with-form">
+				<div class="user-nodes-list">
+					${nodes.length === 0 && L('No nodes yet', 'ru', 'Нод нет')}
+					${nodes.length > 0 &&
+					html`
+						<table class="user-nodes-table">
+							<thead>
+								<tr>
+									<td></td>
+									<td>${L('Node ID', 'ru', 'ID ноды')}</td>
+									<td>${L('Address', 'ru', 'Адрес')}</td>
+									<td>
+										${L('Test', 'ru', 'Тест')}${' '}
+										<${Help} contentFunc=${getPingModeHelpContent} />
+									</td>
+									<td>
+										${L('Subnet', 'ru', 'Подсеть')}${' '}
+										<${Help} contentFunc=${getResolvedIPHelpContent} />
+									</td>
+									<td>
+										<span style=${{ margin: '0 -21px 0 -8px' }}>
+											${L('Neighbors', 'ru', 'Соседи')}${' '}
+											<${Help} contentFunc=${getNeighborsHelpContent} />
+										</span>
+									</td>
+									<td></td>
+								</tr>
+							</thead>
+							${nodes.map(
+								n =>
+									html`
+										<${UserNodeItem}
+											key=${n.id}
+											node=${n}
+											resolvedIP=${this.resolvedAddrs[withoutPort(n.address)]}
+											neighborCounts=${neighborCounts[n.id]}
+											onChange=${this.onNodeChange}
+											onRemove=${this.onNodeRemove}
+										/>
+									`,
+							)}
+						</table>
+					`}
+				</div>
 				<${NewUserNodeForm} onNodeAdd=${this.onNodeAdd} />
-				${nodeError}
 			</div>
+			${nodeError !== null && html`<p class="warn">${nodeError}</p>`}
 		`
 	}
 }

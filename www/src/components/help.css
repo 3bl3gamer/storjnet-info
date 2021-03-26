@@ -13,6 +13,16 @@ button.help:hover {
 	color: black;
 }
 
+button.help-line {
+	background: none;
+	border: none;
+	padding: 0;
+	text-decoration: underline;
+	text-decoration-style: dashed;
+	font: inherit;
+	cursor: pointer;
+}
+
 .popup {
 	position: fixed;
 	display: flex;

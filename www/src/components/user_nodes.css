@@ -1,5 +1,6 @@
-.user-dashboard-nodes {
+.user-nodes-list-with-form {
 	position: relative;
+	margin-bottom: 16px;
 }
 
 .user-nodes-list {
@@ -8,7 +9,6 @@
 	max-width: 100%;
 	min-width: 32px;
 	min-height: 32px;
-	margin-bottom: 16px;
 	overflow-x: auto;
 }
 
@@ -93,17 +93,21 @@
 
 .node-add-form {
 	position: absolute;
+	display: flex;
 	left: 0;
-	bottom: 8px;
+	bottom: -5px;
 	box-shadow: 0 0 2px lightgray;
 	background-color: rgba(230, 230, 230, 0.8);
 	border-radius: 3px;
 	overflow: hidden;
 }
 
-.node-add-form .unfolding-elems {
+.node-add-form .buttons-wrap {
 	display: flex;
 	align-items: flex-end;
+	flex-direction: column;
+	justify-content: space-between;
+	align-items: stretch;
 }
 
 .node-add-form .nodes-data {
@@ -113,12 +117,15 @@
 	height: 64px;
 }
 
+.node-add-form.minimized .submit-button {
+	padding-left: 2px;
+	padding-right: 2px;
+}
+
 .node-add-form:not(:hover) {
 	opacity: 0.8;
 }
-.node-add-form:hover .unfold-button {
-	display: none;
-}
-.node-add-form:not(:hover) .unfolding-elems {
+.node-add-form.minimized .submit-button,
+.node-add-form.minimized .nodes-data {
 	display: none;
 }

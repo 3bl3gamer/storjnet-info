@@ -19,7 +19,7 @@ export class AuthForm extends PureComponent {
 		super()
 		bindHandlers(this)
 		/** @type {AF_State} */
-		this.state = { mode: 'register', authError: null }
+		this.state = { mode: 'login', authError: null }
 	}
 
 	register(form) {
