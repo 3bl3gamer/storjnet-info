@@ -12,9 +12,22 @@ export default async function (commandOptions) {
 			sourcemap: true,
 		},
 		plugins: [
+			{
+				name: 'root-import-src',
+				resolveId(importee, importer) {
+					if (importee.startsWith('src/')) {
+						// eslint-disable-next-line no-undef
+						let path = __dirname + '/' + importee
+						if (!path.endsWith('.js')) path += '.js'
+						return path
+					}
+					return null
+				},
+			},
 			css({ output: `dist/bundle${isProd ? '.[hash]' : ''}.css` }),
 			// commonjs({}), //rollup-plugin-commonjs
-			nodeResolve({ mainFields: (isProd ? [] : ['source']).concat(['module', 'main']) }),
+			// 'source' is first: trying to import original non-minified source
+			nodeResolve({ mainFields: ['source', 'module', 'main'] }),
 			isProd && (await import('rollup-plugin-terser').then(({ terser }) => terser())),
 			!isProd &&
 				(await import('rollup-plugin-serve').then(({ default: serve }) =>

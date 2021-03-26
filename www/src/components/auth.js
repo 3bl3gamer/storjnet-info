@@ -1,9 +1,9 @@
-import { PureComponent } from '../utils/preact_compat'
-import { onError } from '../errors'
-import { bindHandlers } from '../utils/elems'
-import { apiReq } from '../api'
-import { html } from '../utils/htm'
-import { L } from '../i18n'
+import { PureComponent } from 'src/utils/preact_compat'
+import { onError } from 'src/errors'
+import { bindHandlers } from 'src/utils/elems'
+import { apiReq } from 'src/api'
+import { html } from 'src/utils/htm'
+import { L } from 'src/i18n'
 
 import './auth.css'
 

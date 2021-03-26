@@ -1,9 +1,9 @@
-import { apiReq } from '../api'
-import { onError } from '../errors'
-import { bindHandlers } from '../utils/elems'
-import { html } from '../utils/htm'
-import { PingModeDescription } from '../utils/nodes'
-import { PureComponent } from '../utils/preact_compat'
+import { apiReq } from 'src/api'
+import { onError } from 'src/errors'
+import { bindHandlers } from 'src/utils/elems'
+import { html } from 'src/utils/htm'
+import { PingModeDescription } from 'src/utils/nodes'
+import { PureComponent } from 'src/utils/preact_compat'
 
 import './ping_my_node.css'
 

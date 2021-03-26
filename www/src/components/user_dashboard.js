@@ -1,11 +1,11 @@
 import createStore from 'unistore'
 import { Provider, connect as connect_ } from 'unistore/src/integrations/preact'
 
-import { html } from '../utils/htm'
-import { sortedNodes } from '../utils/nodes'
+import { html } from 'src/utils/htm'
+import { sortedNodes } from 'src/utils/nodes'
 import { UserNodesList } from './user_nodes'
 import { PingsChartsList } from './pings_chart'
-import { getJSONContent } from '../utils/elems'
+import { getJSONContent } from 'src/utils/elems'
 
 import './user_dashboard.css'
 

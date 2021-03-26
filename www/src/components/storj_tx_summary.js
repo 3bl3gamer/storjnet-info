@@ -1,4 +1,4 @@
-import { apiReq } from '../api'
+import { apiReq } from 'src/api'
 import {
 	CanvasExt,
 	RectCenter,
@@ -11,13 +11,13 @@ import {
 	drawLabeledVScaleLeftLine,
 	roundRange,
 	LegendItem,
-} from '../utils/charts'
-import { onError } from '../errors'
-import { L, lang } from '../i18n'
-import { bindHandlers, delayedRedraw } from '../utils/elems'
-import { html } from '../utils/htm'
-import { PureComponent } from '../utils/preact_compat'
-import { DAY_DURATION, toISODateStringInterval, watchHashInterval } from '../utils/time'
+} from 'src/utils/charts'
+import { onError } from 'src/errors'
+import { L, lang } from 'src/i18n'
+import { bindHandlers, delayedRedraw } from 'src/utils/elems'
+import { html } from 'src/utils/htm'
+import { PureComponent } from 'src/utils/preact_compat'
+import { DAY_DURATION, toISODateStringInterval, watchHashInterval } from 'src/utils/time'
 
 import './storj_tx_summary.css'
 

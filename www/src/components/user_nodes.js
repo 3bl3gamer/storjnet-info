@@ -1,21 +1,21 @@
 import { useCallback } from 'preact/hooks'
 
-import { apiReq } from '../api'
-import { L, lang } from '../i18n'
-import { onError } from '../errors'
+import { apiReq } from 'src/api'
+import { L, lang } from 'src/i18n'
+import { onError } from 'src/errors'
 import {
 	PingModeDescription,
 	shortNodeID,
 	sortedNodes,
 	SubnetNeighborsDescription,
 	withoutPort,
-} from '../utils/nodes'
-import { bindHandlers } from '../utils/elems'
-import { PureComponent } from '../utils/preact_compat'
-import { html } from '../utils/htm'
+} from 'src/utils/nodes'
+import { bindHandlers } from 'src/utils/elems'
+import { PureComponent } from 'src/utils/preact_compat'
+import { html } from 'src/utils/htm'
 import { Help } from './help'
-import { findMeaningfulOctets, isIPv4, resolve, ResolveError } from '../utils/dns'
-import { isPromise } from '../utils/types'
+import { findMeaningfulOctets, isIPv4, resolve, ResolveError } from 'src/utils/dns'
+import { isPromise } from 'src/utils/types'
 
 import './user_nodes.css'
 

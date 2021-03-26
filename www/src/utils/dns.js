@@ -1,4 +1,4 @@
-import { onError } from '../errors'
+import { onError } from 'src/errors'
 
 /**
  * @param {string} value

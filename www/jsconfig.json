@@ -6,13 +6,12 @@
 		"strictBindCallApply": true,
 		"strictPropertyInitialization": true,
 		"noImplicitThis": true,
-		"sourceMap": true,
 		"target": "es2020",
 		"module": "es2020",
 		// если module != commonjs, этот параметр съезжает на classic,
 		// и TS начинает видеть кучу ошибок типов в нодо_модулях
 		"moduleResolution": "node",
-		"baseUrl": "src",
+		"baseUrl": ".",
 	},
 	"exclude": ["node_modules", "dist"]
 }

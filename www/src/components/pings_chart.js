@@ -1,6 +1,6 @@
-import { apiReq } from '../api'
-import { L } from '../i18n'
-import { onError } from '../errors'
+import { apiReq } from 'src/api'
+import { L } from 'src/i18n'
+import { onError } from 'src/errors'
 import {
 	CanvasExt,
 	RectCenter,
@@ -13,12 +13,12 @@ import {
 	drawPingRegions,
 	PING_ERR,
 	PING_OK,
-} from '../utils/charts'
-import { shortNodeID, sortedNodes } from '../utils/nodes'
-import { DAY_DURATION, intervalIsDefault, toISODateStringInterval, watchHashInterval } from '../utils/time'
-import { PureComponent } from '../utils/preact_compat'
-import { bindHandlers, delayedRedraw, getJSONContent, hoverSingle } from '../utils/elems'
-import { html } from '../utils/htm'
+} from 'src/utils/charts'
+import { shortNodeID, sortedNodes } from 'src/utils/nodes'
+import { DAY_DURATION, intervalIsDefault, toISODateStringInterval, watchHashInterval } from 'src/utils/time'
+import { PureComponent } from 'src/utils/preact_compat'
+import { bindHandlers, delayedRedraw, getJSONContent, hoverSingle } from 'src/utils/elems'
+import { html } from 'src/utils/htm'
 
 import './pings_chart.css'
 

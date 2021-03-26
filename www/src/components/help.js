@@ -1,7 +1,7 @@
 import { h } from 'preact'
-import { bindHandlers } from '../utils/elems'
-import { html } from '../utils/htm'
-import { createPortal, PureComponent } from '../utils/preact_compat'
+import { bindHandlers } from 'src/utils/elems'
+import { html } from 'src/utils/htm'
+import { createPortal, PureComponent } from 'src/utils/preact_compat'
 
 import './help.css'
 

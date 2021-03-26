@@ -1,4 +1,4 @@
-import { L, lang } from '../i18n'
+import { L, lang } from 'src/i18n'
 import { html } from './htm'
 
 /**

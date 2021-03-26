@@ -1,6 +1,6 @@
-import { apiReq } from '../api'
-import { onError } from '../errors'
-import { L, lang } from '../i18n'
+import { apiReq } from 'src/api'
+import { onError } from 'src/errors'
+import { L, lang } from 'src/i18n'
 import {
 	View,
 	RectCenter,
@@ -14,11 +14,11 @@ import {
 	drawDailyComeLeftBars,
 	signed,
 	LegendItem,
-} from '../utils/charts'
-import { bindHandlers, delayedRedraw } from '../utils/elems'
-import { html } from '../utils/htm'
-import { PureComponent } from '../utils/preact_compat'
-import { DAY_DURATION, toISODateStringInterval, watchHashInterval } from '../utils/time'
+} from 'src/utils/charts'
+import { bindHandlers, delayedRedraw } from 'src/utils/elems'
+import { html } from 'src/utils/htm'
+import { PureComponent } from 'src/utils/preact_compat'
+import { DAY_DURATION, toISODateStringInterval, watchHashInterval } from 'src/utils/time'
 
 function hoursColor(hours) {
 	return 'hsl(240, 100%, ' + (50 + (1 - hours / 24) * 40) + '%)'
