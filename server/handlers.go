@@ -185,6 +185,40 @@ func HandleAPINeighbors(wr http.ResponseWriter, r *http.Request, ps httprouter.P
 	return map[string]interface{}{"count": count}, nil
 }
 
+func HandleAPINeighborsExt(wr http.ResponseWriter, r *http.Request, ps httprouter.Params) (interface{}, error) {
+	db := r.Context().Value(CtxKeyDB).(*pg.DB)
+	params := &struct {
+		Subnets   []string
+		MyNodeIDs []storj.NodeID
+	}{}
+	if jsonErr := unmarshalFromBody(r, params); jsonErr != nil {
+		return *jsonErr, nil
+	}
+
+	items := []*struct {
+		Subnet            string `json:"subnet"`
+		NodesTotal        int64  `json:"nodesTotal"`
+		ForeignNodesCount int64  `json:"foreignNodesCount"`
+	}{}
+	_, err := db.Query(&items, `
+		SELECT host(node_ip_subnet(ip_addr)) AS subnet,
+			count(*) AS nodes_total,
+			count(*) FILTER (WHERE NOT (id = ANY(?))) AS foreign_nodes_count
+		FROM nodes
+		WHERE node_ip_subnet(ip_addr) IN (SELECT node_ip_subnet(t) FROM unnest(ARRAY[?]::inet[]) AS t)
+		  AND updated_at > NOW() - INTERVAL '1 day'
+		GROUP BY node_ip_subnet(ip_addr)`, pg.Array(params.MyNodeIDs), pg.In(params.Subnets))
+	if err != nil {
+		if perr, ok := merry.Unwrap(err).(pg.Error); ok {
+			if strings.HasPrefix(perr.Field('M'), "invalid input syntax for type inet") {
+				return httputils.JsonError{Code: 400, Error: "WRONG_SUBNET_FORMAT"}, nil
+			}
+		}
+		return nil, merry.Wrap(err)
+	}
+	return map[string]interface{}{"counts": items}, nil
+}
+
 func HandleAPIRegister(wr http.ResponseWriter, r *http.Request, ps httprouter.Params) (interface{}, error) {
 	db := r.Context().Value(CtxKeyDB).(*pg.DB)
 	params := &struct {

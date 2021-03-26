@@ -1,4 +1,4 @@
-import { L } from '../i18n'
+import { L, lang } from '../i18n'
 import { html } from './htm'
 
 /**
@@ -31,13 +31,34 @@ export function PingModeDescription() {
 		</p>
 		<p>
 			<b>Ping</b> —
-			${L(
-				' connect and send ping (via Storj RPC). Will update',
-				'ru',
-				' подключиться и отправить пинг (через сторжевый RPC). Обновит',
-			)}
+			${lang === 'ru'
+				? ' подключиться и отправить пинг (через сторжевый RPC). Обновит'
+				: ' connect and send ping (via Storj RPC). Will update'}
 			${' '}<code>Last Contact</code>
 			${L(' in dashboard', 'ru', ' в дашборде')}.
+		</p>
+	`
+}
+
+export function SubnetNeighborsDescription() {
+	return html`
+		<p>
+			${L('Since traffic is ', 'ru', 'Т.к. трафик ')}
+			<a href="https://forum.storj.io/t/storage-nodes-on-the-same-subnet-different-public-ips/3476/3">
+				${lang === 'ru'
+					? 'делится между всеми нодами в /24-подсети'
+					: 'divided between all nodes in /24-subnet'}
+			</a>
+			${lang === 'ru'
+				? ', лучше разносить ноды по разным подсетям или хотя бы знать, что рядом кто-то делит трафик.'
+				: ", it's good to keep nodes on different subnets or at least know if someone is sharing traffic."}
+		</p>
+		<p>
+			${lang === 'ru'
+				? `Некоторые ноды (особенно новые) могут не учитываться. ` +
+				  `Если есть сомнения, лучше проверить свою подсеть вручную (например Nmap'ом).`
+				: 'Some nodes (especially new ones) may not be found. ' +
+				  'If in doubt, better check your subnet manually (e.g. with Nmap).'}
 		</p>
 	`
 }

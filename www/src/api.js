@@ -12,6 +12,12 @@ class APIError extends Error {
 	}
 }
 
+/**
+ *
+ * @param {'GET'|'POST'|'DELETE'} method
+ * @param {string} path
+ * @param {(Parameters<typeof fetch>[1] & {data:unknown})?} [params]
+ */
 export async function apiReq(method, path, params) {
 	params = params || {}
 	params.method = method

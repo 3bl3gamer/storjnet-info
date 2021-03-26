@@ -1,3 +1,7 @@
+.user-dashboard-nodes {
+	position: relative;
+}
+
 .user-nodes-list {
 	position: relative;
 	display: inline-block;
@@ -5,10 +9,12 @@
 	min-width: 32px;
 	min-height: 32px;
 	margin-bottom: 16px;
+	overflow-x: auto;
 }
 
 .user-nodes-list .user-nodes-table thead td {
 	border-bottom: 2px solid transparent;
+	white-space: nowrap;
 }
 
 .user-nodes-list .node {
@@ -62,20 +68,16 @@
 	content: '⌛';
 }
 
-/* .user-nodes-list .node .node-params {
-	display: flex;
-	flex-wrap: wrap;
-}
-
-.user-nodes-list .node .node-params > * {
-	margin: 2px 4px;
-} */
-
 .user-nodes-list .node .node-ip {
 	max-width: 196px;
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
+	text-align: center;
+}
+
+.user-nodes-list .node .node-neighbors {
+	text-align: center;
 }
 
 .user-nodes-list .node .node-remove-button {
@@ -89,34 +91,34 @@
 	opacity: 1;
 }
 
-.user-nodes-list .node-add-form {
+.node-add-form {
 	position: absolute;
 	left: 0;
-	bottom: -10px;
+	bottom: 8px;
 	box-shadow: 0 0 2px lightgray;
 	background-color: rgba(230, 230, 230, 0.8);
 	border-radius: 3px;
 	overflow: hidden;
 }
 
-.user-nodes-list .node-add-form .unfolding-elems {
+.node-add-form .unfolding-elems {
 	display: flex;
 	align-items: flex-end;
 }
 
-.user-nodes-list .node-add-form .nodes-data {
+.node-add-form .nodes-data {
 	margin: 2px;
 	width: 75vw;
 	max-width: 640px;
 	height: 64px;
 }
 
-.user-nodes-list .node-add-form:not(:hover) {
+.node-add-form:not(:hover) {
 	opacity: 0.8;
 }
-.user-nodes-list .node-add-form:hover .unfold-button {
+.node-add-form:hover .unfold-button {
 	display: none;
 }
-.user-nodes-list .node-add-form:not(:hover) .unfolding-elems {
+.node-add-form:not(:hover) .unfolding-elems {
 	display: none;
 }

@@ -4,6 +4,7 @@ import { L, lang, pluralize } from '../i18n'
 import { findMeaningfulOctets, resolveSubnetOrNull } from '../utils/dns'
 import { bindHandlers } from '../utils/elems'
 import { html } from '../utils/htm'
+import { SubnetNeighborsDescription } from '../utils/nodes'
 import { PureComponent } from '../utils/preact_compat'
 
 function logLine(msg) {
@@ -70,7 +71,7 @@ export class SearchNeighbors extends PureComponent {
 
 	render({}, { isLoading, logText, count }) {
 		return html`
-			<p>
+			<div class="p-like">
 				<form class="search-neighbors-form" onSubmit=${this.onSubmit}>
 					<input
 						class="address-input"
@@ -81,35 +82,24 @@ export class SearchNeighbors extends PureComponent {
 					/>${' '}
 					<input type="submit" value="OK" disabled=${isLoading} />
 				</form>
-			</p>
+			</div>
 			<p>
-				${
-					isLoading
-						? L('Loading…', 'ru', 'Загрузка…')
-						: count == null
-						? '\xA0' //nbsp
-						: lang === 'ru'
-						? html`В подсети ${pluralize(count, 'нашлась', 'нашлось', 'нашлось')}${' '}
-								<b>${L.n(count, 'нода', 'ноды', 'нод')}</b>${' '}
-								<span class="dim">
-									${pluralize(count, 'активная', 'активные', 'активных')} за последние 24
-									часа
-								</span>`
-						: html`<b>${L.n(count, 'node', 'nodes')}</b> ${pluralize(count, 'was', 'were')} found
-								in the subnet${' '}
-								<span class="dim"> reachable within the last 24 hours </span>`
-				}
+				${isLoading
+					? L('Loading…', 'ru', 'Загрузка…')
+					: count == null
+					? '\xA0' //nbsp
+					: lang === 'ru'
+					? html`В подсети ${pluralize(count, 'нашлась', 'нашлось', 'нашлось')}${' '}
+							<b>${L.n(count, 'нода', 'ноды', 'нод')}</b>${' '}
+							<span class="dim">
+								${pluralize(count, 'активная', 'активные', 'активных')} за последние 24 часа
+							</span>`
+					: html`<b>${L.n(count, 'node', 'nodes')}</b> ${pluralize(count, 'was', 'were')} found in
+							the subnet${' '} <span class="dim"> reachable within the last 24 hours </span>`}
 			</p>
 			${logText && html`<pre>${logText}</pre>`}
-			<p class="dim">
-				${
-					lang === 'ru'
-						? `Некоторые ноды (особенно новые) могут не учитываться. ` +
-						  `Если есть сомнения, лучше проверить свою подсеть вручную (например Nmap'ом).`
-						: 'Some nodes (especially new ones) may not be found. ' +
-						  'If in doubt, better check your subnet manually (e.g. with Nmap).'
-				}
-			</p>
+			<br />
+			<${SubnetNeighborsDescription} classes="dim" />
 		`
 	}
 }

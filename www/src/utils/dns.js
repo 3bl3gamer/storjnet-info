@@ -110,7 +110,7 @@ export function resolveOneOrNull(name, onLogLines) {
 			onLogLines(`resolved to [${ips.join(', ')}], using ${ips[0]}`)
 			return ips[0]
 		})
-		.catch(catchToLog)
+		.catch(catchToLog(onLogLines))
 }
 
 /**
@@ -125,5 +125,5 @@ export function resolveSubnetOrNull(name, onLogLines) {
 			onLogLines(`resolved to [${ips.join(', ')}], using ${subnet}.0`)
 			return subnet
 		})
-		.catch(catchToLog)
+		.catch(catchToLog(onLogLines))
 }
