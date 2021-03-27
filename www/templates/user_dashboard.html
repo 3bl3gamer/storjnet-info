@@ -6,7 +6,7 @@
 
 {{if .User}}
 
-<script id="user_nodes_data" type="application/json">{{.UserNodes}}</script>
+<script id="user_nodes_data" type="application/json">{"nodes":{{.UserNodes}}, "updateTime":{{.ServerTime}}}</script>
 <div class="user-dashboard-nodes"></div>
 <div class="user-dashboard-pings"></div>
 

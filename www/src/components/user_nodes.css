@@ -50,9 +50,13 @@
 	border-radius: 50%;
 	box-sizing: border-box;
 	background-color: darkgray;
+	transition: transform ease 0.1s;
+}
+.user-nodes-list .node .node-status:hover {
+	transform: scale(1.4, 1.4);
 }
 .user-nodes-list .node.status-ok .node-status {
-	background-color: green;
+	background-color: limegreen;
 }
 .user-nodes-list .node.status-warn .node-status {
 	background-color: yellow;

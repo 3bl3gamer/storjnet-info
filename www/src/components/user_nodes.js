@@ -1,7 +1,7 @@
 import { useCallback } from 'preact/hooks'
 
 import { apiReq } from 'src/api'
-import { L, lang } from 'src/i18n'
+import { ago, L, lang, stringifyDuration } from 'src/i18n'
 import { onError } from 'src/errors'
 import {
 	PingModeDescription,
@@ -19,8 +19,26 @@ import { isPromise } from 'src/utils/types'
 
 import './user_nodes.css'
 
-/** @typedef {{id:string, address:string, pingMode:'off'|'dial'|'ping', isLoading:boolean}} UserNode */
+/** @typedef {{
+ *   id: string,
+ *   address: string,
+ *   pingMode: 'off'|'dial'|'ping',
+ *   lastPingedAt: Date,
+ *   lastUpAt: Date,
+ *   lastPing: number,
+ *   isLoading?: boolean
+ * }} UserNode */
 /** @typedef {{foreignNodesCount:number, nodesTotal:number}} NeighborCounts */
+
+/** @type {UserNode} */
+const BLANK_NODE = {
+	id: '',
+	address: '',
+	pingMode: 'off',
+	lastPingedAt: new Date(0),
+	lastUpAt: new Date(0),
+	lastPing: 0,
+}
 
 /** @param {{ip:string}} props */
 function HighlightedSubnet({ ip }) {
@@ -59,6 +77,7 @@ function NodeNeighbors({ counts }) {
  * @class
  * @typedef UNI_Props
  * @prop {UserNode} node
+ * @prop {Date} nodeUpdateTime
  * @prop {(node:UserNode) => void} onChange
  * @prop {(node:UserNode) => void} onRemove
  * @prop {undefined|Error|Promise<unknown>|string} resolvedIP
@@ -79,20 +98,58 @@ class UserNodeItem extends PureComponent {
 	onRemoveClick(e) {
 		this.props.onRemove(this.props.node)
 	}
+	onNodeStatusDetails() {
+		const node = this.props.node
+		return html`
+			<h3>${L('Last connection attempt', 'ru', 'Последняя попытка подключения')}</h3>
+			${+node.lastPingedAt < 0
+				? html`<p>${L('N/a', 'ru', 'Н/д')}</p>`
+				: html`<p>
+						${node.lastPingedAt.toLocaleString(lang)}<br />
+						${ago(node.lastPingedAt)} <span class="dim">${L('ago', 'ru', 'назад')}</span>
+				  </p>`}
+			<h3>${L('Last connection', 'ru', 'Последнее подключение')}</h3>
+			${+node.lastUpAt < 0
+				? +node.lastPingedAt < 0
+					? html`<p>${L('N/a', 'ru', 'Н/д')}</p>`
+					: html`<p>
+							${L('Has failed. More info on ', 'ru', 'Провалилось. Подробнее: ')}
+							<a href="/ping_my_node">/ping_my_node</a>
+					  </p>`
+				: html`<p>
+						${node.lastUpAt.toLocaleString(lang)}<br />
+						${ago(node.lastUpAt)} <span class="dim">${L('ago', 'ru', 'назад')}</span><br />
+						${node.lastPing} ${L('ms', 'ru', 'мс')}${' '}
+						<span class="dim">${L('response time', 'ru', 'время ответа')}</span>
+				  </p>`}
+		`
+	}
 
 	/**
 	 * @param {UNI_Props} props
 	 * @param {{}} state
 	 */
-	render({ node, resolvedIP, neighborCounts }, state) {
+	render({ node, nodeUpdateTime, resolvedIP, neighborCounts }, state) {
 		const pingModes = [
 			['ping', 'ping'],
 			['dial', 'dial'],
 			['off', L('off', 'ru', 'выкл')],
 		]
+
+		const lastPingedAgo = +nodeUpdateTime - +node.lastPingedAt
+		// const lastUpAgo = +nodeUpdateTime - +node.lastUpAt
+		const status =
+			node.pingMode === 'off' || lastPingedAgo > 5 * 60 * 1000
+				? 'unknown'
+				: +node.lastUpAt > 0
+				? 'ok'
+				: 'error'
+
 		return html`
-			<tr class="node ${node.isLoading ? 'loading' : ''}">
-				<td><div class="node-status"></div></td>
+			<tr class="node ${node.isLoading ? 'loading' : ''} ${'status-' + status}">
+				<td>
+					<${HelpLine} contentFunc=${this.onNodeStatusDetails}><div class="node-status"></div><//>
+				</td>
 				<td>
 					<div class="node-id">
 						<span class="short">${shortNodeID(node.id)}</span>
@@ -157,14 +214,13 @@ class NewUserNodeForm extends PureComponent {
 	}
 	onSubmit(e) {
 		e.preventDefault()
-		let pingMode = /** @type {'off'} */ ('off')
 		let data = new FormData(e.target).get('nodes_data') + ''
 		data.split('\n')
 			.map(x => x.trim())
 			.filter(x => x != '')
 			.map(x => {
 				let [id, address] = x.split(/\s+/, 2)
-				return { id, address: address || '', pingMode, isLoading: false }
+				return { ...BLANK_NODE, id, address: address || '' }
 			})
 			.forEach(this.props.onNodeAdd)
 	}
@@ -234,6 +290,7 @@ function getNeighborsHelpContent() {
  * @class
  * @typedef UNL_Props
  * @prop {UserNode[]} nodes
+ * @prop {Date} nodesUpdateTime
  * @prop {(node:UserNode) => void} setNode
  * @prop {(node:UserNode) => void} delNode
  * @typedef UNL_State
@@ -375,7 +432,7 @@ export class UserNodesList extends PureComponent {
 	 * @param {UNL_Props} props
 	 * @param {UNL_State} state
 	 */
-	render(props, { nodeError, neighborCounts }) {
+	render({ nodesUpdateTime }, { nodeError, neighborCounts }) {
 		let nodes = this.sortedNodes()
 		return html`
 			<div class="user-nodes-list-with-form">
@@ -412,6 +469,7 @@ export class UserNodesList extends PureComponent {
 										<${UserNodeItem}
 											key=${n.id}
 											node=${n}
+											nodeUpdateTime=${nodesUpdateTime}
 											resolvedIP=${this.resolvedAddrs[withoutPort(n.address)]}
 											neighborCounts=${neighborCounts[n.id]}
 											onChange=${this.onNodeChange}

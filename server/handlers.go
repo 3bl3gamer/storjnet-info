@@ -104,7 +104,13 @@ func HandleUserDashboard(wr http.ResponseWriter, r *http.Request, ps httprouter.
 	if err != nil && err != pg.ErrNoRows {
 		return nil, merry.Wrap(err)
 	}
-	return map[string]interface{}{"FPath": "user_dashboard.html", "User": user, "UserNodes": nodes, "UserText": userText}, nil
+	return map[string]interface{}{
+		"FPath":      "user_dashboard.html",
+		"User":       user,
+		"UserNodes":  nodes,
+		"UserText":   userText,
+		"ServerTime": time.Now(),
+	}, nil
 }
 
 func HandleLang(wr http.ResponseWriter, r *http.Request, ps httprouter.Params) error {

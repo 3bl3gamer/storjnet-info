@@ -185,6 +185,13 @@ func startPingedNodesSaver(db *pg.DB, userNodesChan chan *UserNodeWithErr, chunk
 					pingValue = timeHint*2000 + 1
 				}
 
+				_, err := tx.Exec(`
+					UPDATE user_nodes SET last_ping = ?, last_up_at = ? WHERE node_id = ? AND user_id = ?`,
+					node.LastPing, node.LastUpAt, node.ID, node.UserID)
+				if err != nil {
+					return merry.Wrap(err)
+				}
+
 				res, err := tx.Exec(`
 					UPDATE user_nodes_history SET pings[?] = ?
 					WHERE node_id = ? AND user_id = ? AND date = (? at time zone 'utc')::date

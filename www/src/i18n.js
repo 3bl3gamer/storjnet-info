@@ -37,3 +37,37 @@ L.n = function L_n(val, ...words) {
 L.ns = function L_ns(val, suffix, ...words) {
 	return (val === null ? '...' : val.toLocaleString(lang)) + suffix + ' ' + pluralize(val || 0, ...words)
 }
+
+/**
+ * @param {number} duration
+ * @returns {string}
+ */
+export function stringifyDuration(duration) {
+	const days = Math.floor(duration / (24 * 3600 * 1000))
+	const hours = Math.floor((duration / (3600 * 1000)) % 24)
+	const minutes = Math.floor((duration / (60 * 1000)) % 60)
+	const seconds = Math.floor((duration / 1000) % 60)
+	switch (lang) {
+		case 'ru': {
+			let res = seconds + ' с'
+			if (minutes != 0) res = minutes + ' мин ' + res
+			if (hours != 0) res = hours + ' ч ' + res
+			if (days != 0) res = days + ' д ' + res
+			return res
+		}
+		default: {
+			let res = seconds + ' s'
+			if (minutes != 0) res = minutes + ' min ' + res
+			if (hours != 0) res = hours + ' h ' + res
+			if (days != 0) res = days + ' d ' + res
+			return res
+		}
+	}
+}
+/**
+ * @param {Date|number} date
+ * @returns {string}
+ */
+export function ago(date) {
+	return stringifyDuration(Date.now() - +date)
+}

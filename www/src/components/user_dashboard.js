@@ -9,13 +9,21 @@ import './user_dashboard.css'
 import { h } from 'preact'
 import { connectAndWrap } from 'src/utils/store'
 
-let nodes = []
+function convertFromJSON(node) {
+	node.lastPingedAt = new Date(node.lastPingedAt)
+	node.lastUpAt = new Date(node.lastUpAt)
+	return node
+}
+
+let storeData = { nodes: [], nodesUpdateTime: new Date() }
 try {
-	nodes = sortedNodes(getJSONContent('user_nodes_data'))
+	let data = getJSONContent('user_nodes_data')
+	storeData.nodes = sortedNodes(data.nodes.map(convertFromJSON))
+	storeData.nodesUpdateTime = new Date(data.updateTime)
 } catch (ex) {
 	// ¯\_(ツ)_/¯
 }
-let store = createStore({ nodes })
+let store = createStore(storeData)
 
 let nodesActions = {
 	setNode(state, node) {
@@ -35,7 +43,12 @@ let nodesActions = {
 	},
 }
 
-export const UserDashboardNodes = connectAndWrap(UserNodesList, store, 'nodes', nodesActions)
+export const UserDashboardNodes = connectAndWrap(
+	UserNodesList,
+	store,
+	['nodes', 'nodesUpdateTime'],
+	nodesActions,
+)
 export const UserDashboardPings = connectAndWrap(
 	props => h(PingsChartsList, { ...props, group: 'my' }),
 	store,
