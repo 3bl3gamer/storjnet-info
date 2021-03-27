@@ -22,13 +22,34 @@ import { html } from 'src/utils/htm'
 
 import './pings_chart.css'
 
+/** @typedef {{id:string, address:string}} PingNode */
+
+/**
+ * Data mode, short of full.
+ *
+ * In both modes one value correspondes to one minute.
+ *
+ * In short mode each value is 1-byte:
+ *   ping_ms = (raw_byte_value+0.5) * 2000 / 256
+ *   seconds_from_start_of_minute = 30
+ *   raw_byte_value == 0 - no data
+ *   raw_byte_value == 1 - error/timeout
+ *
+ * In full mode each each value is 2-bytes:
+ *   ping_ms = raw_byte_value % 2000
+ *   seconds_from_start_of_minute = floor(raw_byte_value / 2000) * 4
+ *   ping_ms == 0 - no data (here also raw_byte_value == 0)
+ *   ping_ms == 1 - error/timeout
+ */
+const PING_DATA_SHORT_MODE = true
+
 /**
  * @param {ArrayBuffer} buf
  * @param {Date} startDate
  * @param {Date} endDate
  */
 function processPingsData(buf, startDate, endDate) {
-	let pings = new Uint16Array(buf)
+	let pings = PING_DATA_SHORT_MODE ? new Uint8Array(buf) : new Uint16Array(buf)
 
 	let startStamp = Math.floor(startDate.getTime())
 	let endStamp = Math.floor(endDate.getTime() + DAY_DURATION)
@@ -39,13 +60,20 @@ function processPingsData(buf, startDate, endDate) {
 	let reducedPings = new Uint16Array(Math.floor(len / reductionN))
 
 	// flatting
-	for (let j = 0; j < pings.length; j += 1440 + 2) {
-		let stamp = (pings[j] + (pings[j + 1] << 16)) * 1000
+	for (let j = 0; j < pings.length; j += 1440 + (PING_DATA_SHORT_MODE ? 4 : 2)) {
+		let stamp = PING_DATA_SHORT_MODE
+			? (pings[j] + (pings[j + 1] << 8) + (pings[j + 2] << 16) + (pings[j + 3] << 24)) * 1000
+			: (pings[j] + (pings[j + 1] << 16)) * 1000
 		let offset = Math.floor((stamp - startStamp) / 60 / 1000)
 		let iFrom = offset < 0 ? -offset : 0
 		let iTo = offset + 1440 > flatPings.length ? flatPings.length - offset : 1440
 		for (let i = iFrom; i < iTo; i++) {
-			flatPings[offset + i] = pings[j + 2 + i]
+			if (PING_DATA_SHORT_MODE) {
+				let val = pings[j + 4 + i]
+				flatPings[offset + i] = val <= 1 ? val : 7 * 2000 + ((pings[j + 4 + i] + 0.5) * 2000) / 256
+			} else {
+				flatPings[offset + i] = pings[j + 2 + i]
+			}
 		}
 	}
 
@@ -80,7 +108,7 @@ function cutOffDefaultSatPort(address) {
 /**
  * @class
  * @typedef PC_Props
- * @prop {{id:string, address:string}} node
+ * @prop {PingNode} node
  * @prop {'my'|'sat'} group
  * @prop {boolean} isPending
  * @typedef PC_State
@@ -321,6 +349,17 @@ export class PingsChartsList extends PureComponent {
 	}
 }
 
+/**
+ * @class
+ * @typedef SPCL_Props
+ * @prop {PingNode[]} defaultSatNodes
+ * @typedef SPCL_State
+ * @prop {Date} startDate
+ * @prop {Date} endDate
+ * @prop {PingNode[]} currentSatNodes
+ * @prop {boolean} isLoaded
+ * @extends {PureComponent<SPCL_Props, SPCL_State>}
+ */
 export class SatsPingsChartsList extends PureComponent {
 	constructor({ defaultSatNodes }) {
 		super()
@@ -331,6 +370,7 @@ export class SatsPingsChartsList extends PureComponent {
 		})
 		this.stopWatchingHashInterval = watch.off
 
+		/** @type {SPCL_State} */
 		this.state = {
 			startDate: watch.startDate,
 			endDate: watch.endDate,
@@ -353,7 +393,7 @@ export class SatsPingsChartsList extends PureComponent {
 			data: { start_date: start, end_date: end },
 		})
 			.then(sats => {
-				this.setState({ ...this.state, currentSatNodes: sats, isLoaded: true })
+				this.setState({ ...this.state, currentSatNodes: sortedNodes(sats), isLoaded: true })
 			})
 			.catch(onError)
 	}
@@ -365,6 +405,10 @@ export class SatsPingsChartsList extends PureComponent {
 		this.stopWatchingHashInterval()
 	}
 
+	/**
+	 * @param {SPCL_Props} props
+	 * @param {SPCL_State} state
+	 */
 	render(props, { currentSatNodes, isLoaded }) {
 		return currentSatNodes.map(
 			(n, i) =>
@@ -379,7 +423,7 @@ export class SatsPingsChartsList extends PureComponent {
 export class SatsPingsCharts extends PureComponent {
 	constructor() {
 		super()
-		this.defaultSatNodes = /** @type {{id:string}[]} */ ([])
+		this.defaultSatNodes = /** @type {PingNode[]} */ ([])
 	}
 	componentDidMount() {
 		try {

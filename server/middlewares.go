@@ -69,7 +69,10 @@ func WithUser(handle httputils.HandlerExt) httputils.HandlerExt {
 }
 
 var gzippers = sync.Pool{New: func() interface{} {
-	gz, err := gzip.NewWriterLevel(nil, 2) // pings array: 1 - 62.9KB, 2 - 45.2KB, 3 - 45.0KB, 9 - 44.7KB
+	// full pings array: 1 - 62.9KB, 2 - 45.2KB, 3 - 45.0KB, 9 - 44.7KB
+	// short pings array: 1 - 16091, 2 - 15677, 3 - 15362, 4 - 15036, 5 - 14674
+	// speed: https://tukaani.org/lzma/benchmarks.html
+	gz, err := gzip.NewWriterLevel(nil, 5)
 	if err != nil {
 		panic(err)
 	}

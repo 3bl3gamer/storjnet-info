@@ -307,7 +307,9 @@ func HandleAPIUserNodePings(wr http.ResponseWriter, r *http.Request, ps httprout
 		return httputils.JsonError{Code: 400, Error: "NODE_ID_DECODE_ERROR", Description: err.Error()}, nil
 	}
 
-	startDateStr, endDateStr := extractStartEndDatesStrFromQuery(r.URL.Query(), false)
+	query := r.URL.Query()
+	startDateStr, endDateStr := extractStartEndDatesStrFromQuery(query, false)
+	fullPingsData := query.Get("full") == "1"
 
 	var histories []*core.UserNodeHistory
 	histsQuery := db.Model(&histories).Column("pings", "date").
@@ -327,16 +329,37 @@ func HandleAPIUserNodePings(wr http.ResponseWriter, r *http.Request, ps httprout
 	}
 
 	wr.Header().Set("Content-Type", "application/octet-stream")
-	buf := make([]byte, 4+1440*2)
-	for _, hist := range histories {
-		binary.LittleEndian.PutUint32(buf, uint32(hist.Date.Unix()))
-		for i, ping := range hist.Pings {
-			buf[4+i*2+0] = byte(ping & 0xFF)
-			buf[4+i*2+1] = byte(ping >> 8)
+	if fullPingsData {
+		buf := make([]byte, 4+1440*2)
+		for _, hist := range histories {
+			binary.LittleEndian.PutUint32(buf, uint32(hist.Date.Unix()))
+			for i, ping := range hist.Pings {
+				buf[4+i*2+0] = byte(ping & 0xFF)
+				buf[4+i*2+1] = byte(ping >> 8)
+			}
+			_, err := wr.Write(buf)
+			if err != nil {
+				return nil, merry.Wrap(err)
+			}
 		}
-		_, err := wr.Write(buf)
-		if err != nil {
-			return nil, merry.Wrap(err)
+	} else {
+		buf := make([]byte, 4+1440)
+		for _, hist := range histories {
+			binary.LittleEndian.PutUint32(buf, uint32(hist.Date.Unix()))
+			for i, ping := range hist.Pings {
+				val := int(ping) % 2000
+				if val > 1 {
+					val = val * 256 / 2000
+					if val <= 1 {
+						val = 2
+					}
+				}
+				buf[4+i] = byte(val)
+			}
+			_, err := wr.Write(buf)
+			if err != nil {
+				return nil, merry.Wrap(err)
+			}
 		}
 	}
 	return nil, nil
