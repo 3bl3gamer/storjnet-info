@@ -17,7 +17,7 @@ import { L, lang } from 'src/i18n'
 import { bindHandlers, delayedRedraw } from 'src/utils/elems'
 import { html } from 'src/utils/htm'
 import { PureComponent } from 'src/utils/preact_compat'
-import { DAY_DURATION, toISODateStringInterval, watchHashInterval } from 'src/utils/time'
+import { DAY_DURATION, intervalIsMonth, toISODateStringInterval, watchHashInterval } from 'src/utils/time'
 
 import './storj_tx_summary.css'
 
@@ -210,16 +210,21 @@ export class StorjTxSummary extends PureComponent {
 			let avg = Math.round(aggregated.payoutAvg * 10) / 10
 			let withdr = Math.round(aggregated.withdrawalTotal)
 			let withdrPerc = ((withdr * 100) / total).toFixed(1)
+			let duringThisPeriod = intervalIsMonth()
+				? L('During this month', 'ru', 'В этом месяце')
+				: L('During this period', 'ru', 'За этот период')
 			infoElem = html`
 				<p>
 					${lang == 'ru'
 						? count === 0
-							? `В текущем месяце платежей нет.`
-							: `В текущем месяце отправлено ${L.n(count, 'платёж', 'платежа', 'платежей')} ` +
+							? duringThisPeriod + ` платежей нет.`
+							: duringThisPeriod +
+							  ` отправлено ${L.n(count, 'платёж', 'платежа', 'платежей')} ` +
 							  `на ${L.n(total, 'STORJ', "STORJ'а", "STORJ'ей")}, ${avg} в среднем.`
 						: count === 0
-						? 'During this month there are no payments.'
-						: `During this month ${L.n(count, 'payment', 'payments')} were sent ` +
+						? duringThisPeriod + ' there are no payments.'
+						: duringThisPeriod +
+						  ` ${L.n(count, 'payment', 'payments')} were sent ` +
 						  `for ${L.n(total, 'STORJ', 'STORJs')}, ${avg} on average.`}
 					${' '}
 					${lang == 'ru'

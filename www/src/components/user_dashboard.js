@@ -1,16 +1,13 @@
 import createStore from 'unistore'
-import { Provider, connect as connect_ } from 'unistore/src/integrations/preact'
 
-import { html } from 'src/utils/htm'
 import { sortedNodes } from 'src/utils/nodes'
 import { UserNodesList } from './user_nodes'
 import { PingsChartsList } from './pings_chart'
 import { getJSONContent } from 'src/utils/elems'
 
 import './user_dashboard.css'
-
-// fixig types. could import it just from unistore/preact, but will have to add rollup commonjs plugin
-const connect = /** @type {import('unistore/preact').connect} */ (/**@type {*}*/ (connect_))
+import { h } from 'preact'
+import { connectAndWrap } from 'src/utils/store'
 
 let nodes = []
 try {
@@ -38,21 +35,10 @@ let nodesActions = {
 	},
 }
 
-let UserNodesListS = connect('nodes', nodesActions)(UserNodesList)
-let PingsChartsListS = connect('nodes', nodesActions)(PingsChartsList)
-
-export function UserDashboardNodes() {
-	return html`
-		<${Provider} store=${store}>
-			<${UserNodesListS} />
-		<//>
-	`
-}
-
-export function UserDashboardPings() {
-	return html`
-		<${Provider} store=${store}>
-			<${PingsChartsListS} group="my" />
-		<//>
-	`
-}
+export const UserDashboardNodes = connectAndWrap(UserNodesList, store, 'nodes', nodesActions)
+export const UserDashboardPings = connectAndWrap(
+	props => h(PingsChartsList, { ...props, group: 'my' }),
+	store,
+	'nodes',
+	nodesActions,
+)
