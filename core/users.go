@@ -8,6 +8,7 @@ import (
 
 	"github.com/ansel1/merry"
 	"github.com/go-pg/pg/v9"
+	"github.com/rs/zerolog/log"
 )
 
 const SessionDuration = 365 * 24 * time.Hour
@@ -23,6 +24,7 @@ type User struct {
 	PasswordHash string
 	Sessid       string
 	CreatedAt    time.Time
+	LastSeenAt   time.Time
 }
 
 func RegisterUser(db *pg.DB, wr http.ResponseWriter, username, password string) (*User, error) {
@@ -46,6 +48,7 @@ func LoginUser(db *pg.DB, wr http.ResponseWriter, username, password string) (*U
 		return nil, merry.Wrap(err)
 	}
 	setSessionCookie(wr, user.Sessid)
+	UpdateUserLastSeenAtIfNeed(db, user)
 	return user, nil
 }
 
@@ -93,4 +96,17 @@ func setSessionCookie(wr http.ResponseWriter, sessid string) {
 		SameSite: http.SameSiteLaxMode,
 	}
 	wr.Header().Set("Set-Cookie", cookie.String())
+}
+
+func UpdateUserLastSeenAtIfNeed(db *pg.DB, user *User) {
+	if time.Now().Sub(user.LastSeenAt) < time.Minute {
+		return
+	}
+	id := user.ID
+	go func() {
+		_, err := db.Exec("UPDATE users SET last_seen_at = now() WHERE id = ?", id)
+		if err != nil {
+			log.Error().Err(err).Int64("user_id", id).Msg("failed to update last_seen_at")
+		}
+	}()
 }

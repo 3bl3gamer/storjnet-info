@@ -43,6 +43,10 @@ func withUserInner(handle httputils.HandlerExt, wr http.ResponseWriter, r *http.
 		}
 	}
 
+	if user != nil {
+		core.UpdateUserLastSeenAtIfNeed(db, user)
+	}
+
 	if mustBeLoggedIn && user == nil {
 		wr.Header().Set("Content-Type", "application/json")
 		return merry.Wrap(json.NewEncoder(wr).Encode(httputils.JsonError{Ok: false, Code: 403, Error: "FORBIDDEN"}))
