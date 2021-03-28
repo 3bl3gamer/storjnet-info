@@ -259,6 +259,11 @@ function getPingModeHelpContent() {
 	return html`
 		<p>${L('Availability check (once a minute)', 'ru', 'Проверка доступности (раз в минуту).')}</p>
 		<${PingModeDescription} />
+		<p class="warn">
+			${lang === 'ru'
+				? 'Обновления автоматически отключатся после месяца оффлайна.'
+				: 'Updates will turn off automatically after a month of offline.'}
+		</p>
 	`
 }
 function getResolvedIPHelpContent() {
@@ -359,7 +364,10 @@ export const UserNodesList = memo(function UserNodesList(
 				.filter(x => typeof x === 'string') //skipping errors
 			let myNodeIds = nodes.map(x => x.id)
 
-			apiReq('POST', '/api/neighbors', { data: { subnets, myNodeIds } }).then(res => {
+			apiReq('POST', '/api/neighbors', {
+				data: { subnets, myNodeIds },
+				signal: abortController.signal,
+			}).then(res => {
 				let countsMap = {}
 				for (let item of res.counts) countsMap[item.subnet] = item
 				let neighborCounts = /** @type {Record<string, NeighborCounts>} */ ({})

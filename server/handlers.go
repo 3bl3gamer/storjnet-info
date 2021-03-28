@@ -70,6 +70,19 @@ func extractStartEndDatesStrFromQuery(query url.Values, shortKeys bool) (string,
 	return startTime.Format("2006-01-02"), endTime.Format("2006-01-02")
 }
 
+func extractEndDateFromQuery(query url.Values) time.Time {
+	endDateStr := query.Get("end_date")
+	endTime, err := parseIntervalDate(endDateStr, true)
+	if err != nil {
+		_, endTime = defaultStartEndInterval()
+	}
+	return endTime
+}
+
+func extractEndDateStrFromQuery(query url.Values) string {
+	return extractEndDateFromQuery(query).Format("2006-01-02")
+}
+
 func HandleIndex(wr http.ResponseWriter, r *http.Request, ps httprouter.Params) (httputils.TemplateCtx, error) {
 	db := r.Context().Value(CtxKeyDB).(*pg.DB)
 	user := r.Context().Value(CtxKeyUser).(*core.User)
@@ -442,6 +455,8 @@ func HandleAPINodesLocations(wr http.ResponseWriter, r *http.Request, ps httprou
 func HandleAPINodesLocationSummary(wr http.ResponseWriter, r *http.Request, ps httprouter.Params) (interface{}, error) {
 	db := r.Context().Value(CtxKeyDB).(*pg.DB)
 
+	endDate := extractEndDateFromQuery(r.URL.Query())
+
 	var stats struct {
 		CountriesCount int64 `json:"countriesCount"`
 		CountriesTop   []struct {
@@ -462,8 +477,10 @@ func HandleAPINodesLocationSummary(wr http.ResponseWriter, r *http.Request, ps h
 					ORDER BY (t).value::int DESC
 				) AS t
 			) AS countries_top
-		FROM node_stats ORDER BY id DESC LIMIT 1
-		`)
+		FROM node_stats
+		WHERE created_at <= ?
+		ORDER BY id DESC LIMIT 1
+		`, endDate.AddDate(0, 0, 1))
 	if err != nil {
 		return nil, merry.Wrap(err)
 	}
@@ -540,7 +557,6 @@ func (list CountriesStatItemList) FindCountFor(name string, prevIndex int) (int6
 	if prevIndex != -1 && prevIndex < len(list) {
 		indexName := list[prevIndex].name
 		if indexName == name {
-			// println("hit", prevIndex)
 			return list[prevIndex].count, prevIndex
 		}
 		if len(name) < len(indexName) || (len(name) == len(indexName) && name < indexName) {

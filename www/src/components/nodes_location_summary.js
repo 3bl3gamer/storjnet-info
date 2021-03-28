@@ -3,11 +3,11 @@ import { createRef } from 'preact'
 import { apiReq } from 'src/api'
 import { L, lang } from 'src/i18n'
 import { bindHandlers } from 'src/utils/elems'
-import { PureComponent } from 'src/utils/preact_compat'
+import { memo, PureComponent } from 'src/utils/preact_compat'
 import { onError } from 'src/errors'
 import { html } from 'src/utils/htm'
 import { zeroes } from 'src/utils/arrays'
-import { intervalIsDefault, watchHashInterval } from 'src/utils/time'
+import { intervalIsDefault, toISODateString, useHashInterval, watchHashInterval } from 'src/utils/time'
 
 import { TileMap } from 'src/map/core/map'
 import { MapTileContainer } from 'src/map/core/tile_container'
@@ -17,6 +17,7 @@ import { PointsLayer } from 'src/map/points_layer'
 
 import './nodes_location_summary.css'
 import { NodeCountriesChart } from './node_countries_chart'
+import { useCallback, useEffect, useState } from 'preact/hooks'
 
 class NodesLocationMap extends PureComponent {
 	constructor() {
@@ -90,78 +91,78 @@ class NodesLocationMap extends PureComponent {
 	}
 }
 
-class NodesSummary extends PureComponent {
-	constructor() {
-		super()
-		bindHandlers(this)
-		this.state = { stats: null, isExpanded: false }
-	}
+const NodesSummary = memo(function NodesSummary() {
+	const [stats, setStats] = useState(
+		/**@type {{countriesCount:number, countriesTop:{country:string, count:string}[]}|null}*/ (null),
+	)
+	const [isExpanded, setIsExpanded] = useState(false)
+	const [, endDate] = useHashInterval()
 
-	loadData() {
-		apiReq('GET', `/api/nodes/location_summary`)
+	useEffect(() => {
+		const abortController = new AbortController()
+
+		apiReq('GET', `/api/nodes/location_summary`, {
+			data: { end_date: toISODateString(endDate) },
+			signal: abortController.signal,
+		})
 			.then(stats => {
-				this.setState({ stats })
+				setStats(stats)
 			})
 			.catch(onError)
-	}
 
-	onExpand() {
-		this.setState({ isExpanded: true })
-	}
+		return () => abortController.abort()
+	}, [endDate])
 
-	componentDidMount() {
-		this.loadData()
-	}
+	const onExpand = useCallback(() => {
+		setIsExpanded(true)
+	}, [])
 
-	render(props, { stats, isExpanded }) {
-		const countriesCount = stats && stats.countriesCount
-
-		return html`
-			<div class="p-like">
-				<table class="node-countries-table underlined wide-padded">
-					<thead>
-						<tr>
-							<td>${L('#', 'ru', '№')}</td>
-							<td>${L('Country', 'ru', 'Страна')}</td>
-							<td>${L('Nodes', 'ru', 'Кол-во')}</td>
-						</tr>
-					</thead>
-					${stats === null
-						? zeroes(10).map(
-								(_, i) => html`<tr>
-									<td class="dim">${i + 1}</td>
-									<td class="dim">${L('loading...', 'ru', 'загрузка...')}</td>
-									<td class="dim">...</td>
-								</tr>`,
-						  )
-						: (isExpanded ? stats.countriesTop : stats.countriesTop.slice(0, 10)).map(
-								(item, i) =>
-									html`<tr>
-										<td>${i + 1}</td>
-										<td>${item.country}</td>
-										<td>${item.count}</td>
-									</tr>`,
-						  )}
+	const countriesCount = stats && stats.countriesCount
+	return html`
+		<div class="p-like">
+			<table class="node-countries-table underlined wide-padded">
+				<thead>
 					<tr>
-						${!isExpanded &&
-						html`
-							<td colspan="3">
-								<button class="unwrap-button" onclick=${this.onExpand}>
-									${L('Expand', 'ru', 'Развернуть')}
-								</button>
-							</td>
-						`}
+						<td>${L('#', 'ru', '№')}</td>
+						<td>${L('Country', 'ru', 'Страна')}</td>
+						<td>${L('Nodes', 'ru', 'Кол-во')}</td>
 					</tr>
-				</table>
-			</div>
-			<p>
-				${lang === 'ru'
-					? `Ноды запущены как минимум в ${L.n(countriesCount, 'стране', 'странах', 'странах')}.`
-					: `Nodes are running in at least ${L.n(countriesCount, 'country', 'countries')}.`}
-			</p>
-		`
-	}
-}
+				</thead>
+				${stats === null
+					? zeroes(10).map(
+							(_, i) => html`<tr>
+								<td class="dim">${i + 1}</td>
+								<td class="dim">${L('loading...', 'ru', 'загрузка...')}</td>
+								<td class="dim">...</td>
+							</tr>`,
+					  )
+					: (isExpanded ? stats.countriesTop : stats.countriesTop.slice(0, 10)).map(
+							(item, i) =>
+								html`<tr>
+									<td>${i + 1}</td>
+									<td>${item.country}</td>
+									<td>${item.count}</td>
+								</tr>`,
+					  )}
+				<tr>
+					${!isExpanded &&
+					html`
+						<td colspan="3">
+							<button class="unwrap-button" onclick=${onExpand}>
+								${L('Expand', 'ru', 'Развернуть')}
+							</button>
+						</td>
+					`}
+				</tr>
+			</table>
+		</div>
+		<p>
+			${lang === 'ru'
+				? `Ноды запущены как минимум в ${L.n(countriesCount, 'стране', 'странах', 'странах')}.`
+				: `Nodes are running in at least ${L.n(countriesCount, 'country', 'countries')}.`}
+		</p>
+	`
+})
 
 export class NodesLocationSummary extends PureComponent {
 	constructor() {
