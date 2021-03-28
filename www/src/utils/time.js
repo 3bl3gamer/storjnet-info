@@ -1,3 +1,5 @@
+import { useLayoutEffect, useState } from 'preact/hooks'
+
 export const DAY_DURATION = 24 * 3600 * 1000
 
 /** @param {Date|number} date */
@@ -115,4 +117,14 @@ export function watchHashInterval(onChange) {
 
 	let [startDate, endDate] = getHashInterval()
 	return { startDate, endDate, off }
+}
+
+export function useHashInterval() {
+	const [interval, setInterval] = useState(getHashInterval)
+	useLayoutEffect(() => {
+		const listener = () => setInterval(getHashInterval())
+		addEventListener('hashchange', listener)
+		return () => removeEventListener('hashchange', listener)
+	}, [])
+	return interval
 }

@@ -1,11 +1,12 @@
-.dim, .dim a {
+.dim,
+.dim a {
 	color: darkgray;
 	transition: color ease 0.2s;
 }
-.dim:hover, .dim:hover a {
+.dim:hover,
+.dim:hover a {
 	color: inherit;
 }
-
 
 .small {
 	font-size: 85%;
@@ -43,7 +44,7 @@ table.underlined tr {
 
 table.wide-padded td:not(:first-child) {
 	padding: 1px 0 1px 15px;
-	text-align: right;
+	/* text-align: right; */
 }
 
 code,
@@ -56,11 +57,15 @@ pre {
 	overflow: auto;
 }
 
-p, .p-like, h2 {
+p,
+.p-like,
+h2,
+h3 {
 	margin-left: 8px;
 	margin-right: 8px;
 }
-p, .p-like {
+p,
+.p-like {
 	margin-top: 16px;
 	margin-bottom: 16px;
 }
@@ -86,7 +91,8 @@ body {
 	box-shadow: 0 0 8px #ccc;
 }
 
-.header {}
+.header {
+}
 
 .header-content {
 	margin: 0 auto;
@@ -181,9 +187,11 @@ body {
 	flex-direction: row;
 	flex-wrap: wrap;
 	top: 0;
-	left: 36px;
 	font: 9px sans-serif;
 	text-shadow: 0 0 4px white;
+}
+.chart .legend:not(.leftmost) {
+	left: 36px;
 }
 .chart .legend .item {
 	display: flex;

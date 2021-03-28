@@ -2,7 +2,7 @@ import { html } from './htm'
 
 /** @typedef {{left:number, right:number, top:number, bottom:number, width:number, height:number}} Rect */
 
-/** @typedef {Array<number>|Int32Array|Float32Array} NumericArray */
+/** @typedef {Array<number>|Int32Array|Uint16Array|Float32Array} NumericArray */
 
 export class CanvasExt {
 	constructor() {
@@ -602,12 +602,12 @@ export function drawLabeledVScaleLeftLine(
 	let lineY = yFunc(rect, view, value)
 	rc.strokeStyle = 'rgba(255,255,255,0.75)'
 	rc.lineWidth = 2
-	rc.strokeText(text, rect.left + 2, rect.top + lineY)
+	rc.strokeText(text, rect.left + 2, lineY)
 	rc.fillStyle = textColor
-	rc.fillText(text, rect.left + 2, rect.top + lineY)
+	rc.fillText(text, rect.left + 2, lineY)
 	if (lineColor !== null) {
 		rc.fillStyle = lineColor
-		rc.fillRect(rect.left, rect.top + lineY - 0.5, rect.width, 1)
+		rc.fillRect(rect.left, lineY - 0.5, rect.width, 1)
 	}
 }
 /**

@@ -16,6 +16,7 @@ import { MapControlLayer, MapControlHintLayer } from 'src/map/core/control_layer
 import { PointsLayer } from 'src/map/points_layer'
 
 import './nodes_location_summary.css'
+import { NodeCountriesChart } from './node_countries_chart'
 
 class NodesLocationMap extends PureComponent {
 	constructor() {
@@ -92,7 +93,8 @@ class NodesLocationMap extends PureComponent {
 class NodesSummary extends PureComponent {
 	constructor() {
 		super()
-		this.state = { stats: null }
+		bindHandlers(this)
+		this.state = { stats: null, isExpanded: false }
 	}
 
 	loadData() {
@@ -103,18 +105,23 @@ class NodesSummary extends PureComponent {
 			.catch(onError)
 	}
 
+	onExpand() {
+		this.setState({ isExpanded: true })
+	}
+
 	componentDidMount() {
 		this.loadData()
 	}
 
-	render(props, { stats }) {
+	render(props, { stats, isExpanded }) {
 		const countriesCount = stats && stats.countriesCount
 
 		return html`
 			<div class="p-like">
-				<table class="underlined wide-padded">
+				<table class="node-countries-table underlined wide-padded">
 					<thead>
 						<tr>
+							<td>${L('#', 'ru', '№')}</td>
 							<td>${L('Country', 'ru', 'Страна')}</td>
 							<td>${L('Nodes', 'ru', 'Кол-во')}</td>
 						</tr>
@@ -122,21 +129,30 @@ class NodesSummary extends PureComponent {
 					${stats === null
 						? zeroes(10).map(
 								(_, i) => html`<tr>
+									<td class="dim">${i + 1}</td>
 									<td class="dim">${L('loading...', 'ru', 'загрузка...')}</td>
 									<td class="dim">...</td>
 								</tr>`,
 						  )
-						: stats.countriesTop.map(
-								item =>
+						: (isExpanded ? stats.countriesTop : stats.countriesTop.slice(0, 10)).map(
+								(item, i) =>
 									html`<tr>
+										<td>${i + 1}</td>
 										<td>${item.country}</td>
 										<td>${item.count}</td>
 									</tr>`,
 						  )}
+					<tr>
+						${!isExpanded &&
+						html`
+							<td colspan="3">
+								<button class="unwrap-button" onclick=${this.onExpand}>
+									${L('Expand', 'ru', 'Развернуть')}
+								</button>
+							</td>
+						`}
+					</tr>
 				</table>
-				<span class="dim small">
-					${L('top 10 countries by nodes number', 'ru', 'топ-10 стран по кол-ву нод')}
-				</span>
 			</div>
 			<p>
 				${lang === 'ru'
@@ -165,6 +181,9 @@ export class NodesLocationSummary extends PureComponent {
 
 	render(props, { intervalIsDefault }) {
 		return html`
+			<h3>${L('By countries', 'ru', 'По странам')}</h3>
+			<${NodeCountriesChart} />
+			<${NodesSummary} />
 			<h2>${L('Nodes location', 'ru', 'Расположение нод')}</h2>
 			${!intervalIsDefault &&
 			html`<p class="warn">
@@ -173,7 +192,6 @@ export class NodesLocationSummary extends PureComponent {
 					: 'Locations can not rewind. Yet.'}
 			</p>`}
 			<${NodesLocationMap} />
-			<${NodesSummary} />
 		`
 	}
 }

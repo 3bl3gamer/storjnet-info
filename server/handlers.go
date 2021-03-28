@@ -449,14 +449,17 @@ func HandleAPINodesLocationSummary(wr http.ResponseWriter, r *http.Request, ps h
 			Count   int64  `json:"count"`
 		} `json:"countriesTop"`
 	}
-	_, err := db.Query(&stats, `
+	_, err := db.QueryOne(&stats, `
 		SELECT
-			(SELECT count(*) FROM jsonb_object_keys(countries)) AS countries_count,
+			(
+				SELECT count(*) FILTER (WHERE key != '<unknown>')
+				FROM jsonb_object_keys(countries) AS key
+			) AS countries_count,
 			(
 				SELECT jsonb_agg(jsonb_build_object('country', (t).key, 'count', (t).value))
 				FROM (
 					SELECT t FROM jsonb_each(countries) AS t
-					ORDER BY (t).value::int DESC limit 10
+					ORDER BY (t).value::int DESC
 				) AS t
 			) AS countries_top
 		FROM node_stats ORDER BY id DESC LIMIT 1
@@ -465,6 +468,242 @@ func HandleAPINodesLocationSummary(wr http.ResponseWriter, r *http.Request, ps h
 		return nil, merry.Wrap(err)
 	}
 	return stats, nil
+}
+
+type CountriesStatItem struct {
+	name  string
+	count int64
+}
+type CountriesStatItemList []CountriesStatItem
+type CountriesStat struct {
+	items CountriesStatItemList
+}
+
+func (list CountriesStatItemList) partition(left, right int) int {
+	x := list[right].count
+	i := left
+	for j := left; j < right; j++ {
+		if list[j].count >= x {
+			if i != j {
+				list[i], list[j] = list[j], list[i]
+			}
+			i += 1
+		}
+	}
+	list[i], list[right] = list[right], list[i]
+	return i
+}
+func (list CountriesStatItemList) moveLeftNLargest(left, right, n int) {
+	if n > right-left+1 {
+		return
+	}
+	partIndex := list.partition(left, right)
+
+	if partIndex-left == n-1 {
+		return
+	}
+
+	if partIndex-left > n-1 {
+		// recur left subarray
+		list.moveLeftNLargest(left, partIndex-1, n)
+	} else {
+		// recur right subarray
+		list.moveLeftNLargest(partIndex+1, right, n-(partIndex+1-left))
+	}
+}
+func (list CountriesStatItemList) MoveLeftNLargest(n int) {
+	list.moveLeftNLargest(0, len(list)-1, n)
+}
+
+func (list CountriesStatItemList) findCountLeft(name string, fromIndex int) (int64, int) {
+	for i := fromIndex; i >= 0; i-- {
+		item := list[i]
+		if item.name == name {
+			return item.count, i
+		}
+	}
+	return 0, -1
+}
+func (list CountriesStatItemList) findCountRight(name string, fromIndex int) (int64, int) {
+	for i, item := range list[fromIndex:] {
+		if item.name == name {
+			return item.count, i + fromIndex
+		}
+	}
+	return 0, -1
+}
+
+// Assumes Postgres JSONB keys are sorted by (len(key), key):
+//  {"Chile": 9, "China": 86, "India": 100, "Italy": 107, ... "Bosnia and Herzegovina": 1, "Saint Pierre and Miquelon": 1}
+// so each time country index is same or near prev index.
+func (list CountriesStatItemList) FindCountFor(name string, prevIndex int) (int64, int) {
+	if prevIndex != -1 && prevIndex < len(list) {
+		indexName := list[prevIndex].name
+		if indexName == name {
+			// println("hit", prevIndex)
+			return list[prevIndex].count, prevIndex
+		}
+		if len(name) < len(indexName) || (len(name) == len(indexName) && name < indexName) {
+			return list.findCountLeft(name, prevIndex-1)
+		}
+		return list.findCountRight(name, prevIndex+1)
+	}
+	return list.findCountRight(name, 0)
+}
+
+// Expects {"Chile": 9, "China": 86, ...}
+func (cs *CountriesStat) Scan(src interface{}) error {
+	buf, ok := src.([]byte)
+	if !ok {
+		return merry.New("unexpected type")
+	}
+	if len(buf) == 0 || buf[0] != '{' {
+		return merry.New("unexpected value start")
+	}
+	pos := 1
+	stringStart := 0
+	curString := ""
+	readingValue := false
+	curValue := int64(0)
+	for ; pos < len(buf); pos++ {
+		c := buf[pos]
+		if c == '"' {
+			if stringStart == 0 {
+				stringStart = pos + 1
+			} else {
+				curString = string(buf[stringStart:pos])
+				stringStart = 0
+			}
+			continue
+		}
+		if c == ':' && stringStart == 0 {
+			stringStart = 0 //just in case
+			readingValue = true
+			curValue = 0
+			continue
+		}
+		if readingValue && c >= '0' && c <= '9' {
+			curValue = curValue*10 + int64(c-'0')
+			continue
+		}
+		if (c == ',' || c == '}') && stringStart == 0 {
+			if cs.items == nil {
+				cs.items = make(CountriesStatItemList, 0, 128) //usually there are 90-100 countries
+			}
+			cs.items = append(cs.items, CountriesStatItem{name: curString, count: curValue})
+			readingValue = false
+		}
+	}
+	return nil
+}
+
+func HandleAPINodesCountries(wr http.ResponseWriter, r *http.Request, ps httprouter.Params) (interface{}, error) {
+	db := r.Context().Value(CtxKeyDB).(*pg.DB)
+
+	query := r.URL.Query()
+	startDate, endDate := extractStartEndDatesFromQuery(query, false)
+	needAllCountries := query.Get("all") == "1"
+
+	var items []struct {
+		Stamp     int64
+		Countries *CountriesStat
+	}
+	_, err := db.Query(&items, `
+		SELECT
+			countries,
+			extract(epoch from created_at)::bigint AS stamp
+		FROM node_stats WHERE created_at >= ? AND created_at < ?
+		ORDER BY created_at
+		`, startDate, endDate.AddDate(0, 0, 1))
+	if err != nil {
+		return nil, merry.Wrap(err)
+	}
+
+	var filterNames []string
+	if needAllCountries {
+		if len(items) > 0 {
+			countries := items[0].Countries.items
+			filterNames = make([]string, len(countries))
+			for i, country := range countries {
+				filterNames[i] = country.name
+			}
+		}
+	} else {
+		prevStamp := int64(0)
+		countryFilterN := 15
+		countryFilter := make(map[string]struct{}, countryFilterN*2)
+		for i := len(items) - 1; i >= 0; i-- {
+			item := items[i]
+			if item.Stamp-prevStamp < 3*3600 {
+				continue
+			}
+			countries := make(CountriesStatItemList, len(item.Countries.items))
+			copy(countries, item.Countries.items)
+			countries.MoveLeftNLargest(countryFilterN)
+			for _, c := range countries[:countryFilterN] {
+				countryFilter[c.name] = struct{}{}
+			}
+		}
+		filterNames = make([]string, 0, len(countryFilter))
+		for name := range countryFilter {
+			filterNames = append(filterNames, name)
+		}
+	}
+
+	maxNameLen := 0
+	for _, name := range filterNames {
+		if len(name) > maxNameLen {
+			maxNameLen = len(name)
+		}
+	}
+
+	startStamp := startDate.Unix()
+	maxStamp := startStamp
+	for _, item := range items {
+		if item.Stamp > maxStamp {
+			maxStamp = item.Stamp
+		}
+	}
+	countsArrLen := int((maxStamp-startStamp)/3600 + 1)
+
+	wr.Header().Set("Content-Type", "application/octet-stream")
+
+	buf := make([]byte, 8)
+	binary.LittleEndian.PutUint32(buf, uint32(startStamp))
+	binary.LittleEndian.PutUint32(buf[4:], uint32(countsArrLen))
+	if _, err := wr.Write(buf); err != nil {
+		return nil, merry.Wrap(err)
+	}
+
+	buf = make([]byte, 1+(maxNameLen+1)+2*countsArrLen)
+	for _, name := range filterNames {
+		// zeroing
+		for i := range buf {
+			buf[i] = 0
+		}
+
+		// country name
+		buf[0] = byte(len(name))
+		copy(buf[1:], []byte(name))
+
+		valOffset := 1 + len(name)
+		if valOffset%2 == 1 {
+			valOffset += 1
+		}
+		// country counts
+		prevIndex := -1
+		for _, item := range items {
+			i := int((item.Stamp - startStamp) / 3600)
+			var count int64
+			count, prevIndex = item.Countries.items.FindCountFor(name, prevIndex)
+			buf[valOffset+2*i+0] = byte(count)
+			buf[valOffset+2*i+1] = byte(count >> 8)
+		}
+		if _, err := wr.Write(buf[:valOffset+2*countsArrLen]); err != nil {
+			return nil, merry.Wrap(err)
+		}
+	}
+	return nil, nil
 }
 
 func HandleAPINodesCounts(wr http.ResponseWriter, r *http.Request, ps httprouter.Params) (interface{}, error) {
