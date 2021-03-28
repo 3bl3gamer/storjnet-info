@@ -1,6 +1,6 @@
 import createStore from 'unistore'
 
-import { sortedNodes } from 'src/utils/nodes'
+import { sortNodes } from 'src/utils/nodes'
 import { UserNodesList } from './user_nodes'
 import { PingsChartsList } from './pings_chart'
 import { getJSONContent } from 'src/utils/elems'
@@ -18,7 +18,7 @@ function convertFromJSON(node) {
 let storeData = { nodes: [], nodesUpdateTime: new Date() }
 try {
 	let data = getJSONContent('user_nodes_data')
-	storeData.nodes = sortedNodes(data.nodes.map(convertFromJSON))
+	storeData.nodes = sortNodes(data.nodes.map(convertFromJSON))
 	storeData.nodesUpdateTime = new Date(data.updateTime)
 } catch (ex) {
 	// ¯\_(ツ)_/¯
@@ -33,7 +33,7 @@ let nodesActions = {
 			nodes = state.nodes.slice()
 			nodes[nodes.indexOf(existing)] = node
 		} else {
-			nodes = sortedNodes([...state.nodes, node])
+			nodes = sortNodes([...state.nodes, node])
 		}
 		return { nodes }
 	},

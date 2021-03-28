@@ -5,7 +5,7 @@ import { html } from './htm'
  * @template {{address:string}} T
  * @param {T[]} nodes
  */
-export function sortedNodes(nodes) {
+export function sortNodes(nodes) {
 	return nodes.sort((a, b) => a.address.localeCompare(b.address))
 }
 

@@ -14,7 +14,7 @@ import {
 	PING_ERR,
 	PING_OK,
 } from 'src/utils/charts'
-import { shortNodeID, sortedNodes } from 'src/utils/nodes'
+import { shortNodeID, sortNodes } from 'src/utils/nodes'
 import { DAY_DURATION, intervalIsDefault, toISODateStringInterval, watchHashInterval } from 'src/utils/time'
 import { PureComponent } from 'src/utils/preact_compat'
 import { bindHandlers, delayedRedraw, getJSONContent, hoverSingle } from 'src/utils/elems'
@@ -393,7 +393,7 @@ export class SatsPingsChartsList extends PureComponent {
 			data: { start_date: start, end_date: end },
 		})
 			.then(sats => {
-				this.setState({ ...this.state, currentSatNodes: sortedNodes(sats), isLoaded: true })
+				this.setState({ ...this.state, currentSatNodes: sortNodes(sats), isLoaded: true })
 			})
 			.catch(onError)
 	}
@@ -427,7 +427,7 @@ export class SatsPingsCharts extends PureComponent {
 	}
 	componentDidMount() {
 		try {
-			let nodes = sortedNodes(getJSONContent('sat_nodes_data'))
+			let nodes = sortNodes(getJSONContent('sat_nodes_data'))
 			this.defaultSatNodes = nodes
 		} catch (ex) {
 			// ¯\_(ツ)_/¯

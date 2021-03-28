@@ -1,17 +1,17 @@
-import { useCallback } from 'preact/hooks'
+import { useCallback, useEffect, useMemo, useState } from 'preact/hooks'
 
 import { apiReq } from 'src/api'
-import { ago, L, lang, stringifyDuration } from 'src/i18n'
+import { ago, L, lang } from 'src/i18n'
 import { onError } from 'src/errors'
 import {
 	PingModeDescription,
 	shortNodeID,
-	sortedNodes,
+	sortNodes,
 	SubnetNeighborsDescription,
 	withoutPort,
 } from 'src/utils/nodes'
 import { bindHandlers } from 'src/utils/elems'
-import { PureComponent } from 'src/utils/preact_compat'
+import { memo, PureComponent } from 'src/utils/preact_compat'
 import { html } from 'src/utils/htm'
 import { Help, HelpLine } from './help'
 import { findMeaningfulOctets, isIPv4, resolve, ResolveError } from 'src/utils/dns'
@@ -223,6 +223,7 @@ class NewUserNodeForm extends PureComponent {
 				return { ...BLANK_NODE, id, address: address || '' }
 			})
 			.forEach(this.props.onNodeAdd)
+		this.setState({ minimized: true })
 	}
 	onUnfoldClick() {
 		this.setState({ minimized: !this.state.minimized })
@@ -286,203 +287,199 @@ function getNeighborsHelpContent() {
 	`
 }
 
-/**
- * @class
- * @typedef UNL_Props
- * @prop {UserNode[]} nodes
- * @prop {Date} nodesUpdateTime
- * @prop {(node:UserNode) => void} setNode
- * @prop {(node:UserNode) => void} delNode
- * @typedef UNL_State
- * @prop {string|null} nodeError
- * @prop {Record<string, UserNode>} pendingNodes
- * @prop {Record<string, NeighborCounts|Promise<unknown>>} neighborCounts
- * @extends {PureComponent<UNL_Props, UNL_State>}
- */
-export class UserNodesList extends PureComponent {
-	constructor() {
-		super()
-		bindHandlers(this)
-		/** @type {UNL_State} */
-		this.state = { nodeError: null, pendingNodes: {}, neighborCounts: {} }
-		this.resolvedAddrs = {}
-	}
+export const UserNodesList = memo(function UserNodesList(
+	/**
+	 * @type {{
+	 *   nodes: UserNode[],
+	 *   nodesUpdateTime: Date,
+	 *   setNode: (node:UserNode) => void,
+	 *   delNode: (node:UserNode) => void,
+	 * }}
+	 */
+	{ nodes, nodesUpdateTime, setNode, delNode },
+) {
+	const [nodeError, setNodeError] = useState(/**@type {string|null}*/ (null))
+	const [pendingNodes, setPendingNodes] = useState(/**@type {Record<string, UserNode>}*/ ({}))
+	const [neighborCounts, setNeighborCounts] = useState(
+		/**@type {Record<string, NeighborCounts|Promise<unknown>>}*/ ({}),
+	)
 
-	sortedNodes() {
-		let nodes = this.props.nodes.filter(n => !(n.id in this.state.pendingNodes))
-		nodes = nodes.concat(Object.values(this.state.pendingNodes))
-		return sortedNodes(nodes)
-	}
+	// special form so we can change outer object (and get reactivity) without copying inner one each time
+	const [resolved, setResolved] = useState({
+		addrs: /**@type {Record<string,string|Promise<unknown>|Error>}*/ ({}),
+	})
+	const updateResolved = useCallback(
+		(/**@type {string}*/ addr, /**@type {string|Promise<unknown>}*/ res) => {
+			const addrs = resolved.addrs
+			addrs[addr] = res
+			setResolved({ addrs })
+		},
+		[resolved],
+	)
 
-	resolveIfNeed(node) {
-		let address = withoutPort(node.address)
+	const sortedNodes = useMemo(() => {
+		const woPend = nodes.filter(n => !(n.id in pendingNodes))
+		const all = woPend.concat(Object.values(pendingNodes))
+		return sortNodes(all)
+	}, [nodes, pendingNodes])
 
-		if (address in this.resolvedAddrs) return
+	useEffect(() => {
+		for (const node of nodes) {
+			let address = withoutPort(node.address)
+			if (address in resolved.addrs) continue
 
-		if (isIPv4(address)) {
-			this.resolvedAddrs[address] = address
-			this.forceUpdate()
-			return
+			if (isIPv4(address)) {
+				updateResolved(address, address)
+				return
+			}
+
+			let promise = resolve(address)
+				.then(ips => updateResolved(address, ips[0]))
+				.catch(err => updateResolved(address, err))
+			updateResolved(address, promise)
 		}
+	}, [nodes, resolved])
 
-		let promise = resolve(address)
-			.then(ips => (this.resolvedAddrs[address] = ips[0]))
-			.catch(err => (this.resolvedAddrs[address] = err))
-			.finally(() => this.forceUpdate())
-		this.resolvedAddrs[address] = promise
-		this.forceUpdate()
-	}
-	async waitForResolve() {
+	const waitForResolve = useCallback(async () => {
 		while (true) {
-			let promises = Object.values(this.resolvedAddrs).filter(isPromise)
+			let promises = Object.values(resolved.addrs).filter(isPromise)
 			if (promises.length === 0) break
 			await Promise.all(promises)
 		}
-	}
+	}, [resolved])
 
-	setPendingNode(node) {
-		let pendingNodes = { ...this.state.pendingNodes, [node.id]: node }
-		this.setState({ pendingNodes })
-	}
-	delNodeInner(node) {
-		let pendingNodes = { ...this.state.pendingNodes }
-		delete pendingNodes[node.id]
-		this.setState({ pendingNodes })
-	}
-	applySetNode(node) {
-		this.delNodeInner(node)
-		this.props.setNode(node)
-	}
-	applyDelNode(node) {
-		this.delNodeInner(node)
-		this.props.delNode(node)
-	}
+	useEffect(() => {
+		const abortController = new AbortController()
 
-	setNode(node) {
-		this.setPendingNode({ ...node, isLoading: true })
-		this.setState({ nodeError: null })
-		apiReq('POST', '/api/user_nodes', { data: node })
-			.then(res => {
-				this.applySetNode(node)
-			})
-			.catch(err => {
-				if (err.error == 'NODE_ID_DECODE_ERROR') {
-					this.setState({
-						nodeError:
-							L('Wrong node ID', 'ru', 'Неправильный ID ноды') +
-							` "${node.id}": ` +
-							err.description,
-					})
-					this.delNodeInner(node)
-				} else onError(err)
-			})
-	}
-	delNode(node) {
-		this.setPendingNode({ ...node, isLoading: true })
-		this.setState({ nodeError: null })
-		apiReq('DELETE', '/api/user_nodes', { data: { id: node.id } })
-			.then(res => {
-				this.applyDelNode(node)
-			})
-			.catch(onError)
-	}
+		const promise = waitForResolve().then(() => {
+			if (abortController.signal.aborted) return
 
-	onNodeAdd(node) {
-		this.setNode(node)
-	}
-	onNodeChange(node) {
-		this.setNode(node)
-	}
-	onNodeRemove(node) {
-		this.delNode(node)
-	}
+			let subnets = nodes
+				.map(x => resolved.addrs[withoutPort(x.address)])
+				.filter(x => typeof x === 'string') //skipping errors
+			let myNodeIds = nodes.map(x => x.id)
 
-	componentDidMount() {
-		for (const node of this.props.nodes) this.resolveIfNeed(node)
-		this.waitForResolve().then(() => {
-			let subnets = this.props.nodes
-				.map(x => this.resolvedAddrs[withoutPort(x.address)])
-				.filter(x => typeof x === 'string')
-			let myNodeIds = this.props.nodes.map(x => x.id)
-
-			let promise = apiReq('POST', '/api/neighbors', { data: { subnets, myNodeIds } }).then(res => {
+			apiReq('POST', '/api/neighbors', { data: { subnets, myNodeIds } }).then(res => {
 				let countsMap = {}
 				for (let item of res.counts) countsMap[item.subnet] = item
 				let neighborCounts = /** @type {Record<string, NeighborCounts>} */ ({})
-				for (const node of this.props.nodes) {
-					let addr = this.resolvedAddrs[withoutPort(node.address)]
+				for (const node of nodes) {
+					let addr = resolved.addrs[withoutPort(node.address)]
 					if (typeof addr === 'string') {
 						let subnet = findMeaningfulOctets(addr) + '.0'
 						neighborCounts[node.id] = countsMap[subnet]
 					}
 				}
-				this.setState({ neighborCounts })
+				setNeighborCounts(neighborCounts)
 			})
-
-			let neighborCounts = /** @type {Record<string, Promise<unknown>>} */ ({})
-			for (const node of this.props.nodes) neighborCounts[node.id] = promise
-			this.setState({ neighborCounts })
 		})
-	}
-	componentDidUpdate(prevProps) {
-		for (const node of this.props.nodes) this.resolveIfNeed(node)
-	}
 
-	/**
-	 * @param {UNL_Props} props
-	 * @param {UNL_State} state
-	 */
-	render({ nodesUpdateTime }, { nodeError, neighborCounts }) {
-		let nodes = this.sortedNodes()
-		return html`
-			<div class="user-nodes-list-with-form">
-				<div class="user-nodes-list">
-					${nodes.length === 0 && L('No nodes yet', 'ru', 'Нод нет')}
-					${nodes.length > 0 &&
-					html`
-						<table class="user-nodes-table">
-							<thead>
-								<tr>
-									<td></td>
-									<td>${L('Node ID', 'ru', 'ID ноды')}</td>
-									<td>${L('Address', 'ru', 'Адрес')}</td>
-									<td>
-										${L('Test', 'ru', 'Тест')}${' '}
-										<${Help} contentFunc=${getPingModeHelpContent} />
-									</td>
-									<td>
-										${L('Subnet', 'ru', 'Подсеть')}${' '}
-										<${Help} contentFunc=${getResolvedIPHelpContent} />
-									</td>
-									<td>
-										<span style=${{ margin: '0 -21px 0 -8px' }}>
-											${L('Neighbors', 'ru', 'Соседи')}${' '}
-											<${Help} contentFunc=${getNeighborsHelpContent} />
-										</span>
-									</td>
-									<td></td>
-								</tr>
-							</thead>
-							${nodes.map(
-								n =>
-									html`
-										<${UserNodeItem}
-											key=${n.id}
-											node=${n}
-											nodeUpdateTime=${nodesUpdateTime}
-											resolvedIP=${this.resolvedAddrs[withoutPort(n.address)]}
-											neighborCounts=${neighborCounts[n.id]}
-											onChange=${this.onNodeChange}
-											onRemove=${this.onNodeRemove}
-										/>
-									`,
-							)}
-						</table>
-					`}
-				</div>
-				<${NewUserNodeForm} onNodeAdd=${this.onNodeAdd} />
+		let neighborCounts = /** @type {Record<string, Promise<unknown>>} */ ({})
+		for (const node of nodes) neighborCounts[node.id] = promise
+		setNeighborCounts(neighborCounts)
+
+		return () => abortController.abort()
+	}, [waitForResolve, nodes])
+
+	const setPendingNode = useCallback(
+		(/**@type {UserNode}*/ node) => {
+			setPendingNodes({ ...pendingNodes, [node.id]: node })
+		},
+		[pendingNodes],
+	)
+	const delNodeFromPending = useCallback(
+		(/**@type {UserNode}*/ node) => {
+			const np = { ...pendingNodes }
+			delete np[node.id]
+			setPendingNodes(np)
+		},
+		[pendingNodes],
+	)
+
+	const setNodeInner = useCallback(
+		(/**@type {UserNode}*/ node) => {
+			setPendingNode({ ...node, isLoading: true })
+			setNodeError(null)
+			apiReq('POST', '/api/user_nodes', { data: node })
+				.then(res => {
+					delNodeFromPending(node)
+					setNode(node)
+				})
+				.catch(err => {
+					if (err.error == 'NODE_ID_DECODE_ERROR') {
+						setNodeError(
+							L('Wrong node ID', 'ru', 'Неправильный ID ноды') +
+								` "${node.id}": ` +
+								err.description,
+						)
+						delNodeFromPending(node)
+					} else onError(err)
+				})
+		},
+		[setPendingNode, delNodeFromPending, setNode, setNodeError, delNodeFromPending],
+	)
+	const delNodeInner = useCallback(
+		(/**@type {UserNode}*/ node) => {
+			setPendingNode({ ...node, isLoading: true })
+			setNodeError(null)
+			apiReq('DELETE', '/api/user_nodes', { data: { id: node.id } })
+				.then(res => {
+					delNodeFromPending(node)
+					delNode(node)
+				})
+				.catch(onError)
+		},
+		[setPendingNode, delNodeFromPending, delNode],
+	)
+
+	return html`
+		<div class="user-nodes-list-with-form">
+			<div class="user-nodes-list">
+				${nodes.length === 0 && L('No nodes yet', 'ru', 'Нод нет')}
+				${nodes.length > 0 &&
+				html`
+					<table class="user-nodes-table">
+						<thead>
+							<tr>
+								<td></td>
+								<td>${L('Node ID', 'ru', 'ID ноды')}</td>
+								<td>${L('Address', 'ru', 'Адрес')}</td>
+								<td>
+									${L('Test', 'ru', 'Тест')}${' '}
+									<${Help} contentFunc=${getPingModeHelpContent} />
+								</td>
+								<td>
+									${L('Subnet', 'ru', 'Подсеть')}${' '}
+									<${Help} contentFunc=${getResolvedIPHelpContent} />
+								</td>
+								<td>
+									<span class="neighbors-title-cell-inner">
+										${L('Neighbors', 'ru', 'Соседи')}${' '}
+										<${Help} contentFunc=${getNeighborsHelpContent} />
+									</span>
+								</td>
+								<td></td>
+							</tr>
+						</thead>
+						${sortedNodes.map(
+							n =>
+								html`
+									<${UserNodeItem}
+										key=${n.id}
+										node=${n}
+										nodeUpdateTime=${nodesUpdateTime}
+										resolvedIP=${resolved.addrs[withoutPort(n.address)]}
+										neighborCounts=${neighborCounts[n.id]}
+										onChange=${setNodeInner}
+										onRemove=${delNodeInner}
+									/>
+								`,
+						)}
+					</table>
+				`}
 			</div>
-			${nodeError !== null && html`<p class="warn">${nodeError}</p>`}
-		`
-	}
-}
+			<${NewUserNodeForm} onNodeAdd=${setNodeInner} />
+		</div>
+		${nodeError !== null && html`<p class="warn">${nodeError}</p>`}
+	`
+})
