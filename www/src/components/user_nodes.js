@@ -26,6 +26,7 @@ import './user_nodes.css'
  *   lastPingedAt: Date,
  *   lastUpAt: Date,
  *   lastPing: number,
+ *   lastPingWasOk: boolean,
  *   isLoading?: boolean
  * }} UserNode */
 /** @typedef {{foreignNodesCount:number, nodesTotal:number}} NeighborCounts */
@@ -36,8 +37,9 @@ const BLANK_NODE = {
 	address: '',
 	pingMode: 'off',
 	lastPingedAt: new Date(0),
-	lastUpAt: new Date(0),
+	lastPingWasOk: false,
 	lastPing: 0,
+	lastUpAt: new Date(0),
 }
 
 /** @param {{ip:string}} props */
@@ -109,18 +111,18 @@ class UserNodeItem extends PureComponent {
 						${ago(node.lastPingedAt)} <span class="dim">${L('ago', 'ru', 'назад')}</span>
 				  </p>`}
 			<h3>${L('Last connection', 'ru', 'Последнее подключение')}</h3>
-			${+node.lastUpAt < 0
-				? +node.lastPingedAt < 0
-					? html`<p>${L('N/a', 'ru', 'Н/д')}</p>`
-					: html`<p>
-							${L('Has failed. More info on ', 'ru', 'Провалилось. Подробнее: ')}
-							<a href="/ping_my_node">/ping_my_node</a>
-					  </p>`
-				: html`<p>
+			${+node.lastPingWasOk
+				? html`<p>
 						${node.lastUpAt.toLocaleString(lang)}<br />
 						${ago(node.lastUpAt)} <span class="dim">${L('ago', 'ru', 'назад')}</span><br />
 						${node.lastPing} ${L('ms', 'ru', 'мс')}${' '}
 						<span class="dim">${L('response time', 'ru', 'время ответа')}</span>
+				  </p>`
+				: +node.lastPingedAt < 0
+				? html`<p>${L('N/a', 'ru', 'Н/д')}</p>`
+				: html`<p>
+						${L('Has failed. More info on ', 'ru', 'Провалилось. Подробнее: ')}
+						<a href="/ping_my_node">/ping_my_node</a>
 				  </p>`}
 		`
 	}
@@ -137,11 +139,10 @@ class UserNodeItem extends PureComponent {
 		]
 
 		const lastPingedAgo = +nodeUpdateTime - +node.lastPingedAt
-		// const lastUpAgo = +nodeUpdateTime - +node.lastUpAt
 		const status =
 			node.pingMode === 'off' || lastPingedAgo > 5 * 60 * 1000
 				? 'unknown'
-				: +node.lastUpAt > 0
+				: node.lastPingWasOk
 				? 'ok'
 				: 'error'
 

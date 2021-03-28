@@ -16,11 +16,12 @@ type BriefNode struct {
 
 type Node struct {
 	BriefNode
-	PingMode     string    `json:"pingMode"`
-	LastPingedAt time.Time `json:"lastPingedAt"`
-	LastPing     int64     `json:"lastPing"`
-	LastUpAt     time.Time `json:"lastUpAt"`
-	CreatedAt    time.Time `json:"-"`
+	PingMode      string    `json:"pingMode"`
+	LastPingedAt  time.Time `json:"lastPingedAt"`
+	LastPing      int64     `json:"lastPing"`
+	LastPingWasOk bool      `json:"lastPingWasOk"`
+	LastUpAt      time.Time `json:"lastUpAt"`
+	CreatedAt     time.Time `json:"-"`
 }
 
 type UserNode struct {
@@ -79,7 +80,7 @@ func DelUserNode(db *pg.DB, user *User, nodeID storj.NodeID) error {
 func LoadUserNodes(db *pg.DB, user *User) ([]*Node, error) {
 	nodes := make([]*Node, 0)
 	_, err := db.Query(&nodes, `
-		SELECT node_id AS raw_id, address, ping_mode, last_pinged_at, last_ping, last_up_at
+		SELECT node_id AS raw_id, address, ping_mode, last_pinged_at, last_ping, last_ping_was_ok, last_up_at
 		FROM user_nodes WHERE user_id = ?`, user.ID)
 	if err != nil {
 		return nil, merry.Wrap(err)

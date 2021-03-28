@@ -185,13 +185,54 @@ func startPingedNodesSaver(db *pg.DB, userNodesChan chan *UserNodeWithErr, chunk
 					pingValue = timeHint*2000 + 1
 				}
 
-				_, err := tx.Exec(`
-					UPDATE user_nodes SET last_ping = ?, last_up_at = ? WHERE node_id = ? AND user_id = ?`,
-					node.LastPing, node.LastUpAt, node.ID, node.UserID)
+				// user_node flags and timestamps
+				var err error
+				if node.Err == nil {
+					_, err = tx.Exec(`
+						UPDATE user_nodes SET last_ping = ?, last_ping_was_ok = true, last_up_at = ?
+						WHERE node_id = ? AND user_id = ?`,
+						node.LastPing, node.LastUpAt, node.ID, node.UserID)
+				} else {
+					_, err = tx.Exec(`
+						UPDATE user_nodes SET last_ping_was_ok = false
+						WHERE node_id = ? AND user_id = ?`,
+						node.ID, node.UserID)
+				}
 				if err != nil {
 					return merry.Wrap(err)
 				}
 
+				// user_node auto off
+				if node.Err != nil {
+					/*
+						res, err := tx.Exec(`
+							UPDATE user_nodes SET ping_mode = 'off'
+							WHERE node_id = ? AND user_id = ? AND ping_mode != 'off'
+							  AND COALESCE(last_up_at, created_at) < NOW() - INTERVAL '30 days'`,
+							node.ID, node.UserID)
+						if err != nil {
+							return merry.Wrap(err)
+						}
+						if res.RowsAffected() != 0 {
+							log.Info().Int64("user_id", node.UserID).Str("node_id", node.ID.String()).Msg("pings turned off")
+						}
+					*/
+					/*
+						res, err := tx.Exec(`
+							SELECT 1 FROM user_nodes
+							WHERE node_id = ? AND user_id = ? AND ping_mode != 'off'
+								AND COALESCE(last_up_at, created_at) < NOW() - INTERVAL '30 days'`,
+							node.ID, node.UserID)
+						if err != nil {
+							return merry.Wrap(err)
+						}
+						if res.RowsAffected() != 0 {
+							log.Info().Int64("user_id", node.UserID).Str("node_id", node.ID.String()).Msg("should turn pings off")
+						}
+					*/
+				}
+
+				// history (update attempt, most common)
 				res, err := tx.Exec(`
 					UPDATE user_nodes_history SET pings[?] = ?
 					WHERE node_id = ? AND user_id = ? AND date = (? at time zone 'utc')::date
@@ -199,7 +240,7 @@ func startPingedNodesSaver(db *pg.DB, userNodesChan chan *UserNodeWithErr, chunk
 				if err != nil {
 					return merry.Wrap(err)
 				}
-
+				// history (insert, in case of no updates)
 				if res.RowsAffected() == 0 {
 					_, err := tx.Exec(`
 						INSERT INTO user_nodes_history (node_id, user_id, date, pings)
