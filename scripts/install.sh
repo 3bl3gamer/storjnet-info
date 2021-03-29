@@ -6,7 +6,7 @@ repo_dir=`dirname "$0"`"/.."
 static_dir="${1%/}"
 
 function usage {
-    echo "usage: $0 static_dir [--restart]"
+    echo "usage: $0 static_dir [--migrate] [--restart]"
 }
 if [ "$0" == "-h" ] || [ "$0" == "--help" ]; then usage; exit 2; fi
 if [ "$static_dir" == "" ]; then usage; exit 1; fi

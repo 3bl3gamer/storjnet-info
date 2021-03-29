@@ -25,6 +25,7 @@ export function sendError(message, error) {
 }
 
 export function onError(error) {
+	if (typeof error === 'object' && error !== null && error.name === 'AbortError') return
 	// eslint-disable-next-line no-console
 	console.error(error)
 	sendError(error + '', error)

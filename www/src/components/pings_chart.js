@@ -16,7 +16,7 @@ import {
 } from 'src/utils/charts'
 import { shortNodeID, sortNodes } from 'src/utils/nodes'
 import { DAY_DURATION, intervalIsDefault, toISODateStringInterval, watchHashInterval } from 'src/utils/time'
-import { PureComponent } from 'src/utils/preact_compat'
+import { memo, PureComponent } from 'src/utils/preact_compat'
 import { bindHandlers, delayedRedraw, getJSONContent, hoverSingle } from 'src/utils/elems'
 import { html } from 'src/utils/htm'
 
@@ -420,34 +420,27 @@ export class SatsPingsChartsList extends PureComponent {
 	}
 }
 
-export class SatsPingsCharts extends PureComponent {
-	constructor() {
-		super()
-		this.defaultSatNodes = /** @type {PingNode[]} */ ([])
-	}
-	componentDidMount() {
-		try {
-			let nodes = sortNodes(getJSONContent('sat_nodes_data'))
-			this.defaultSatNodes = nodes
-		} catch (ex) {
-			// ¯\_(ツ)_/¯
-		}
-	}
-	render() {
-		return html`
-			<h2>${L('Satellites', 'ru', 'Сателлиты')}</h2>
-			<${SatsPingsChartsList} defaultSatNodes=${this.defaultSatNodes} />
-			<p class="dim small">
-				${L(
-					'Once a minute a connection is established with the satellites from a server near Paris, ' +
-						'elapsed time is saved. Timeout is 2 s. ' +
-						'Narrow red stripes are not a sign of offline: just for some reason a single response was not received.',
-					'ru',
-					'Раз в минуту с сателлитами устанавливается соединение из сервера под Парижем, ' +
-						'затраченное время сохраняется. Таймаут — 2 с. ' +
-						'Узкие красные полосы — не 100%-признак оффлайна: просто по какой-то причине не вернулся одиночный ответ.',
-				)}
-			</p>
-		`
-	}
+/** @type {PingNode[]} */
+let defaultSatNodes = []
+try {
+	defaultSatNodes = sortNodes(getJSONContent('sat_nodes_data'))
+} catch (ex) {
+	// ¯\_(ツ)_/¯
 }
+export const SatsPingsCharts = memo(function SatsPingsCharts() {
+	return html`
+		<h2>${L('Satellites', 'ru', 'Сателлиты')}</h2>
+		<${SatsPingsChartsList} defaultSatNodes=${defaultSatNodes} />
+		<p class="dim small">
+			${L(
+				'Once a minute a connection is established with the satellites from a server near Paris, ' +
+					'elapsed time is saved. Timeout is 2 s. ' +
+					'Narrow red stripes are not a sign of offline: just for some reason a single response was not received.',
+				'ru',
+				'Раз в минуту с сателлитами устанавливается соединение из сервера под Парижем, ' +
+					'затраченное время сохраняется. Таймаут — 2 с. ' +
+					'Узкие красные полосы — не 100%-признак оффлайна: просто по какой-то причине не вернулся одиночный ответ.',
+			)}
+		</p>
+	`
+})

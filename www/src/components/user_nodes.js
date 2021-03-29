@@ -331,6 +331,46 @@ export const UserNodesList = memo(function UserNodesList(
 
 	useEffect(() => {
 		for (const node of nodes) {
+			const res = resolved.addrs[withoutPort(node.address)]
+			if (typeof res !== 'string' && !(res instanceof Error)) return
+		}
+
+		const abortController = new AbortController()
+
+		let subnets = nodes
+			.map(x => resolved.addrs[withoutPort(x.address)])
+			.filter(x => typeof x === 'string') //skipping errors
+		let myNodeIds = nodes.map(x => x.id)
+
+		const promise = apiReq('POST', '/api/neighbors', {
+			data: { subnets, myNodeIds },
+			signal: abortController.signal,
+		})
+			.then(res => {
+				let countsMap = {}
+				for (let item of res.counts) countsMap[item.subnet] = item
+				let counts = /** @type {Record<string, NeighborCounts>} */ ({})
+				for (const node of nodes) {
+					let addr = resolved.addrs[withoutPort(node.address)]
+					if (typeof addr === 'string') {
+						let subnet = findMeaningfulOctets(addr) + '.0'
+						counts[node.id] = countsMap[subnet]
+					}
+				}
+				setNeighborCounts(counts)
+			})
+			.catch(onError)
+
+		let counts = /** @type {Record<string, Promise<unknown>>} */ ({})
+		for (const node of nodes) counts[node.id] = promise
+		setNeighborCounts(counts)
+
+		return () => abortController.abort()
+	}, [nodes, resolved])
+
+	// should go after /api/neighbors request effect, otherwise request will be sent twice: on this and on next rerender
+	useEffect(() => {
+		for (const node of nodes) {
 			let address = withoutPort(node.address)
 			if (address in resolved.addrs) continue
 
@@ -345,50 +385,6 @@ export const UserNodesList = memo(function UserNodesList(
 			updateResolved(address, promise)
 		}
 	}, [nodes, resolved])
-
-	const waitForResolve = useCallback(async () => {
-		while (true) {
-			let promises = Object.values(resolved.addrs).filter(isPromise)
-			if (promises.length === 0) break
-			await Promise.all(promises)
-		}
-	}, [resolved])
-
-	useEffect(() => {
-		const abortController = new AbortController()
-
-		const promise = waitForResolve().then(() => {
-			if (abortController.signal.aborted) return
-
-			let subnets = nodes
-				.map(x => resolved.addrs[withoutPort(x.address)])
-				.filter(x => typeof x === 'string') //skipping errors
-			let myNodeIds = nodes.map(x => x.id)
-
-			apiReq('POST', '/api/neighbors', {
-				data: { subnets, myNodeIds },
-				signal: abortController.signal,
-			}).then(res => {
-				let countsMap = {}
-				for (let item of res.counts) countsMap[item.subnet] = item
-				let neighborCounts = /** @type {Record<string, NeighborCounts>} */ ({})
-				for (const node of nodes) {
-					let addr = resolved.addrs[withoutPort(node.address)]
-					if (typeof addr === 'string') {
-						let subnet = findMeaningfulOctets(addr) + '.0'
-						neighborCounts[node.id] = countsMap[subnet]
-					}
-				}
-				setNeighborCounts(neighborCounts)
-			})
-		})
-
-		let neighborCounts = /** @type {Record<string, Promise<unknown>>} */ ({})
-		for (const node of nodes) neighborCounts[node.id] = promise
-		setNeighborCounts(neighborCounts)
-
-		return () => abortController.abort()
-	}, [waitForResolve, nodes])
 
 	const setPendingNode = useCallback(
 		(/**@type {UserNode}*/ node) => {
