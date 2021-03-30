@@ -1,10 +1,11 @@
 import { onError } from 'src/errors'
 
 /**
+ * 1.2.3, 1.2.3., 1.2.3.4, 1.2.3.4/24
  * @param {string} value
  */
 export function findMeaningfulOctets(value) {
-	const m = value.trim().match(/^(\d+\.\d+\.\d+)(?:\.\d+(?:\/24)?)?$/)
+	const m = value.trim().match(/^(\d+\.\d+\.\d+)(?:\.(?:\d+(?:\/24)?)?)?$/)
 	if (m === null) return null
 	if (m[1].split('.').some(x => parseInt(x) > 255)) return null
 	return m[1]
@@ -91,8 +92,8 @@ function catchToLog(onLogLines) {
 			onLogLines(...err.messageLines)
 		} else {
 			onLogLines('Something went wrong: ' + err)
+			onError(err)
 		}
-		onError(err)
 		return null
 	}
 }

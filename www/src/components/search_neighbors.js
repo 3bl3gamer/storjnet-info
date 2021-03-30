@@ -1,7 +1,7 @@
 import { apiReq } from 'src/api'
 import { onError } from 'src/errors'
 import { L, lang, pluralize } from 'src/i18n'
-import { findMeaningfulOctets, resolveSubnetOrNull } from 'src/utils/dns'
+import { findMeaningfulOctets, ResolveError, resolveSubnetOrNull } from 'src/utils/dns'
 import { bindHandlers } from 'src/utils/elems'
 import { html } from 'src/utils/htm'
 import { SubnetNeighborsDescription } from 'src/utils/nodes'
