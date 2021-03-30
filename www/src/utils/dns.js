@@ -19,6 +19,11 @@ export function isIPv4(value) {
 	return m && +m[1] < 256 && +m[2] < 256 && +m[3] < 256 && +m[4] < 256
 }
 
+// https://www.iana.org/assignments/dns-parameters/dns-parameters.xhtml#table-dns-parameters-4
+const TYPE_A = 1
+// const TYPE_CNAME = 5
+// const TYPE_AAAA = 28
+
 // https://www.iana.org/assignments/dns-parameters/dns-parameters.xhtml#dns-parameters-6
 const RESOLVE_STATUS_NAMES_MAP = {
 	0: 'No Error',
@@ -76,12 +81,11 @@ export function resolve(name) {
 				const status = RESOLVE_STATUS_NAMES_MAP[response.Status] || 'Unknown Error'
 				throw new ResolveError(`Can not resolve ${name}: ${status}`, response)
 			}
-			let ips = Array.isArray(response.Answer) ? response.Answer.map(x => x.data + '') : []
-			if (ips.length === 0 || !ips.every(isIPv4))
-				throw new ResolveError(
-					`Expected IPv4-addres in Answer[i].data, got ${JSON.stringify(ips)}`,
-					response,
-				)
+			let ips = Array.isArray(response.Answer)
+				? response.Answer.filter(x => x.type === TYPE_A).map(x => x.data + '')
+				: []
+			if (ips.length === 0) throw new ResolveError('No IPv4-addresses in response', response)
+			if (!ips.every(isIPv4)) throw new Error(`not an IPv4: ${JSON.stringify(ips)} (${name})`)
 			return ips
 		})
 }
