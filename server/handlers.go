@@ -457,14 +457,16 @@ func HandleAPINodesLocationSummary(wr http.ResponseWriter, r *http.Request, ps h
 
 	endDate := extractEndDateFromQuery(r.URL.Query())
 
-	var stats struct {
-		CountriesCount int64 `json:"countriesCount"`
-		CountriesTop   []struct {
-			Country string `json:"country"`
-			Count   int64  `json:"count"`
-		} `json:"countriesTop"`
+	type TopItem struct {
+		Country string `json:"country"`
+		Count   int64  `json:"count"`
 	}
-	_, err := db.QueryOne(&stats, `
+	var stats struct {
+		CountriesCount int64     `json:"countriesCount"`
+		CountriesTop   []TopItem `json:"countriesTop"`
+	}
+	// do not QueryOne: there may be no data and empty (unchanged) stats should be returned
+	_, err := db.Query(&stats, `
 		SELECT
 			(
 				SELECT count(*) FILTER (WHERE key != '<unknown>')
@@ -483,6 +485,9 @@ func HandleAPINodesLocationSummary(wr http.ResponseWriter, r *http.Request, ps h
 		`, endDate.AddDate(0, 0, 1))
 	if err != nil {
 		return nil, merry.Wrap(err)
+	}
+	if stats.CountriesTop == nil {
+		stats.CountriesTop = []TopItem{}
 	}
 	return stats, nil
 }
