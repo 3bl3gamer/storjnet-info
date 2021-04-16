@@ -430,9 +430,12 @@ func HandleAPINodesLocations(wr http.ResponseWriter, r *http.Request, ps httprou
 	db := r.Context().Value(ctxKey("db")).(*pg.DB)
 
 	var nodeLocations []struct{ Lon, Lat float32 }
+	// sorting improves compression ratio: 55kb -> 24kb (85kb uncompressed original)
+	// sorting by (jsonb)::float8 is faster than just by jsonb
 	_, err := db.Query(&nodeLocations, `
 		SELECT (location->'longitude')::float8 AS lon, (location->'latitude')::float8 AS lat
-		FROM nodes WHERE location IS NOT NULL AND updated_at > NOW() - INTERVAL '1 day'`)
+		FROM nodes WHERE location IS NOT NULL AND updated_at > NOW() - INTERVAL '1 day'
+		ORDER BY (location->'latitude')::float8`)
 	if err != nil {
 		return nil, merry.Wrap(err)
 	}
