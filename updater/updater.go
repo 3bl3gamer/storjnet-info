@@ -26,14 +26,14 @@ func doPing(sat *utils.Satellite, node *core.Node) (time.Duration, error) {
 	defer cancel()
 
 	stt := time.Now()
-	conn, err := sat.Dial(ctx, node.Address, node.ID)
+	conn, err := sat.Dial(ctx, node.Address, node.ID, utils.SatModeTCP)
 	if err != nil {
 		return 0, ErrDialFail.WithCause(err)
 	}
 	defer conn.Close()
 
 	if node.PingMode == "ping" {
-		if err := sat.Ping(ctx, conn); err != nil {
+		if err := sat.Ping(ctx, conn, utils.SatModeTCP); err != nil {
 			return 0, ErrPingFail.WithCause(err)
 		}
 	}

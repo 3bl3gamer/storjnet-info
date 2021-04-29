@@ -152,6 +152,7 @@ func HandleAPIPingMyNode(wr http.ResponseWriter, r *http.Request, ps httprouter.
 	params := &struct {
 		ID, Address string
 		DialOnly    bool
+		Mode        string
 	}{}
 	if jsonErr := unmarshalFromBody(r, params); jsonErr != nil {
 		return *jsonErr, nil
@@ -162,11 +163,16 @@ func HandleAPIPingMyNode(wr http.ResponseWriter, r *http.Request, ps httprouter.
 		return httputils.JsonError{Code: 400, Error: "NODE_ID_DECODE_ERROR", Description: err.Error()}, nil
 	}
 
+	satMode := utils.SatModeTCP
+	if params.Mode == "quic" {
+		satMode = utils.SatModeQUIC
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
 	stt := time.Now()
-	conn, err := sat.Dial(ctx, params.Address, id)
+	conn, err := sat.Dial(ctx, params.Address, id, satMode)
 	if err != nil {
 		return httputils.JsonError{Code: 400, Error: "NODE_DIAL_ERROR", Description: err.Error()}, nil
 	}
@@ -176,7 +182,7 @@ func HandleAPIPingMyNode(wr http.ResponseWriter, r *http.Request, ps httprouter.
 	var pingDuration float64
 	if !params.DialOnly {
 		stt := time.Now()
-		if err := sat.Ping(ctx, conn); err != nil {
+		if err := sat.Ping(ctx, conn, satMode); err != nil {
 			return httputils.JsonError{Code: 400, Error: "NODE_PING_ERROR", Description: err.Error()}, nil
 		}
 		pingDuration = time.Now().Sub(stt).Seconds()

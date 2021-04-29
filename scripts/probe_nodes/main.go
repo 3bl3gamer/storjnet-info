@@ -55,7 +55,7 @@ func probeLoop(wg *sync.WaitGroup, sat *utils.Satellite, inAddrChan, failAddrCha
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 		defer cancel()
 
-		err := sat.DialAndClose(ctx, address, id)
+		err := sat.DialAndClose(ctx, address, id, utils.SatModeTCP)
 		if err == nil {
 			log.Fatal("probe completed without error, should not happen")
 		} else {

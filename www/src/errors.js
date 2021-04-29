@@ -24,8 +24,12 @@ export function sendError(message, error) {
 	fetch('/api/client_errors', { method: 'POST', headers, credentials: 'same-origin', body })
 }
 
+export function isAbortError(error) {
+	return typeof error === 'object' && error !== null && error.name === 'AbortError'
+}
+
 export function onError(error) {
-	if (typeof error === 'object' && error !== null && error.name === 'AbortError') return
+	if (isAbortError(error)) return
 	// eslint-disable-next-line no-console
 	console.error(error)
 	sendError(error + '', error)

@@ -69,7 +69,14 @@
 }
 
 .log-box {
+	position: relative;
 	white-space: pre-line;
+}
+.log-box.pending::before {
+	content: '⌛';
+	position: absolute;
+	left: 1px;
+	top: 1px;
 }
 
 @media (max-width: 479px) {

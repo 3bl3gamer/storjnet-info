@@ -1,5 +1,6 @@
 import { apiReq } from 'src/api'
-import { onError } from 'src/errors'
+import { isAbortError, onError } from 'src/errors'
+import { lang } from 'src/i18n'
 import { bindHandlers } from 'src/utils/elems'
 import { html } from 'src/utils/htm'
 import { PingModeDescription } from 'src/utils/nodes'
@@ -15,6 +16,7 @@ import './ping_my_node.css'
  * @prop {string} logText
  * @prop {PingNode[]} pingedNodes
  * @prop {PingNode} curNode
+ * @prop {boolean} pending
  * @extends {PureComponent<{}, PMN_State>}
  */
 export class PingMyNode extends PureComponent {
@@ -27,31 +29,38 @@ export class PingMyNode extends PureComponent {
 			// ¯\_(ツ)_/¯
 		}
 		/** @type {PMN_State} */
-		this.state = { pingedNodes, curNode: { id: '', address: '' }, logText: '' }
-		this.pingAbortController = null
+		this.state = { pingedNodes, curNode: { id: '', address: '' }, logText: '', pending: false }
+		/** @type {{tcp:AbortController?, quic:AbortController?}} */
+		this.pingAbortController = { tcp: null, quic: null }
 		bindHandlers(this)
 	}
 
 	logLine(msg) {
 		return '- ' + msg + '\n'
 	}
-	ping(dialOnly) {
+	/**
+	 * @param {boolean} dialOnly
+	 * @param {'tcp'|'quic'} mode
+	 * @returns {Promise<{aborted:boolean}>}
+	 */
+	pingMode(dialOnly, mode) {
 		let { id, address } = this.state.curNode
-		if (id == '' || address == '') return
+		if (id == '' || address == '') return Promise.resolve({ aborted: false })
 
-		if (this.pingAbortController !== null) this.pingAbortController.abort()
-		this.pingAbortController = new AbortController()
+		let abortController = this.pingAbortController[mode]
+		if (abortController !== null) abortController.abort()
+		abortController = this.pingAbortController[mode] = new AbortController()
 
 		this.rememberNode(id, address)
 		this.setState({ logText: this.logLine('started') })
 
-		apiReq('POST', '/api/ping_my_node', {
-			data: { id, address, dialOnly },
-			signal: this.pingAbortController.signal,
+		return apiReq('POST', '/api/ping_my_node', {
+			data: { id, address, dialOnly, mode },
+			signal: abortController.signal,
 		})
 			.then(resp => {
 				let logText = this.state.logText
-				let log = msg => (logText += this.logLine(msg))
+				let log = msg => (logText += this.logLine(mode.toUpperCase() + ': ' + msg))
 
 				let { dialDuration, pingDuration } = resp
 				const ms = seconds => (seconds * 1000).toFixed() + 'ms'
@@ -62,10 +71,11 @@ export class PingMyNode extends PureComponent {
 				}
 
 				this.setState({ logText })
+				return { aborted: false }
 			})
 			.catch(err => {
 				let logText = this.state.logText
-				let log = msg => (logText += this.logLine(msg))
+				let log = msg => (logText += this.logLine(mode.toUpperCase() + ': ' + msg))
 
 				switch (err.error) {
 					case 'NODE_ID_DECODE_ERROR':
@@ -78,15 +88,32 @@ export class PingMyNode extends PureComponent {
 						log("couldn't ping node: " + err.description)
 						break
 					default:
-						log('O_o ' + JSON.stringify(err))
-						onError(err)
+						if (isAbortError(err)) {
+							log('aborted')
+						} else {
+							log('O_o ' + JSON.stringify(err))
+							onError(err)
+						}
 				}
 
 				this.setState({ logText })
+				return { aborted: isAbortError(err) }
 			})
 			.finally(() => {
-				this.pingAbortController = null
+				this.pingAbortController[mode] = null
 			})
+	}
+	/**
+	 * @param {boolean} dialOnly
+	 */
+	pingAllModes(dialOnly) {
+		this.setState({ pending: true })
+		Promise.all([
+			this.pingMode(dialOnly, 'tcp'), //
+			this.pingMode(dialOnly, 'quic'),
+		]).then(results => {
+			if (!results.some(x => x.aborted)) this.setState({ pending: false })
+		})
 	}
 	rememberNode(id, address) {
 		let nodes = this.state.pingedNodes
@@ -113,10 +140,10 @@ export class PingMyNode extends PureComponent {
 		this.forgetNode(elem.dataset.id, elem.dataset.address)
 	}
 	onDialClick() {
-		this.ping(true)
+		this.pingAllModes(true)
 	}
 	onPingClick() {
-		this.ping(false)
+		this.pingAllModes(false)
 	}
 	onCurNodeIDUpdate(e) {
 		this.setState({ curNode: { ...this.state.curNode, id: e.target.value.trim() } })
@@ -133,7 +160,7 @@ export class PingMyNode extends PureComponent {
 	 * @param {{}} props
 	 * @param {PMN_State} state
 	 */
-	render(props, { pingedNodes, curNode, logText }) {
+	render(props, { pingedNodes, curNode, logText, pending }) {
 		return html`
 			<div class="remembered-nodes-list">
 				${pingedNodes.map(
@@ -149,6 +176,10 @@ export class PingMyNode extends PureComponent {
 				)}
 			</div>
 			<${PingModeDescription} />
+			<p>
+				${lang == 'ru' ? 'Будут проверены и TCP, и ' : 'Will try both TCP and '}
+				<a href="https://forum.storj.io/t/experimenting-with-udp-based-protocols/11545">QUIC</a>.
+			</p>
 			<form class="node-ping-form">
 				<input
 					class="node-id-input"
@@ -165,7 +196,7 @@ export class PingMyNode extends PureComponent {
 				<input class="node-dial-button" type="button" value="Dial" onclick=${this.onDialClick} />
 				<input class="node-ping-button" type="button" value="Ping" onclick=${this.onPingClick} />
 			</form>
-			<pre class="log-box">${logText}</pre>
+			<pre class="log-box ${pending ? 'pending' : ''}">${logText}</pre>
 		`
 	}
 }

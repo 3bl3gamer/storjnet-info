@@ -8,12 +8,21 @@ import (
 	"storj.io/common/peertls/tlsopts"
 	"storj.io/common/rpc"
 	"storj.io/common/storj"
+	"storj.io/storj/pkg/quic"
 	"storj.io/storj/satellite"
 )
 
+type SatMode int
+
+const (
+	SatModeTCP SatMode = iota
+	SatModeQUIC
+)
+
 type Satellite struct {
-	Config satellite.Config
-	Dialer rpc.Dialer
+	Config     satellite.Config
+	TCPDialer  rpc.Dialer
+	QUICDialer rpc.Dialer
 }
 
 func (sat *Satellite) SetUp(identityDir string) error {
@@ -29,27 +38,36 @@ func (sat *Satellite) SetUp(identityDir string) error {
 		return merry.Wrap(err)
 	}
 
-	sat.Dialer = rpc.NewDefaultDialer(tlsOptions)
+	sat.TCPDialer = rpc.NewDefaultDialer(tlsOptions)
+	sat.QUICDialer = rpc.NewDefaultDialer(tlsOptions)
+	sat.QUICDialer.Connector = quic.NewDefaultConnector(nil)
 	return nil
 }
 
-func (sat *Satellite) Dial(ctx context.Context, address string, id storj.NodeID) (*rpc.Conn, error) {
-	conn, err := sat.Dialer.DialNodeURL(ctx, storj.NodeURL{Address: address, ID: id})
+func (sat *Satellite) dialerFor(mode SatMode) rpc.Dialer {
+	if mode == SatModeTCP {
+		return sat.TCPDialer
+	}
+	return sat.QUICDialer
+}
+
+func (sat *Satellite) Dial(ctx context.Context, address string, id storj.NodeID, mode SatMode) (*rpc.Conn, error) {
+	conn, err := sat.dialerFor(mode).DialNodeURL(ctx, storj.NodeURL{Address: address, ID: id})
 	if err != nil {
 		return nil, merry.Wrap(err)
 	}
 	return conn, nil
 }
 
-func (sat *Satellite) DialAndClose(ctx context.Context, address string, id storj.NodeID) error {
-	conn, err := sat.Dial(ctx, address, id)
+func (sat *Satellite) DialAndClose(ctx context.Context, address string, id storj.NodeID, mode SatMode) error {
+	conn, err := sat.Dial(ctx, address, id, mode)
 	if err != nil {
 		return merry.Wrap(err)
 	}
 	return merry.Wrap(conn.Close())
 }
 
-func (sat *Satellite) Ping(ctx context.Context, conn *rpc.Conn) error {
+func (sat *Satellite) Ping(ctx context.Context, conn *rpc.Conn, mode SatMode) error {
 	client := pb.NewDRPCContactClient(conn)
 	_, err := client.PingNode(ctx, &pb.ContactPingRequest{})
 	return merry.Wrap(err)

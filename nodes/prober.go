@@ -42,11 +42,10 @@ func probe(sat *utils.Satellite, node *ProbeNode) error {
 	defer cancel()
 
 	address := node.IPAddr + ":" + strconv.Itoa(int(node.Port))
-	conn, err := sat.Dialer.DialNodeURL(ctx, storj.NodeURL{ID: node.ID, Address: address})
+	err := sat.DialAndClose(ctx, address, node.ID, utils.SatModeTCP)
 	if err != nil {
 		return merry.Wrap(err)
 	}
-	defer conn.Close()
 
 	return nil
 }
