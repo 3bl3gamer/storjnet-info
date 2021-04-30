@@ -4,23 +4,48 @@ Storj Net Info
 
 {{define "content"}}
 
-{{if .User}}
-<p>
-	<a href="/~">{{.L.Loc "My nodes" "ru" "Мои ноды"}}</a>
-</p>
-{{else}}
-<p class="auth-forms"></p>
-{{end}}
-<p>
-	<a href="/ping_my_node">{{.L.Loc "Ping nodes" "ru" "Попинговать ноды"}}</a>
-	{{.L.Loc "by ID and address" "ru" "по айди и адресу"}}.
-</p>
-<p>
-	<a href="/neighbors">{{.L.Loc "Count neighbors" "ru" "Посчитать соседей"}}</a>
-	{{.L.Loc "on /24-subnet" "ru" "в /24-подсети"}}.
-</p>
+<div class="upper-block">
+	<div>
+		{{if .User}}
+		<p>
+			<a href="/~">{{.L.Loc "My nodes" "ru" "Мои ноды"}}</a>
+		</p>
+		{{else}}
+		<p class="auth-forms"></p>
+		{{end}}
+		<p>
+			<a href="/ping_my_node">{{.L.Loc "Ping nodes" "ru" "Попинговать ноды"}}</a>
+			{{.L.Loc "by ID and address" "ru" "по айди и адресу"}}.
+		</p>
+		<p>
+			<a href="/neighbors">{{.L.Loc "Count neighbors" "ru" "Посчитать соседей"}}</a>
+			{{.L.Loc "on /24-subnet" "ru" "в /24-подсети"}}.
+		</p>
+	</div>
 
-<br>
+	<div class="changelog-wrap">
+		<h4>2021.04.30</h4>
+		<p>
+			<a href="/ping_my_node">{{.L.Loc "Ping nodes" "ru" "Проверка нод"}}</a>
+			{{.L.Loc "by QUIC too" "ru" "и через QUIC"}}.
+		</p>
+		<h4>2021.03.28</h4>
+		<p>
+			{{.L.Loc "Nodes count by countries." "ru" "График нод по странам."}}
+		</p>
+		<h4>2021.03.26</h4>
+		<p>
+			{{.L.Loc "API for multi-node" "ru" "АПИ для группового"}}
+			<a href="https://github.com/3bl3gamer/storjnet-info#post-apineighbors">
+				{{.L.Loc "neighbors counting" "ru" "подсчёта соседей"}}</a>.<br>
+			{{.L.Loc "Neighbors counting in" "ru" "Подсчёт соседей в"}}
+			<a href="/~">{{.L.Loc "my nodes list" "ru" "списке своих нод"}}</a>.
+		</p>
+		<p style="text-align: center">
+			<a href="https://github.com/3bl3gamer/storjnet-info/commits/master">{{.L.Loc "more" "ru" "ещё" }}</a>
+		</p>
+	</div>
+</div>
 
 <div class="rewind-control"></div>
 

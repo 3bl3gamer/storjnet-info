@@ -91,9 +91,6 @@ body {
 	box-shadow: 0 0 8px #ccc;
 }
 
-.header {
-}
-
 .header-content {
 	margin: 0 auto;
 	display: flex;
@@ -203,4 +200,32 @@ body {
 	width: 12px;
 	height: 1.4px;
 	margin-right: 3px;
+}
+
+.upper-block {
+	display: flex;
+	flex-direction: row;
+	justify-content: space-between;
+}
+.changelog-wrap {
+	max-width: 256px;
+	max-height: 150px;
+	overflow-x: auto;
+	/* box-shadow: inset 0 0 16px #eee, 0px 0px 3px #eee; */
+	border-radius: 3px;
+}
+.changelog-wrap h4 {
+	margin: 3px;
+}
+.changelog-wrap p {
+	margin: 3px 3px 8px 3px;
+}
+@media (max-width: 639px) {
+	.upper-block {
+		flex-direction: column;
+	}
+	.changelog-wrap {
+		max-width: initial;
+		border-radius: 0;
+	}
 }
