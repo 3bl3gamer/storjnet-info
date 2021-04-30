@@ -2,9 +2,11 @@ package nodes
 
 import (
 	"context"
+	"fmt"
 	"storjnet/utils"
 	"strconv"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -26,28 +28,43 @@ type ProbeNode struct {
 	IPAddr string
 	Port   uint16
 }
+type ProbeNodeErr struct {
+	Node    *ProbeNode
+	TCPErr  error
+	QUICErr error
+}
 
 func errIsKnown(err error) bool {
 	msg := err.Error()
-	return strings.HasPrefix(msg, "rpccompat: context deadline exceeded") ||
-		(strings.HasPrefix(msg, "rpccompat: dial tcp ") &&
+	return strings.HasPrefix(msg, "rpc: context deadline exceeded") ||
+		(strings.HasPrefix(msg, "rpc: dial tcp ") &&
 			(strings.Contains(msg, ": connect: connection refused") ||
 				strings.Contains(msg, ": connect: no route to host") ||
 				strings.Contains(msg, ": i/o timeout"))) ||
-		strings.HasPrefix(msg, "rpccompat: tls peer certificate verification error: tlsopts error: peer ID did not match requested ID")
+		strings.HasPrefix(msg, "rpc: tls peer certificate verification error: tlsopts error: peer ID did not match requested ID")
 }
 
-func probe(sat *utils.Satellite, node *ProbeNode) error {
+func probeWithTimeout(sat *utils.Satellite, nodeID storj.NodeID, address string, mode utils.SatMode) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-
+	return merry.Wrap(sat.DialAndClose(ctx, address, nodeID, mode))
+}
+func probe(sat *utils.Satellite, node *ProbeNode) (tcpErr error, quicErr error) {
 	address := node.IPAddr + ":" + strconv.Itoa(int(node.Port))
-	err := sat.DialAndClose(ctx, address, node.ID, utils.SatModeTCP)
-	if err != nil {
-		return merry.Wrap(err)
-	}
+	wg := sync.WaitGroup{}
 
-	return nil
+	wg.Add(2)
+	go func() {
+		tcpErr = probeWithTimeout(sat, node.ID, address, utils.SatModeTCP)
+		wg.Done()
+	}()
+	go func() {
+		quicErr = probeWithTimeout(sat, node.ID, address, utils.SatModeQUIC)
+		wg.Done()
+	}()
+
+	wg.Wait()
+	return
 }
 
 func startOldNodesLoader(db *pg.DB, nodesChan chan *ProbeNode, chunkSize int) utils.Worker {
@@ -102,7 +119,7 @@ func startOldNodesLoader(db *pg.DB, nodesChan chan *ProbeNode, chunkSize int) ut
 	return worker
 }
 
-func startNodesProber(db *pg.DB, nodesInChan, nodesOutChan chan *ProbeNode, routinesCount int) utils.Worker {
+func startNodesProber(db *pg.DB, nodesInChan chan *ProbeNode, nodesOutChan chan *ProbeNodeErr, routinesCount int) utils.Worker {
 	worker := utils.NewSimpleWorker(routinesCount)
 
 	sat := &utils.Satellite{}
@@ -119,15 +136,15 @@ func startNodesProber(db *pg.DB, nodesInChan, nodesOutChan chan *ProbeNode, rout
 		go func() {
 			defer worker.Done()
 			for node := range nodesInChan {
-				err := probe(sat, node)
-				if err != nil {
+				tcpErr, quicErr := probe(sat, node)
+				if tcpErr != nil && quicErr != nil {
 					atomic.AddInt64(&countErr, 1)
-					if !errIsKnown(err) {
-						log.Info().Str("id", node.ID.String()).Msg(err.Error())
+					if !errIsKnown(tcpErr) {
+						log.Info().Str("id", node.ID.String()).Msg(tcpErr.Error())
 					}
 				} else {
 					atomic.AddInt64(&countOk, 1)
-					nodesOutChan <- node
+					nodesOutChan <- &ProbeNodeErr{Node: node, TCPErr: tcpErr, QUICErr: quicErr}
 				}
 
 				if atomic.AddInt64(&countTotal, 1)%100 == 0 {
@@ -142,7 +159,7 @@ func startNodesProber(db *pg.DB, nodesInChan, nodesOutChan chan *ProbeNode, rout
 	return worker
 }
 
-func startPingedNodesSaver(db *pg.DB, nodesChan chan *ProbeNode, chunkSize int) utils.Worker {
+func startPingedNodesSaver(db *pg.DB, nodesChan chan *ProbeNodeErr, chunkSize int) utils.Worker {
 	worker := utils.NewSimpleWorker(1)
 	nodesChanI := make(chan interface{}, 16)
 
@@ -157,10 +174,27 @@ func startPingedNodesSaver(db *pg.DB, nodesChan chan *ProbeNode, chunkSize int) 
 		defer worker.Done()
 		err := utils.SaveChunked(db, chunkSize, nodesChanI, func(tx *pg.Tx, items []interface{}) error {
 			ids := make([]storj.NodeID, len(items))
+			tcpErrIDs := make([]storj.NodeID, 0, len(items))
+			quicErrIDs := make([]storj.NodeID, 0, len(items))
 			for i, nodeI := range items {
-				ids[i] = nodeI.(*ProbeNode).ID
+				n := nodeI.(*ProbeNodeErr)
+				ids[i] = n.Node.ID
+				if n.TCPErr != nil {
+					tcpErrIDs = append(tcpErrIDs, n.Node.ID)
+				}
+				if n.QUICErr != nil {
+					quicErrIDs = append(quicErrIDs, n.Node.ID)
+				}
 			}
-			if _, err := tx.Exec("UPDATE nodes SET updated_at = NOW() WHERE id IN (?)", pg.In(ids)); err != nil {
+			fmt.Println(ids, tcpErrIDs, quicErrIDs)
+			_, err := tx.Exec(`
+				UPDATE nodes SET
+					updated_at = NOW(),
+					tcp_updated_at = CASE WHEN id = any(ARRAY[?]::bytea[]) THEN tcp_updated_at ELSE NOW() END,
+					quic_updated_at = CASE WHEN id = any(ARRAY[?]::bytea[]) THEN quic_updated_at ELSE NOW() END
+				WHERE id IN (?)`,
+				pg.In(tcpErrIDs), pg.In(quicErrIDs), pg.In(ids))
+			if err != nil {
 				return merry.Wrap(err)
 			}
 			return nil
@@ -176,12 +210,12 @@ func startPingedNodesSaver(db *pg.DB, nodesChan chan *ProbeNode, chunkSize int) 
 func StartProber() error {
 	db := utils.MakePGConnection()
 	nodesInChan := make(chan *ProbeNode, 32)
-	nodesOutChan := make(chan *ProbeNode, 32)
+	nodesOutChan := make(chan *ProbeNodeErr, 32)
 
 	workers := []utils.Worker{
 		startOldNodesLoader(db, nodesInChan, 128),
 		startNodesProber(db, nodesInChan, nodesOutChan, probeRoutinesCount),
-		startPingedNodesSaver(db, nodesOutChan, 1),
+		startPingedNodesSaver(db, nodesOutChan, 32),
 	}
 	for {
 		for _, worker := range workers {
