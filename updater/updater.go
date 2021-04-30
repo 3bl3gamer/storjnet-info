@@ -204,32 +204,17 @@ func startPingedNodesSaver(db *pg.DB, userNodesChan chan *UserNodeWithErr, chunk
 
 				// user_node auto off
 				if node.Err != nil {
-					/*
-						res, err := tx.Exec(`
-							UPDATE user_nodes SET ping_mode = 'off'
-							WHERE node_id = ? AND user_id = ? AND ping_mode != 'off'
-							  AND COALESCE(last_up_at, created_at) < NOW() - INTERVAL '30 days'`,
-							node.ID, node.UserID)
-						if err != nil {
-							return merry.Wrap(err)
-						}
-						if res.RowsAffected() != 0 {
-							log.Info().Int64("user_id", node.UserID).Str("node_id", node.ID.String()).Msg("pings turned off")
-						}
-					*/
-					/*
-						res, err := tx.Exec(`
-							SELECT 1 FROM user_nodes
-							WHERE node_id = ? AND user_id = ? AND ping_mode != 'off'
-								AND COALESCE(last_up_at, created_at) < NOW() - INTERVAL '30 days'`,
-							node.ID, node.UserID)
-						if err != nil {
-							return merry.Wrap(err)
-						}
-						if res.RowsAffected() != 0 {
-							log.Info().Int64("user_id", node.UserID).Str("node_id", node.ID.String()).Msg("should turn pings off")
-						}
-					*/
+					res, err := tx.Exec(`
+						UPDATE user_nodes SET ping_mode = 'off'
+						WHERE node_id = ? AND user_id = ? AND ping_mode != 'off'
+							AND COALESCE(last_up_at, created_at) < NOW() - INTERVAL '30 days'`,
+						node.ID, node.UserID)
+					if err != nil {
+						return merry.Wrap(err)
+					}
+					if res.RowsAffected() != 0 {
+						log.Info().Int64("user_id", node.UserID).Str("node_id", node.ID.String()).Msg("pings turned off")
+					}
 				}
 
 				// history (update attempt, most common)
