@@ -2,7 +2,6 @@ package nodes
 
 import (
 	"context"
-	"fmt"
 	"storjnet/utils"
 	"strconv"
 	"strings"
@@ -19,7 +18,7 @@ import (
 const (
 	nodesUpdateInterval = `INTERVAL '8 minutes'`
 	noNodesPauseDuraton = 30 * time.Second
-	probeRoutinesCount  = 16
+	probeRoutinesCount  = 64
 )
 
 type ProbeNode struct {
@@ -186,7 +185,6 @@ func startPingedNodesSaver(db *pg.DB, nodesChan chan *ProbeNodeErr, chunkSize in
 					quicErrIDs = append(quicErrIDs, n.Node.ID)
 				}
 			}
-			fmt.Println(ids, tcpErrIDs, quicErrIDs)
 			_, err := tx.Exec(`
 				UPDATE nodes SET
 					updated_at = NOW(),

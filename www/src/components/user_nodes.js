@@ -153,8 +153,9 @@ class UserNodeItem extends PureComponent {
 				</td>
 				<td>
 					<div class="node-id">
-						<span class="short">${shortNodeID(node.id)}</span>
-						<span class="full">${node.id}</span>
+						<!-- div, not span: otherwise double click on .full text will select part of .short text -->
+						<div class="short">${shortNodeID(node.id)}</div>
+						<div class="full">${node.id}</div>
 					</div>
 				</td>
 				<td>

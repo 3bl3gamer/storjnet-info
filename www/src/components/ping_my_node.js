@@ -167,8 +167,8 @@ export class PingMyNode extends PureComponent {
 					node => html`
 						<div class="item" data-id=${node.id} data-address=${node.address}>
 							<a class="node" href="javascript:void(0)" onclick=${this.onNodeClick}>
-								<span class="node-id">${node.id}</span>
-								<span class="node-address">${node.address}</span>
+								<div class="node-id">${node.id}</div>
+								<div class="node-address">${node.address}</div>
 							</a>
 							<button class="remove" onclick=${this.onNodeRemoveClick}>✕</button>
 						</div>
