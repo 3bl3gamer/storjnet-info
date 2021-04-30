@@ -207,7 +207,8 @@ func startPingedNodesSaver(db *pg.DB, userNodesChan chan *UserNodeWithErr, chunk
 					res, err := tx.Exec(`
 						UPDATE user_nodes SET ping_mode = 'off'
 						WHERE node_id = ? AND user_id = ? AND ping_mode != 'off'
-							AND COALESCE(last_up_at, created_at) < NOW() - INTERVAL '30 days'`,
+							AND COALESCE(last_up_at, created_at) < NOW() - INTERVAL '30 days'
+							AND details_updated_at < NOW() - INTERVAL '30 days'`,
 						node.ID, node.UserID)
 					if err != nil {
 						return merry.Wrap(err)

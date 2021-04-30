@@ -64,8 +64,11 @@ func ConvertUserNodeIDs(nodes []*UserNode) error {
 
 func SetUserNode(db *pg.DB, user *User, node *Node) error {
 	_, err := db.Exec(`
-		INSERT INTO user_nodes (node_id, user_id, address, ping_mode) VALUES (?, ?, ?, ?)
-		ON CONFLICT (node_id, user_id) DO UPDATE SET address = EXCLUDED.address, ping_mode = EXCLUDED.ping_mode`,
+		INSERT INTO user_nodes (node_id, user_id, address, ping_mode, details_updated_at) VALUES (?, ?, ?, ?, now())
+		ON CONFLICT (node_id, user_id) DO UPDATE SET
+			address = EXCLUDED.address,
+			ping_mode = EXCLUDED.ping_mode,
+			details_updated_at = now()`,
 		node.ID, user.ID, node.Address, node.PingMode)
 	return merry.Wrap(err)
 }
