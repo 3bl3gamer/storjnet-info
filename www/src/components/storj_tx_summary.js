@@ -13,7 +13,7 @@ import {
 	LegendItem,
 } from 'src/utils/charts'
 import { onError } from 'src/errors'
-import { L, lang } from 'src/i18n'
+import { L, lang, pluralize } from 'src/i18n'
 import { bindHandlers, delayedRedraw } from 'src/utils/elems'
 import { html } from 'src/utils/htm'
 import { PureComponent } from 'src/utils/preact_compat'
@@ -219,7 +219,8 @@ export class StorjTxSummary extends PureComponent {
 						? count === 0
 							? duringThisPeriod + ` платежей нет.`
 							: duringThisPeriod +
-							  ` отправлено ${L.n(count, 'платёж', 'платежа', 'платежей')} ` +
+							  ` ${pluralize(count, 'отправлен', 'отправлено', 'отправлено')}` +
+							  ` ${L.n(count, 'платёж', 'платежа', 'платежей')} ` +
 							  `на ${L.n(total, 'STORJ', "STORJ'а", "STORJ'ей")}, ${avg} в среднем.`
 						: count === 0
 						? duringThisPeriod + ' there are no payments.'

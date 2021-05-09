@@ -2,15 +2,16 @@ package updater
 
 import (
 	"context"
+	"encoding/hex"
 	"storjnet/core"
 	"storjnet/utils"
+	"strconv"
 	"sync/atomic"
 	"time"
 
 	"github.com/ansel1/merry"
 	"github.com/go-pg/pg/v9"
 	"github.com/rs/zerolog/log"
-	"storj.io/common/storj"
 )
 
 var ErrDialFail = merry.New("dial failed")
@@ -41,6 +42,25 @@ func doPing(sat *utils.Satellite, node *core.Node) (time.Duration, error) {
 	return time.Now().Sub(stt), nil
 }
 
+type NodeIDListAsPGTuple []*core.UserNode
+
+func (l NodeIDListAsPGTuple) AppendValue(b []byte, flags int) ([]byte, error) {
+	// flags: https://github.com/go-pg/pg/blob/c9ee578a38d6866649072df18a3dbb36ff369747/types/flags.go
+	idBuf := make([]byte, 80)
+	for i, item := range l {
+		if i > 0 {
+			b = append(b, ',')
+		}
+		idLen := hex.Encode(idBuf, item.ID.Bytes())
+		b = append(b, '(')
+		b = append(b, []byte(strconv.FormatInt(item.UserID, 10))...)
+		b = append(b, []byte(",'\\x")...)
+		b = append(b, idBuf[:idLen]...)
+		b = append(b, []byte("')")...)
+	}
+	return b, nil
+}
+
 func startOldPingNodesLoader(db *pg.DB, userNodesChan chan *core.UserNode, chunkSize int) utils.Worker {
 	worker := utils.NewSimpleWorker(1)
 
@@ -65,11 +85,8 @@ func startOldPingNodesLoader(db *pg.DB, userNodesChan chan *core.UserNode, chunk
 				if err := core.ConvertUserNodeIDs(userNodes); err != nil {
 					return merry.Wrap(err)
 				}
-				nodeIDs := make(storj.NodeIDList, len(userNodes))
-				for i, node := range userNodes {
-					nodeIDs[i] = node.ID
-				}
-				_, err = tx.Exec(`UPDATE user_nodes SET last_pinged_at = NOW() WHERE node_id IN (?)`, pg.In(nodeIDs))
+				_, err = tx.Exec(`UPDATE user_nodes SET last_pinged_at = NOW() WHERE (user_id, node_id) IN (?)`,
+					NodeIDListAsPGTuple(userNodes))
 				return merry.Wrap(err)
 			})
 			if err != nil {
@@ -157,11 +174,13 @@ func startPingedNodesSaver(db *pg.DB, userNodesChan chan *UserNodeWithErr, chunk
 	go func() {
 		defer worker.Done()
 		err := utils.SaveChunked(db, chunkSize, userNodesChanI, func(tx *pg.Tx, items []interface{}) error {
-			ids := make([]storj.NodeID, len(items))
+			userNodes := make([]*core.UserNode, len(items))
 			for i, nodeI := range items {
-				ids[i] = nodeI.(*UserNodeWithErr).ID
+				userNodes[i] = &nodeI.(*UserNodeWithErr).UserNode
 			}
-			if _, err := tx.Exec("SELECT 1 FROM user_nodes WHERE node_id IN (?) FOR UPDATE", pg.In(ids)); err != nil {
+			_, err := tx.Exec("SELECT 1 FROM user_nodes WHERE (user_id, node_id) IN (?) FOR UPDATE",
+				NodeIDListAsPGTuple(userNodes))
+			if err != nil {
 				return merry.Wrap(err)
 			}
 
