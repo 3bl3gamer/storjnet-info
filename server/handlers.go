@@ -182,7 +182,7 @@ func HandleAPIPingMyNode(wr http.ResponseWriter, r *http.Request, ps httprouter.
 	var pingDuration float64
 	if !params.DialOnly {
 		stt := time.Now()
-		if err := sat.Ping(ctx, conn, satMode); err != nil {
+		if err := sat.Ping(ctx, conn, satMode); err != nil && !utils.IsUntrustedSatPingError(err) {
 			return httputils.JsonError{Code: 400, Error: "NODE_PING_ERROR", Description: err.Error()}, nil
 		}
 		pingDuration = time.Now().Sub(stt).Seconds()

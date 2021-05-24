@@ -34,7 +34,7 @@ func doPing(sat *utils.Satellite, node *core.Node) (time.Duration, error) {
 	defer conn.Close()
 
 	if node.PingMode == "ping" {
-		if err := sat.Ping(ctx, conn, utils.SatModeTCP); err != nil {
+		if err := sat.Ping(ctx, conn, utils.SatModeTCP); err != nil && !utils.IsUntrustedSatPingError(err) {
 			return 0, ErrPingFail.WithCause(err)
 		}
 	}

@@ -2,6 +2,7 @@ package utils
 
 import (
 	"context"
+	"strings"
 
 	"github.com/ansel1/merry"
 	"storj.io/common/pb"
@@ -18,6 +19,13 @@ const (
 	SatModeTCP SatMode = iota
 	SatModeQUIC
 )
+
+// Since v1.30.2 nodes return error to pings from untrusted satellites
+// https://github.com/storj/storj/releases/tag/v1.30.2
+func IsUntrustedSatPingError(err error) bool {
+	s := err.Error()
+	return strings.HasPrefix(s, "trust: satellite ") && strings.HasSuffix(s, " is untrusted")
+}
 
 type Satellite struct {
 	Config     satellite.Config

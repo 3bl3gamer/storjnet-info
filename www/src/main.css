@@ -5,7 +5,7 @@
 }
 .dim:hover,
 .dim:hover a {
-	color: inherit;
+	color: initial;
 }
 
 .small {

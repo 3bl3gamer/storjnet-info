@@ -8,7 +8,8 @@ export const PureComponent = /** @type {typeof import('preact/compat').PureCompo
 	/** @type {*} */ (PureComponent_)
 )
 
-export const createPortal = /** @type {typeof import('preact/compat').createPortal} */ (createPortal_)
+// completelly overriding type: createPortal actually CAN accept array in first argument
+export const createPortal = /** @type {(vnode: preact.VNode<{}>|preact.VNode<{}>[], container: Element) => preact.VNode<any>} */ (createPortal_)
 
 /**
  * @template TProps

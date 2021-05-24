@@ -1,4 +1,3 @@
-import { h } from 'preact'
 import { useCallback, useLayoutEffect, useState } from 'preact/hooks'
 import { html } from 'src/utils/htm'
 import { createPortal } from 'src/utils/preact_compat'
@@ -8,7 +7,7 @@ import './help.css'
 /**
  * @param {{
  *   onClose(): void,
- *   children:import('preact').JSX.Element
+ *   children: import('preact').JSX.Element
  * }} props
  */
 export function Popup({ onClose, children }) {
@@ -42,7 +41,7 @@ export function Popup({ onClose, children }) {
 				<div class="popup-content">${children}</div>
 			</div>
 			<div>
-				<!-- this div moves popup-frame a bit upper -->
+				<!-- this div moves popup-frame a bit higher -->
 			</div>
 		</div>
 	`
@@ -51,9 +50,10 @@ export function Popup({ onClose, children }) {
 /**
  * @param {{
  *   contentFunc(): import('preact').JSX.Element,
+ *   letter?: string
  * }} props
  */
-export function Help({ contentFunc }) {
+export function Help({ contentFunc, letter = '?' }) {
 	const [isShown, setIsShown] = useState(false)
 
 	const onClick = useCallback(() => {
@@ -64,10 +64,10 @@ export function Help({ contentFunc }) {
 	}, [setIsShown])
 
 	return html`
-		<button class="help" onclick=${onClick}>?</button>
+		<button class="help" onclick=${onClick}>${letter}</button>
 		${isShown &&
 		createPortal(
-			h(Popup, { onClose: onPopupClose }, contentFunc()), //
+			html`<${Popup} onClose=${onPopupClose}>${contentFunc()}</${Popup}>`, //
 			document.body,
 		)}
 	`
@@ -76,7 +76,7 @@ export function Help({ contentFunc }) {
 /**
  * @param {{
  *   contentFunc(): import('preact').JSX.Element,
- *   children:import('preact').JSX.Element
+ *   children: import('preact').JSX.Element
  * }} props
  */
 export function HelpLine({ contentFunc, children }) {
@@ -93,7 +93,7 @@ export function HelpLine({ contentFunc, children }) {
 		<button class="help-line" onclick=${onClick}>${children}</button>
 		${isShown &&
 		createPortal(
-			h(Popup, { onClose: onPopupClose }, contentFunc()), //
+			html`<${Popup} onClose=${onPopupClose}>${contentFunc()}</${Popup}>`, //
 			document.body,
 		)}
 	`

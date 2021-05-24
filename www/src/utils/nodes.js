@@ -1,3 +1,4 @@
+import { Help } from 'src/components/help'
 import { L, lang } from 'src/i18n'
 import { html } from './htm'
 
@@ -24,6 +25,17 @@ export function withoutPort(addr) {
 	return index === -1 ? addr : addr.slice(0, index)
 }
 
+function getPingDetails() {
+	return html`<p>
+		${L('After ', 'ru', 'После ')}
+		<a href="https://github.com/storj/storj/releases/tag/v1.30.2">v1.30.2</a>
+		${L(' nodes respond with an error like ', 'ru', ' ноды отвечают ошибкой типа ')}
+		<code>satellite is untrusted</code>
+		${lang === 'ru'
+			? ' на пинги от недоверенных сателлитов. При получении такой ошибки пинг тоже будет считаться успешным.'
+			: ' to pings from untrusted satellites. If such an error is received, the ping will also be considered successful.'}
+	</p>`
+}
 export function PingModeDescription() {
 	return html`
 		<p>
@@ -33,10 +45,10 @@ export function PingModeDescription() {
 		<p>
 			<b>Ping</b> —
 			${lang === 'ru'
-				? ' подключиться и отправить пинг (через сторжевый RPC). Обновит'
-				: ' connect and send ping (via Storj RPC). Will update'}
-			${' '}<code>Last Contact</code>
-			${L(' in dashboard', 'ru', ' в дашборде')}.
+				? ' подключиться и отправить пинг (через сторжевый RPC).'
+				: ' connect and send ping (via Storj RPC).'}
+			${' '}
+			<${Help} letter="*" contentFunc=${getPingDetails} />
 		</p>
 	`
 }
