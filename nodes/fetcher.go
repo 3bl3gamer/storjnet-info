@@ -17,7 +17,7 @@ import (
 	"storj.io/common/peertls/tlsopts"
 	"storj.io/common/rpc"
 	"storj.io/common/storj"
-	"storj.io/uplink/private/metainfo"
+	"storj.io/uplink/private/metaclient"
 )
 
 func FetchAndProcess(satelliteAddress string) error {
@@ -42,14 +42,14 @@ func FetchAndProcess(satelliteAddress string) error {
 		return merry.Wrap(err)
 	}
 
-	beginObjectReq := &metainfo.BeginObjectParams{
+	beginObjectReq := &metaclient.BeginObjectParams{
 		Bucket:        []byte("test-bucket"),
 		EncryptedPath: []byte("f1"),
 		ExpiresAt:     time.Now().Add(time.Minute),
 	}
 	maxEncryptedSegmentSize := int64(67254016)
 	currentSegment := 0
-	beginSegment := metainfo.BeginSegmentParams{
+	beginSegment := metaclient.BeginSegmentParams{
 		MaxOrderLimit: maxEncryptedSegmentSize,
 		Position: storj.SegmentPosition{
 			Index: int32(currentSegment),
@@ -156,7 +156,7 @@ func saveLimits(db *pg.DB, gdb *geoip.GeoIP, satelliteAddress string, limits []*
 }
 
 // config.dial
-func dial(ctx context.Context, satelliteAddress string, apiKey *macaroon.APIKey) (_ *metainfo.Client, _ rpc.Dialer, fullNodeURL string, err error) {
+func dial(ctx context.Context, satelliteAddress string, apiKey *macaroon.APIKey) (_ *metaclient.Client, _ rpc.Dialer, fullNodeURL string, err error) {
 	ident, err := identity.NewFullIdentity(ctx, identity.NewCAOptions{
 		Difficulty:  0,
 		Concurrency: 1,
@@ -200,7 +200,7 @@ func dial(ctx context.Context, satelliteAddress string, apiKey *macaroon.APIKey)
 	}
 
 	userAgent := ""
-	metainfo, err := metainfo.DialNodeURL(ctx, dialer, satelliteAddress, apiKey, userAgent)
+	metainfo, err := metaclient.DialNodeURL(ctx, dialer, satelliteAddress, apiKey, userAgent)
 
 	return metainfo, dialer, satelliteAddress, merry.Wrap(err)
 }
