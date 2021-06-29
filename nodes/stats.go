@@ -183,6 +183,7 @@ type OffNodeStat struct {
 	SuspendedNodes    int64 `pg:",use_zero" json:"suspended_nodes"`    //number of suspended storage nodes, excludes disqualified and exited nodes
 	TotalNodes        int64 `pg:",use_zero" json:"total_nodes"`        //total number of unique storage nodes that ever contacted the satellite
 	VettedNodes       int64 `pg:",use_zero" json:"vetted_nodes"`       //number of vetted storage nodes, excludes disqualified and exited nodes
+	FullNodes         int64 `pg:",use_zero" json:"full_nodes"`         //number of storage nodes without free disk
 }
 type OffAccountStat struct {
 	OffSatelliteDetails
