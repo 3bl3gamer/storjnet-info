@@ -1,3 +1,6 @@
+.nodes-count-chart .chart {
+	height: 110px;
+}
 .node-countries-chart {
 	height: 192px;
 }

@@ -247,7 +247,7 @@ class PingsChart extends PureComponent {
 
 		rc.strokeStyle = 'rgba(0,0,0,0.05)'
 		rc.lineWidth = 0.5
-		rc.strokeRect(0.5, 0.5, canvasExt.cssWidth - 1, canvasExt.cssHeight - 1)
+		rc.strokeRect(0.5, 0.5, rect.width - 1, rect.top + rect.height - 0.5)
 
 		rc.restore()
 	}

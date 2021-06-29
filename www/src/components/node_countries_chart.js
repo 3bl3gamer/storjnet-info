@@ -12,7 +12,7 @@ import {
 	roundRange,
 	View,
 } from 'src/utils/charts'
-import { delayedRedraw } from 'src/utils/elems'
+import { delayedRedraw, useResizeEffect } from 'src/utils/elems'
 import { html } from 'src/utils/htm'
 import { DAY_DURATION, toISODateString, useHashInterval } from 'src/utils/time'
 
@@ -124,7 +124,6 @@ export function NodeCountriesChart() {
 
 				setData({ startStamp, countries })
 				view.updateLimits(...roundRange(0, maxCount))
-				// requestRedraw()
 			})
 			.catch(onError)
 		return () => abortController.abort()
@@ -134,13 +133,7 @@ export function NodeCountriesChart() {
 		requestRedraw()
 	}, [requestRedraw])
 
-	useLayoutEffect(() => {
-		const onResize = () => requestRedraw()
-		addEventListener('resize', onResize)
-		return () => {
-			removeEventListener('resize', onResize)
-		}
-	}, [requestRedraw])
+	useResizeEffect(requestRedraw, [requestRedraw])
 
 	return html`
 		<div class="chart node-countries-chart">

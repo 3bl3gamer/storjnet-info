@@ -754,6 +754,15 @@ func HandleAPINodesCounts(wr http.ResponseWriter, r *http.Request, ps httprouter
 		return nil, merry.Wrap(err)
 	}
 
+	var offCounts []struct{ Active, Stamp int64 }
+	_, err = db.Query(&offCounts, `
+		SELECT active_nodes AS active, extract(epoch from created_at)::bigint AS stamp
+		FROM off_node_stats WHERE created_at >= ? AND created_at < ?`,
+		startDate, endDate.AddDate(0, 0, 1))
+	if err != nil {
+		return nil, merry.Wrap(err)
+	}
+
 	var changes []struct {
 		Date       time.Time
 		Delta      int64
@@ -778,6 +787,11 @@ func HandleAPINodesCounts(wr http.ResponseWriter, r *http.Request, ps httprouter
 			maxStamp = count.Stamp
 		}
 	}
+	for _, count := range offCounts {
+		if count.Stamp > maxStamp {
+			maxStamp = count.Stamp
+		}
+	}
 	countsArrLen := (maxStamp-startStamp)/3600 + 1
 
 	changesArrLen := int64(0)
@@ -793,29 +807,30 @@ func HandleAPINodesCounts(wr http.ResponseWriter, r *http.Request, ps httprouter
 		changes[i].Delta = delta
 	}
 
-	buf := make([]byte, 4+4+int(countsArrLen)*6+4+int(changesArrLen)*4)
+	const COUNTS_ITEM_SIZE = 8
+	const CHANGES_ITEM_SIZE = 4
+	buf := make([]byte, 4+4+int(countsArrLen)*COUNTS_ITEM_SIZE+4+int(changesArrLen)*CHANGES_ITEM_SIZE)
 	fullBuf := buf
 	binary.LittleEndian.PutUint32(buf, uint32(startStamp))
 	binary.LittleEndian.PutUint32(buf[4:], uint32(countsArrLen))
-	buf = buf[8:]
+	buf = buf[4+4:]
 	for _, count := range counts {
 		i := (count.Stamp - startStamp) / 3600
-		buf[i*6+0] = byte(count.H05)
-		buf[i*6+1] = byte(count.H05 >> 8)
-		buf[i*6+2] = byte(count.H8)
-		buf[i*6+3] = byte(count.H8 >> 8)
-		buf[i*6+4] = byte(count.H24)
-		buf[i*6+5] = byte(count.H24 >> 8)
+		binary.LittleEndian.PutUint16(buf[i*COUNTS_ITEM_SIZE+0:], uint16(count.H05))
+		binary.LittleEndian.PutUint16(buf[i*COUNTS_ITEM_SIZE+2:], uint16(count.H8))
+		binary.LittleEndian.PutUint16(buf[i*COUNTS_ITEM_SIZE+4:], uint16(count.H24))
 	}
-	buf = buf[countsArrLen*6:]
+	for _, count := range offCounts {
+		i := (count.Stamp - startStamp) / 3600
+		binary.LittleEndian.PutUint16(buf[i*COUNTS_ITEM_SIZE+6:], uint16(count.Active))
+	}
+	buf = buf[countsArrLen*COUNTS_ITEM_SIZE:]
 	binary.LittleEndian.PutUint32(buf, uint32(changesArrLen))
 	buf = buf[4:]
 	for _, change := range changes {
 		i := change.Delta
-		buf[i*4+0] = byte(change.Come)
-		buf[i*4+1] = byte(change.Come >> 8)
-		buf[i*4+2] = byte(change.Left)
-		buf[i*4+3] = byte(change.Left >> 8)
+		binary.LittleEndian.PutUint16(buf[i*CHANGES_ITEM_SIZE+0:], uint16(change.Come))
+		binary.LittleEndian.PutUint16(buf[i*CHANGES_ITEM_SIZE+2:], uint16(change.Left))
 	}
 
 	wr.Header().Set("Content-Type", "application/octet-stream")

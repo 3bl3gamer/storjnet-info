@@ -167,7 +167,7 @@ export function getArrayMaxValue(arr, initialValue = -Infinity) {
  * @returns {[number, number]}
  */
 export function roundRange(bottomVal, topVal, sigDigits = 2) {
-	let k = Math.pow(10, Math.round(0.2 + Math.log10(topVal - bottomVal) - (sigDigits - 1)))
+	let k = Math.pow(10, Math.floor(0.05 + Math.log10(topVal - bottomVal) - (sigDigits - 1)))
 	return [Math.floor(bottomVal / k) * k, Math.ceil(topVal / k) * k]
 }
 
@@ -463,7 +463,7 @@ export function* iterateDays(startDate, endDate, step = 1, utc = false) {
  * @param {CanvasExt} canvasExt
  * @param {Rect} rect
  * @param {View} view
- * @param {{textColor?:string, vLinesColor?:string|null, hLineColor?:string, textYShift?:number}} [params={}]
+ * @param {{textColor?:string, vLinesColor?:string|null, hLineColor?:string|null, textYShift?:number}} [params={}]
  */
 export function drawMonthDays(canvasExt, rect, view, params = {}) {
 	let { textColor = 'black', vLinesColor = null, hLineColor = '#555', textYShift = 2 } = params

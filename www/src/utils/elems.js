@@ -1,4 +1,5 @@
 import { h, render } from 'preact'
+import { useLayoutEffect } from 'preact/hooks'
 
 export function renderIfExists(Comp, selector) {
 	let elem = document.querySelector(selector)
@@ -40,6 +41,19 @@ export function getJSONContent(elemId) {
 	let elem = document.getElementById(elemId)
 	if (elem === null) throw new Error(`elem #${elemId} not found`)
 	return JSON.parse(elem.textContent + '')
+}
+
+/**
+ * @param {() => unknown} onResize
+ * @param {unknown[]} args
+ */
+export function useResizeEffect(onResize, args) {
+	useLayoutEffect(() => {
+		addEventListener('resize', onResize)
+		return () => {
+			removeEventListener('resize', onResize)
+		}
+	}, args)
 }
 
 export function hoverSingle({ onHover, onLeave }) {
