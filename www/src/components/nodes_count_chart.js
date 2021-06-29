@@ -185,7 +185,9 @@ export function NodesCountChart() {
 					${countInc} during the last day`}${' '}
 			<span class="dim small">
 				${countIsOfficial
-					? html`(${L('according to', 'ru', 'по')}${' '}
+					? html`(${lang === 'ru'
+								? 'максимум среди спутников, по'
+								: 'max among all satellites, according to'}${' '}
 							<a href="https://stats.storjshare.io/" target="_blank">
 								${lang === 'ru' ? 'официальным данным' : 'official data'}</a
 							>)`

@@ -822,7 +822,11 @@ func HandleAPINodesCounts(wr http.ResponseWriter, r *http.Request, ps httprouter
 	}
 	for _, count := range offCounts {
 		i := (count.Stamp - startStamp) / 3600
-		binary.LittleEndian.PutUint16(buf[i*COUNTS_ITEM_SIZE+6:], uint16(count.Active))
+		s := buf[i*COUNTS_ITEM_SIZE+6:]
+		// finding max hour count among all satellites
+		if uint16(count.Active) > binary.LittleEndian.Uint16(s) {
+			binary.LittleEndian.PutUint16(s, uint16(count.Active))
+		}
 	}
 	buf = buf[countsArrLen*COUNTS_ITEM_SIZE:]
 	binary.LittleEndian.PutUint32(buf, uint32(changesArrLen))
