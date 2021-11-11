@@ -72,9 +72,9 @@ export class ResolveError extends Error {
  */
 export function resolve(name) {
 	const nameEnc = encodeURIComponent(name)
-	const ct = encodeURIComponent('application/dns-json')
+	const headers = { Accept: 'application/dns-json' }
 	// https://developers.cloudflare.com/1.1.1.1/dns-over-https/json-format
-	return fetch(`https://cloudflare-dns.com/dns-query?name=${nameEnc}&type=A&ct=${ct}`)
+	return fetch(`https://cloudflare-dns.com/dns-query?name=${nameEnc}&type=A`, { headers })
 		.then(r => r.json())
 		.then(response => {
 			if (response.Status !== 0) {
