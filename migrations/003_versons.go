@@ -8,7 +8,7 @@ func init() {
 			CREATE TABLE storjnet.versions (
 				kind text NOT NULL,
 				version text NOT NULL,
-				created_at timestamptz NOT NULL DEFAULT NOW(),
+				created_at timestamptz NOT NULL DEFAULT NOW()
 			)
 			`)
 	}, func(db migrations.DB) error {

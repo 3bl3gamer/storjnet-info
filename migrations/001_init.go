@@ -36,8 +36,8 @@ func init() {
 				pings smallint[] NOT NULL,
 				CHECK (length(node_id) = 32),
 				CHECK (array_dims(pings) = '[1:1440]'),
-				PRIMARY KEY (node_id, user_id, date),
-				-- no reference to user_nodes (so user_node can be removed and restored withoul loosing all history)
+				PRIMARY KEY (node_id, user_id, date)
+				-- no reference to user_nodes (so user_node can be removed and restored without loosing all history)
 			);
 			`)
 	}, func(db migrations.DB) error {
