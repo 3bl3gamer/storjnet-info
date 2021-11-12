@@ -26,7 +26,7 @@ export async function apiReq(method, path, params) {
 	if (!params.credentials) params.credentials = 'include'
 
 	// если это GET-зпрос, добавляем params.data как query
-	if ('data' in params && (!params.method || params.method == 'GET')) {
+	if ('data' in params && (!params.method || params.method === 'GET')) {
 		let args = []
 		for (let key in params.data) {
 			let value = params.data[key]
@@ -37,7 +37,7 @@ export async function apiReq(method, path, params) {
 	}
 
 	// если это не-GET-запрос, отправляем дату как ЖСОН в боди
-	if ('data' in params && params.method != 'GET') {
+	if ('data' in params && params.method !== 'GET') {
 		params.body = JSON.stringify(params.data)
 		delete params.data
 	}

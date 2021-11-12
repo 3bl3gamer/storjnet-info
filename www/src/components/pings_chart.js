@@ -186,7 +186,7 @@ class PingsChart extends PureComponent {
 		this.setState({ zoom: { ...this.state.zoom, isShown: false } })
 	}
 	onHover(x, y, e, touch) {
-		if (this.canvasExt.cssWidth == 0) return
+		if (this.canvasExt.cssWidth === 0) return
 		let isTouch = !!touch
 		let boxWidth = Math.min(512, this.canvasExt.cssWidth)
 		let pixRatio = window.devicePixelRatio
@@ -238,7 +238,7 @@ class PingsChart extends PureComponent {
 
 		drawMonthDays(canvasExt, rect, view, { hLineColor: 'rgba(0,0,0,0.1)' })
 
-		const msFunc = v => (v == 0 ? '0' : (v / 1000).toFixed(0) + 'K')
+		const msFunc = v => (v === 0 ? '0' : (v / 1000).toFixed(0) + 'K')
 		rc.textAlign = 'left'
 		rc.textBaseline = 'bottom'
 		drawLabeledVScaleLeftLine(rc, rect, view, 0, 'black', null, 0, msFunc)
@@ -332,7 +332,7 @@ class PingsChart extends PureComponent {
 					style="width: ${zoom.boxWidth}px; transform: translateX(${zoom.boxX}px)"
 				></canvas>
 			`
-		let legend = group == 'sat' ? cutOffDefaultSatPort(node.address) : shortNodeID(node.id)
+		let legend = group === 'sat' ? cutOffDefaultSatPort(node.address) : shortNodeID(node.id)
 		return html`
 			<div class="chart pings-chart" ref=${this.hoverCtl.setRef}>
 				<canvas class="main-canvas" ref=${this.canvasExt.setRef}></canvas>

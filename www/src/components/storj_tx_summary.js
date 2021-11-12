@@ -60,7 +60,7 @@ function processTxData(buf, startDate, endDate) {
 		}
 		withdrawalTotal += withdrawals[i]
 	}
-	let payoutAvg = payoutsCount == 0 ? 0 : payoutTotal / payoutsCount
+	let payoutAvg = payoutsCount === 0 ? 0 : payoutTotal / payoutsCount
 
 	for (let i = withdrawals.length - 1; i >= 1; i--) {
 		withdrawals[i] = (withdrawals[i] + withdrawals[i - 1]) / 2
@@ -215,7 +215,7 @@ export class StorjTxSummary extends PureComponent {
 				: L('During this period', 'ru', 'За этот период')
 			infoElem = html`
 				<p>
-					${lang == 'ru'
+					${lang === 'ru'
 						? count === 0
 							? duringThisPeriod + ` платежей нет.`
 							: duringThisPeriod +
@@ -228,7 +228,7 @@ export class StorjTxSummary extends PureComponent {
 						  ` ${L.n(count, 'payment', 'payments')} were sent ` +
 						  `for ${L.n(total, 'STORJ', 'STORJs')}, ${avg} on average.`}
 					${' '}
-					${lang == 'ru'
+					${lang === 'ru'
 						? `С кошельков получателей выведено ${L.n(withdr, 'койн', 'койна', 'койнов')} ` +
 						  `(${withdrPerc}% от выплат).`
 						: `${L.n(withdr, 'coin', 'coins')} were withdrawn from recipient's wallets ` +
@@ -262,15 +262,15 @@ export class StorjTxSummary extends PureComponent {
 			</div>
 			<p class="dim small">
 				<b>${L('preparation', 'ru', 'подготовка')}</b>
-				${lang == 'ru'
+				${lang === 'ru'
 					? " — входящие переводы в Storj'евый кошелёк выплат"
 					: ' — incoming transfers to Storj payout wallet(s)'},${' '}
 				<b>${L('payouts', 'ru', 'выплаты')}</b>
-				${lang == 'ru'
+				${lang === 'ru'
 					? ' — собственно выплаты операторам нод'
 					: ' — actual payouts to Storj Node Operators'},${' '}
 				<b>${L('withdrawals', 'ru', 'вывод')}</b>
-				${lang == 'ru'
+				${lang === 'ru'
 					? ' — переводы токенов из кошельков SNO (в обменники или просто на другие адреса)'
 					: ' — token transfers from SNO wallets (to exchangers or just other addresses)'}.
 			</p>

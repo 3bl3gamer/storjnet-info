@@ -173,7 +173,7 @@ class UserNodeItem extends PureComponent {
 							${pingModes.map(
 								([name, label]) =>
 									html`
-										<option value=${name} selected=${name == node.pingMode}>
+										<option value=${name} selected=${name === node.pingMode}>
 											${label}
 										</option>
 									`,
@@ -219,7 +219,7 @@ class NewUserNodeForm extends PureComponent {
 		let data = new FormData(e.target).get('nodes_data') + ''
 		data.split('\n')
 			.map(x => x.trim())
-			.filter(x => x != '')
+			.filter(x => x !== '')
 			.map(x => {
 				let [id, address] = x.split(/\s+/, 2)
 				return { ...BLANK_NODE, id, address: address || '' }
@@ -412,7 +412,7 @@ export const UserNodesList = memo(function UserNodesList(
 					setNode(node)
 				})
 				.catch(err => {
-					if (err.error == 'NODE_ID_DECODE_ERROR') {
+					if (err.error === 'NODE_ID_DECODE_ERROR') {
 						setNodeError(
 							L('Wrong node ID', 'ru', 'Неправильный ID ноды') +
 								` "${node.id}": ` +

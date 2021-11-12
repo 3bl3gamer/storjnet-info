@@ -45,7 +45,7 @@ export class PingMyNode extends PureComponent {
 	 */
 	pingMode(dialOnly, mode) {
 		let { id, address } = this.state.curNode
-		if (id == '' || address == '') return Promise.resolve({ aborted: false })
+		if (id === '' || address === '') return Promise.resolve({ aborted: false })
 
 		let abortController = this.pingAbortController[mode]
 		if (abortController !== null) abortController.abort()
@@ -117,7 +117,7 @@ export class PingMyNode extends PureComponent {
 	}
 	rememberNode(id, address) {
 		let nodes = this.state.pingedNodes
-		if (!nodes.find(n => n.id == id && n.address == address)) {
+		if (!nodes.find(n => n.id === id && n.address === address)) {
 			nodes = nodes.slice()
 			nodes.push({ id, address })
 			this.setState({ pingedNodes: nodes })
@@ -125,7 +125,7 @@ export class PingMyNode extends PureComponent {
 	}
 	forgetNode(id, address) {
 		this.setState({
-			pingedNodes: this.state.pingedNodes.filter(n => n.id != id || n.address != address),
+			pingedNodes: this.state.pingedNodes.filter(n => n.id !== id || n.address !== address),
 		})
 	}
 
@@ -177,7 +177,7 @@ export class PingMyNode extends PureComponent {
 			</div>
 			<${PingModeDescription} />
 			<p>
-				${lang == 'ru' ? 'Будут проверены и TCP, и ' : 'Will try both TCP and '}
+				${lang === 'ru' ? 'Будут проверены и TCP, и ' : 'Will try both TCP and '}
 				<a href="https://forum.storj.io/t/experimenting-with-udp-based-protocols/11545">QUIC</a>.
 			</p>
 			<form class="node-ping-form">

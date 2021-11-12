@@ -29,11 +29,11 @@ export class AuthForm extends PureComponent {
 				location.href = '/~'
 			})
 			.catch(err => {
-				if (err.error == 'USERNAME_TO_SHORT')
+				if (err.error === 'USERNAME_TO_SHORT')
 					this.setState({
 						authError: L('username to short', 'ru', 'логин слишком короткий'),
 					})
-				else if (err.error == 'USERNAME_EXISTS')
+				else if (err.error === 'USERNAME_EXISTS')
 					this.setState({
 						authError: L('username not available', 'ru', 'логин занят'),
 					})
@@ -47,7 +47,7 @@ export class AuthForm extends PureComponent {
 				location.href = '/~'
 			})
 			.catch(err => {
-				if (err.error == 'WRONG_USERNAME_OR_PASSWORD')
+				if (err.error === 'WRONG_USERNAME_OR_PASSWORD')
 					this.setState({
 						authError: L('wrong username or password', 'ru', 'неправильный логин или пароль'),
 					})
@@ -60,12 +60,12 @@ export class AuthForm extends PureComponent {
 		this[this.state.mode](e.target)
 	}
 	onClick(e) {
-		if (e.target.name != this.state.mode) {
+		if (e.target.name !== this.state.mode) {
 			e.preventDefault() //иначе на инпутах срабатывает валидация
 			let form = e.target.closest('form')
 			let data = new FormData(form)
 			this.setState({ mode: e.target.name })
-			if (data.get('username') != '' && data.get('password') != '') {
+			if (data.get('username') !== '' && data.get('password') !== '') {
 				if (form.checkValidity()) this[e.target.name](form)
 			}
 		}
@@ -76,8 +76,8 @@ export class AuthForm extends PureComponent {
 	 * @param {AF_State} state
 	 */
 	render(props, { mode, authError }) {
-		const regButType = mode == 'register' ? 'submit' : 'button'
-		const logButType = mode == 'login' ? 'submit' : 'button'
+		const regButType = mode === 'register' ? 'submit' : 'button'
+		const logButType = mode === 'login' ? 'submit' : 'button'
 		return html`
 			<form class="registration-form" onsubmit=${this.onSubmit}>
 				<div class="auth-error">${authError}</div>

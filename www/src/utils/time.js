@@ -68,7 +68,7 @@ export function getDefaultHashInterval() {
 export function intervalIsDefault() {
 	let [defStart, defEnd] = getDefaultHashInterval()
 	let [curStart, curEnd] = getHashInterval()
-	return defStart.getTime() == curStart.getTime() && defEnd.getTime() == curEnd.getTime()
+	return defStart.getTime() === curStart.getTime() && defEnd.getTime() === curEnd.getTime()
 }
 
 export function intervalIsMonth() {

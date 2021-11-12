@@ -9,7 +9,7 @@ export function renderIfExists(Comp, selector) {
 export function bindHandlers(comp) {
 	Object.getOwnPropertyNames(comp.constructor.prototype).forEach(name => {
 		let attr = comp.__proto__[name]
-		if (typeof attr == 'function' && /^on[A-Z]/.test(name)) comp[name] = attr.bind(comp)
+		if (typeof attr === 'function' && /^on[A-Z]/.test(name)) comp[name] = attr.bind(comp)
 	})
 }
 

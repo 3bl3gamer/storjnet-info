@@ -1,7 +1,7 @@
 import { apiReq } from 'src/api'
 import { onError } from 'src/errors'
 import { L, lang, pluralize } from 'src/i18n'
-import { findMeaningfulOctets, ResolveError, resolveSubnetOrNull } from 'src/utils/dns'
+import { findMeaningfulOctets, resolveSubnetOrNull } from 'src/utils/dns'
 import { bindHandlers } from 'src/utils/elems'
 import { html } from 'src/utils/htm'
 import { SubnetNeighborsDescription } from 'src/utils/nodes'
@@ -95,7 +95,7 @@ export class SearchNeighbors extends PureComponent {
 			<p>
 				${isLoading
 					? L('Loading…', 'ru', 'Загрузка…')
-					: count == null
+					: count === null
 					? '\xA0' //nbsp
 					: lang === 'ru'
 					? html`В подсети ${pluralize(count, 'нашлась', 'нашлось', 'нашлось')}${' '}

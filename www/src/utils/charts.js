@@ -18,7 +18,7 @@ export class CanvasExt {
 	}
 	_setRealSize(w, h) {
 		if (this.canvas === null) return false
-		if (this.canvas.width == w && this.canvas.height == h) return false
+		if (this.canvas.width === w && this.canvas.height === h) return false
 		this.canvas.width = w
 		this.canvas.height = h
 		return true
@@ -267,8 +267,8 @@ export function forEachPingRegion(rect, view, pings, startStamp, itemWidth, need
 		let x = stamp2x(rect, view, time)
 
 		let kind = Math.min(2, ping)
-		if (kind != prevKind) {
-			if (prevKind == needKind) {
+		if (kind !== prevKind) {
+			if (prevKind === needKind) {
 				func(prevKindX, x)
 			}
 			prevKind = kind
@@ -276,7 +276,7 @@ export function forEachPingRegion(rect, view, pings, startStamp, itemWidth, need
 		}
 		lastX = x
 	}
-	if (prevKind == needKind) {
+	if (prevKind === needKind) {
 		func(prevKindX, lastX)
 	}
 }
@@ -331,7 +331,7 @@ export function drawLineStepped(
 		let value = values[i]
 		let x = stamp2x(rect, view, stamp)
 		let y = yFunc(rect, view, value)
-		if (skipZero && value == 0) {
+		if (skipZero && value === 0) {
 			if (started) {
 				if (joinZero) rc.lineTo(x, y)
 				started = false
@@ -340,7 +340,7 @@ export function drawLineStepped(
 			if (started) {
 				rc.lineTo(x, y)
 			} else {
-				if (i == 0) {
+				if (i === 0) {
 					rc.moveTo(x, y)
 				} else if (joinZero) {
 					rc.moveTo(prevX, prevY)
@@ -523,7 +523,7 @@ function drawHours(canvasExt, dateDrawFrom, dateDrawTo, curDayDate, nextDayDate,
 	let dayWidth = (canvasExt.cssWidth * (+nextDayDate - +curDayDate)) / (dateDrawTo - dateDrawFrom)
 	let maxLabels = dayWidth / labelWidth
 	let step = [1, 2, 3, 4, 6, 12].find(x => x > 24 / maxLabels)
-	if (step == null) return
+	if (step === undefined) return
 
 	rc.strokeStyle = 'rgba(255,255,255,0.3)'
 	rc.lineWidth = 2.5
