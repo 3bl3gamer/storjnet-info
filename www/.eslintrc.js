@@ -16,6 +16,7 @@ module.exports = {
 		'no-console': 'warn',
 		'no-unused-vars': ['error', { vars: 'all', args: 'none' }],
 		'no-undef': 'error',
+		eqeqeq: ['warn', 'always'],
 	},
 	globals: {
 		process: true,

@@ -8,8 +8,8 @@ import (
 	"storj.io/common/pb"
 	"storj.io/common/peertls/tlsopts"
 	"storj.io/common/rpc"
+	"storj.io/common/rpc/quic"
 	"storj.io/common/storj"
-	"storj.io/storj/private/quic"
 	"storj.io/storj/satellite"
 )
 

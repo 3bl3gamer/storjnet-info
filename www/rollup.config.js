@@ -103,7 +103,7 @@ function css(options = {}) {
 			let sourceMapFPath = contentFPath + '.map'
 			let dirname = path.dirname(contentFPath)
 			let content = concat.content + `\n/*# sourceMappingURL=${path.basename(sourceMapFPath)} */`
-			let sourceMap = concat.sourceMap
+			let sourceMap = concat.sourceMap + ''
 
 			return fs
 				.mkdir(dirname, { recursive: true })

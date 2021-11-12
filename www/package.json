@@ -17,9 +17,9 @@
 		"unistore": "^3.5.2"
 	},
 	"devDependencies": {
-		"eslint": "^7.29.0",
+		"eslint": "^8.2.0",
 		"eslint-config-prettier": "^8.3.0",
-		"eslint-plugin-prettier": "^3.4.0",
+		"eslint-plugin-prettier": "^4.0.0",
 		"prettier": "^2.3.2",
 		"rollup-plugin-livereload": "^2.0.5",
 		"rollup-plugin-serve": "^1.1.0",
