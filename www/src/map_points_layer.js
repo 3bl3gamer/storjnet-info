@@ -124,18 +124,18 @@ export function PointsLayer() {
 	let canvas = /**@type {HTMLCanvasElement|null}*/ (null)
 	let gl = /**@type {WebGLRenderingContext|null}*/ (null)
 	let locs = /**@type {[number,number][]}*/ ([])
-	let shaderProg = /**@type {WebGLProgram|null}*/ (null)
 	const mvMatrix = mat4.create()
-	const mouse = { x: 0, y: 0, r: 12, shown: false, moved_dis: 0, switched: false }
+	const mouse = { x: 0, y: 0, r: 12, shown: false }
 
 	/**@type {WebGLProgram}*/ let shader_prog
 	/**@type {WebGLUniformLocation}*/ let shader_uMVMatrix
 	/**@type {WebGLUniformLocation}*/ let shader_uPointSize
 	/**@type {number}*/ let shader_aVertexPosition
 
+	/** @param {import('locmap').LocMap} map */
 	function mouse2pos(map) {
-		let lon = map.x2lon(mouse.x + map.top_left_x_shift)
-		let lat = map.y2lat(mouse.y + map.top_left_y_shift)
+		let lon = map.x2lon(mouse.x + map.getTopLeftXShift())
+		let lat = map.y2lat(mouse.y + map.getTopLeftYShift())
 		return [lon, lat]
 	}
 
@@ -145,7 +145,7 @@ export function PointsLayer() {
 		shader_uMVMatrix = mustGetUniformLocation(gl, shader_prog, 'uMVMatrix')
 		shader_uPointSize = mustGetUniformLocation(gl, shader_prog, 'uPointSize')
 		shader_aVertexPosition = mustGetAttributeLocation(gl, shader_prog, 'aVertexPosition')
-		gl.useProgram(shaderProg)
+		gl.useProgram(shader_prog)
 	}
 
 	/**
@@ -170,8 +170,8 @@ export function PointsLayer() {
 
 	/** @param {import('locmap').LocMap} map */
 	function tryResizeIfNeed(map) {
-		const mapCanvas = map.getCanvas()
 		if (!canvas) return
+		const mapCanvas = map.getCanvas()
 		if (gl && mapCanvas.width === canvas.width && mapCanvas.height === canvas.height) return
 		canvas.width = mapCanvas.width
 		canvas.height = mapCanvas.height
@@ -232,10 +232,10 @@ export function PointsLayer() {
 
 		const mapCanvas = map.getCanvas()
 		const mapZoom = map.getZoom()
-		let left = -(map.getXShift() - mapCanvas.width / 2 / devicePixelRatio) / mapZoom
-		let right = -(map.getXShift() + mapCanvas.width / 2 / devicePixelRatio) / mapZoom
-		let top = -(map.getYShift() - mapCanvas.height / 2 / devicePixelRatio) / mapZoom
-		let bottom = -(map.getYShift() + mapCanvas.height / 2 / devicePixelRatio) / mapZoom
+		let left = (map.getXShift() - mapCanvas.width / 2 / devicePixelRatio) / mapZoom
+		let right = (map.getXShift() + mapCanvas.width / 2 / devicePixelRatio) / mapZoom
+		let top = (map.getYShift() + mapCanvas.height / 2 / devicePixelRatio) / mapZoom
+		let bottom = (map.getYShift() - mapCanvas.height / 2 / devicePixelRatio) / mapZoom
 		mat4.ortho(mvMatrix, left, right, top, bottom, -1, 1)
 
 		if (gl) {
@@ -288,17 +288,12 @@ export function PointsLayer() {
 	this.onEvent = {
 		singleDown(map, e) {
 			map.requestRedraw()
-			mouse.moved_dis = 0
-			mouse.switched = e.isSwitching
 			mouse.x = e.x
 			mouse.y = e.y
 			mouse.shown = !e.isSwitching
 		},
 		singleMove(map, e) {
 			map.requestRedraw()
-			let dx = e.x - mouse.x,
-				dy = e.y - mouse.y
-			mouse.moved_dis += Math.sqrt(dx * dx + dy * dy)
 			mouse.x = e.x
 			mouse.y = e.y
 			mouse.shown = true
@@ -310,6 +305,12 @@ export function PointsLayer() {
 		doubleDown(map, e) {
 			map.requestRedraw()
 			mouse.shown = false
+		},
+		singleHover(map, e) {
+			map.requestRedraw()
+			mouse.x = e.x
+			mouse.y = e.y
+			mouse.shown = true
 		},
 	}
 }
