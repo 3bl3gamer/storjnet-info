@@ -15,7 +15,7 @@ function radiusInDeg(map, r, lon, lat) {
 }
 
 /** @param {HTMLCanvasElement} canvas */
-export function mustgetWebGLContext(canvas) {
+export function mustGetWebGLContext(canvas) {
 	const gl = canvas.getContext('webgl')
 	if (gl === null) throw new Error('webgl not available')
 	return gl
@@ -177,7 +177,7 @@ export function PointsLayer() {
 		canvas.height = mapCanvas.height
 		if (!gl) {
 			try {
-				gl = mustgetWebGLContext(canvas)
+				gl = mustGetWebGLContext(canvas)
 				gl.clearColor(0.1, 0.1, 0.1, 0.2)
 				gl.disable(gl.DEPTH_TEST)
 				gl.enable(gl.BLEND)
@@ -300,7 +300,7 @@ export function PointsLayer() {
 		},
 		singleUp(map, e) {
 			map.requestRedraw()
-			mouse.shown = true
+			mouse.shown = !e.isSwitching
 		},
 		doubleDown(map, e) {
 			map.requestRedraw()

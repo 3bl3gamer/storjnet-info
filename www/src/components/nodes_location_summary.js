@@ -9,12 +9,12 @@ import { intervalIsDefault, toISODateString, useHashInterval, watchHashInterval 
 import {
 	LocMap,
 	ProjectionMercator,
-	TileContainer,
 	oneOf,
 	TileLayer,
 	ControlLayer,
 	appendCredit,
 	ControlHintLayer,
+	SmoothTileContainer,
 } from 'locmap'
 import { PointsLayer } from 'src/map_points_layer'
 
@@ -47,9 +47,9 @@ const NodesLocationMap = memo(function NodesLocationMap() {
 
 		const map = new LocMap(mapWrapRef.current, ProjectionMercator)
 		map.updateLocation(0, 34, Math.log2(map.getCanvas().getBoundingClientRect().width))
-		if (map.getTopLeftYShift() < 0) map.move(0, map.getTopLeftYShift())
+		if (map.getViewBoxYShift() < 0) map.move(0, map.getViewBoxYShift())
 
-		const tileContainer = new TileContainer(256, (x, y, z) => {
+		const tileContainer = new SmoothTileContainer(256, (x, y, z) => {
 			//return `https://${oneOf('a','b','c','d')}.basemaps.cartocdn.com/rastertiles/dark_all/${z}/${x}/${y}@1x.png`
 			const s = oneOf('a', 'b', 'c', 'd')
 			return `https://${s}.basemaps.cartocdn.com/rastertiles/light_all/${z}/${x}/${y}@1x.png`
