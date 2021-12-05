@@ -14,10 +14,10 @@ require (
 	github.com/lib/pq v1.10.4
 	github.com/rs/zerolog v1.26.0
 	github.com/spf13/cobra v1.2.1
-	golang.org/x/net v0.0.0-20211111160137-58aab5ef257a
-	storj.io/common v0.0.0-20211111143956-15b749504e31
-	storj.io/storj v1.42.4
-	storj.io/uplink v1.7.1-0.20211012154306-65bb87992c7c
+	golang.org/x/net v0.0.0-20211201190559-0a0e4e1bb54c
+	storj.io/common v0.0.0-20211117105955-223055ce9dfd
+	storj.io/storj v1.44.1
+	storj.io/uplink v1.7.1-0.20211031201307-b30e004c1ccb
 )
 
 require (
@@ -58,6 +58,7 @@ require (
 	github.com/marten-seemann/qtls-go1-17 v0.1.0 // indirect
 	github.com/nxadm/tail v1.4.8 // indirect
 	github.com/onsi/ginkgo v1.16.4 // indirect
+	github.com/oschwald/maxminddb-golang v1.8.0 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pquerna/otp v1.3.0 // indirect
 	github.com/segmentio/backo-go v0.0.0-20200129164019-23eae7c10bd3 // indirect
