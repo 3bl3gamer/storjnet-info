@@ -21,7 +21,7 @@ import (
 
 type ctxKey string
 
-const CtxKeySatellite = ctxKey("satellite")
+const CtxKeySatellites = ctxKey("satellites")
 const CtxKeyEnv = ctxKey("env")
 const CtxKeyDB = ctxKey("db")
 const CtxKeyUser = ctxKey("user")
@@ -215,8 +215,8 @@ func StartHTTPServer(address string, env utils.Env) error {
 
 	db := utils.MakePGConnection()
 
-	sat := &utils.Satellite{}
-	if err := sat.SetUp("identity"); err != nil {
+	sats, err := utils.SatellitesSetUpFromEnv()
+	if err != nil {
 		return merry.Wrap(err)
 	}
 
@@ -226,7 +226,7 @@ func StartHTTPServer(address string, env utils.Env) error {
 		ExtraChainItem: func(handle httputils.HandlerExt) httputils.HandlerExt {
 			return func(wr http.ResponseWriter, r *http.Request, params httprouter.Params) error {
 				log.Debug().Str("method", r.Method).Str("path", r.URL.Path).Msg("request")
-				r = r.WithContext(context.WithValue(r.Context(), CtxKeySatellite, sat))
+				r = r.WithContext(context.WithValue(r.Context(), CtxKeySatellites, sats))
 				r = r.WithContext(context.WithValue(r.Context(), CtxKeyEnv, env))
 				r = r.WithContext(context.WithValue(r.Context(), CtxKeyDB, db))
 				return merry.Wrap(handle(wr, r, params))

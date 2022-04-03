@@ -2,9 +2,13 @@ package utils
 
 import (
 	"context"
+	"os"
 	"strings"
+	"time"
 
 	"github.com/ansel1/merry"
+	"github.com/rs/zerolog/log"
+	"golang.org/x/net/proxy"
 	"storj.io/common/pb"
 	"storj.io/common/peertls/tlsopts"
 	"storj.io/common/rpc"
@@ -28,12 +32,15 @@ func IsUntrustedSatPingError(err error) bool {
 }
 
 type Satellite struct {
+	Label      string
 	Config     satellite.Config
 	TCPDialer  rpc.Dialer
-	QUICDialer rpc.Dialer
+	QUICDialer *rpc.Dialer
 }
 
-func (sat *Satellite) SetUp(identityDir string) error {
+func (sat *Satellite) SetUp(label string, identityDir string, tcpProxyDialer proxy.ContextDialer) error {
+	sat.Label = label
+
 	sat.Config.Identity.CertPath = identityDir + "/identity.cert"
 	sat.Config.Identity.KeyPath = identityDir + "/identity.key"
 	sat.Config.Server.Config.PeerIDVersions = "*"
@@ -46,28 +53,43 @@ func (sat *Satellite) SetUp(identityDir string) error {
 		return merry.Wrap(err)
 	}
 
+	var tcpAdapter *rpc.ConnectorAdapter
+	if tcpProxyDialer != nil {
+		tcpAdapter = &rpc.ConnectorAdapter{DialContext: tcpProxyDialer.DialContext}
+	}
 	sat.TCPDialer = rpc.NewDefaultDialer(tlsOptions)
-	sat.QUICDialer = rpc.NewDefaultDialer(tlsOptions)
-	sat.QUICDialer.Connector = quic.NewDefaultConnector(nil)
+	sat.TCPDialer.Connector = rpc.NewDefaultTCPConnector(tcpAdapter)
+
+	if tcpProxyDialer == nil {
+		quicDialer := rpc.NewDefaultDialer(tlsOptions)
+		sat.QUICDialer = &quicDialer
+		sat.QUICDialer.Connector = quic.NewDefaultConnector(nil)
+	}
 	return nil
 }
 
-func (sat *Satellite) dialerFor(mode SatMode) rpc.Dialer {
+func (sat *Satellite) dialerFor(mode SatMode) *rpc.Dialer {
 	if mode == SatModeTCP {
-		return sat.TCPDialer
+		return &sat.TCPDialer
 	}
 	return sat.QUICDialer
 }
 
 func (sat *Satellite) Dial(ctx context.Context, address string, id storj.NodeID, mode SatMode) (*rpc.Conn, error) {
-	conn, err := sat.dialerFor(mode).DialNodeURL(ctx, storj.NodeURL{Address: address, ID: id})
+	dialer := sat.dialerFor(mode)
+	if dialer == nil {
+		return nil, merry.Errorf("can not dial satellite '%s' via QUIC")
+	}
+	conn, err := dialer.DialNodeURL(ctx, storj.NodeURL{Address: address, ID: id})
 	if err != nil {
 		return nil, merry.Wrap(err)
 	}
 	return conn, nil
 }
 
-func (sat *Satellite) DialAndClose(ctx context.Context, address string, id storj.NodeID, mode SatMode) error {
+func (sat *Satellite) DialAndClose(address string, id storj.NodeID, mode SatMode, timeout time.Duration) error {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
 	conn, err := sat.Dial(ctx, address, id, mode)
 	if err != nil {
 		return merry.Wrap(err)
@@ -79,4 +101,67 @@ func (sat *Satellite) Ping(ctx context.Context, conn *rpc.Conn, mode SatMode) er
 	client := pb.NewDRPCContactClient(conn)
 	_, err := client.PingNode(ctx, &pb.ContactPingRequest{})
 	return merry.Wrap(err)
+}
+
+type Satellites []*Satellite
+
+const SatsEnvCfgKey = "SATELLITES"
+
+func SatellitesSetUpFromEnv() (Satellites, error) {
+	value, ok := os.LookupEnv(SatsEnvCfgKey)
+	if !ok {
+		log.Warn().Msgf("no '%s' env key, using default local satellite", SatsEnvCfgKey)
+		sat := &Satellite{}
+		if err := sat.SetUp("Local", "identity", nil); err != nil {
+			return nil, merry.Wrap(err)
+		}
+		return []*Satellite{sat}, nil
+	}
+
+	var sats Satellites
+	items := strings.Split(value, "|")
+	for _, item := range items {
+		parts := strings.Split(item, ":")
+		sat := &Satellite{}
+
+		if len(parts) == 2 {
+			// label:path/to/identity
+			if err := sat.SetUp(parts[0], parts[1], nil); err != nil {
+				return nil, merry.Wrap(err)
+			}
+		} else if len(parts) == 4 || len(parts) == 6 {
+			// label:path/to/identity:proxyHost:port
+			// label:path/to/identity:proxyHost:port:username:password
+			var auth *proxy.Auth
+			if len(parts) == 6 {
+				auth = &proxy.Auth{User: parts[4], Password: parts[5]}
+			}
+			dialer, err := proxy.SOCKS5("tcp", parts[2]+":"+parts[3], auth, proxy.Direct)
+			if err != nil {
+				return nil, merry.Wrap(err)
+			}
+			// SOCKS5() returns proxy.Dialer which in fact is also a proxy.ContextDialer
+			ctxDialer := dialer.(proxy.ContextDialer)
+			if err := sat.SetUp(parts[0], parts[1], ctxDialer); err != nil {
+				return nil, merry.Wrap(err)
+			}
+		} else {
+			return nil, merry.Errorf("wrong satellite description '%s', expected"+
+				" label:path/to/identity or label:proxyHost:port or label:proxyHost:port:username:password", item)
+		}
+
+		sats = append(sats, sat)
+	}
+	return sats, nil
+}
+
+func (sats Satellites) DialAndClose(address string, id storj.NodeID, mode SatMode, timeout time.Duration) error {
+	var lastErr error
+	for _, sat := range sats {
+		lastErr = sat.DialAndClose(address, id, mode, timeout)
+		if lastErr == nil {
+			return nil
+		}
+	}
+	return merry.Wrap(lastErr)
 }

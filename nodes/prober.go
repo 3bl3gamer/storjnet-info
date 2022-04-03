@@ -1,7 +1,6 @@
 package nodes
 
 import (
-	"context"
 	"storjnet/utils"
 	"strconv"
 	"strings"
@@ -43,22 +42,20 @@ func errIsKnown(err error) bool {
 		strings.HasPrefix(msg, "rpc: tls peer certificate verification error: tlsopts error: peer ID did not match requested ID")
 }
 
-func probeWithTimeout(sat *utils.Satellite, nodeID storj.NodeID, address string, mode utils.SatMode) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	return merry.Wrap(sat.DialAndClose(ctx, address, nodeID, mode))
+func probeWithTimeout(sats utils.Satellites, nodeID storj.NodeID, address string, mode utils.SatMode) error {
+	return merry.Wrap(sats.DialAndClose(address, nodeID, mode, 5*time.Second))
 }
-func probe(sat *utils.Satellite, node *ProbeNode) (tcpErr error, quicErr error) {
+func probe(sats utils.Satellites, node *ProbeNode) (tcpErr error, quicErr error) {
 	address := node.IPAddr + ":" + strconv.Itoa(int(node.Port))
 	wg := sync.WaitGroup{}
 
 	wg.Add(2)
 	go func() {
-		tcpErr = probeWithTimeout(sat, node.ID, address, utils.SatModeTCP)
+		tcpErr = probeWithTimeout(sats, node.ID, address, utils.SatModeTCP)
 		wg.Done()
 	}()
 	go func() {
-		quicErr = probeWithTimeout(sat, node.ID, address, utils.SatModeQUIC)
+		quicErr = probeWithTimeout(sats, node.ID, address, utils.SatModeQUIC)
 		wg.Done()
 	}()
 
@@ -121,8 +118,8 @@ func startOldNodesLoader(db *pg.DB, nodesChan chan *ProbeNode, chunkSize int) ut
 func startNodesProber(db *pg.DB, nodesInChan chan *ProbeNode, nodesOutChan chan *ProbeNodeErr, routinesCount int) utils.Worker {
 	worker := utils.NewSimpleWorker(routinesCount)
 
-	sat := &utils.Satellite{}
-	if err := sat.SetUp("identity"); err != nil {
+	sats, err := utils.SatellitesSetUpFromEnv()
+	if err != nil {
 		worker.AddError(err)
 		return worker
 	}
@@ -135,7 +132,7 @@ func startNodesProber(db *pg.DB, nodesInChan chan *ProbeNode, nodesOutChan chan 
 		go func() {
 			defer worker.Done()
 			for node := range nodesInChan {
-				tcpErr, quicErr := probe(sat, node)
+				tcpErr, quicErr := probe(sats, node)
 				if tcpErr != nil && quicErr != nil {
 					atomic.AddInt64(&countErr, 1)
 					if !errIsKnown(tcpErr) {

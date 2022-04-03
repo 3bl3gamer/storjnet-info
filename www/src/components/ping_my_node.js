@@ -1,7 +1,7 @@
 import { apiReq } from 'src/api'
 import { isAbortError, onError } from 'src/errors'
 import { lang } from 'src/i18n'
-import { bindHandlers } from 'src/utils/elems'
+import { bindHandlers, getJSONContent } from 'src/utils/elems'
 import { html } from 'src/utils/htm'
 import { PingModeDescription } from 'src/utils/nodes'
 import { PureComponent } from 'src/utils/preact_compat'
@@ -9,6 +9,15 @@ import { PureComponent } from 'src/utils/preact_compat'
 import './ping_my_node.css'
 
 /** @typedef {{id:string, address:string}} PingNode */
+/** @typedef {{num:number, label:string, quic:boolean}} UsabelSatelliteInfo */
+
+/** @type {UsabelSatelliteInfo[]} */
+let usableSatellites = [{ num: 0, label: '???', quic: true }]
+try {
+	usableSatellites = getJSONContent('usable_satellites')
+} catch (ex) {
+	// ¯\_(ツ)_/¯
+}
 
 /**
  * @class
@@ -30,38 +39,33 @@ export class PingMyNode extends PureComponent {
 		}
 		/** @type {PMN_State} */
 		this.state = { pingedNodes, curNode: { id: '', address: '' }, logText: '', pending: false }
-		/** @type {{tcp:AbortController?, quic:AbortController?}} */
-		this.pingAbortController = { tcp: null, quic: null }
+		/** @type {AbortController|null} */
+		this.pingAbortController = null
 		bindHandlers(this)
 	}
 
-	logLine(msg) {
-		return '- ' + msg + '\n'
+	addLogLine(msg) {
+		this.setState(({ logText }) => ({ logText: logText + '- ' + msg + '\n' }))
 	}
 	/**
 	 * @param {boolean} dialOnly
 	 * @param {'tcp'|'quic'} mode
+	 * @param {number} satelliteNum
+	 * @param {AbortController} abortController
 	 * @returns {Promise<{aborted:boolean}>}
 	 */
-	pingMode(dialOnly, mode) {
+	pingMode(dialOnly, mode, satelliteNum, abortController) {
 		let { id, address } = this.state.curNode
 		if (id === '' || address === '') return Promise.resolve({ aborted: false })
 
-		let abortController = this.pingAbortController[mode]
-		if (abortController !== null) abortController.abort()
-		abortController = this.pingAbortController[mode] = new AbortController()
-
 		this.rememberNode(id, address)
-		this.setState({ logText: this.logLine('started') })
+		let log = msg => this.addLogLine(mode.toUpperCase() + ': ' + msg)
 
 		return apiReq('POST', '/api/ping_my_node', {
-			data: { id, address, dialOnly, mode },
+			data: { id, address, dialOnly, mode, satelliteNum },
 			signal: abortController.signal,
 		})
 			.then(resp => {
-				let logText = this.state.logText
-				let log = msg => (logText += this.logLine(mode.toUpperCase() + ': ' + msg))
-
 				let { dialDuration, pingDuration } = resp
 				const ms = seconds => (seconds * 1000).toFixed() + 'ms'
 				log(`dialed node in ${ms(dialDuration)}`)
@@ -69,14 +73,9 @@ export class PingMyNode extends PureComponent {
 					log(`pinged node in ${ms(pingDuration)}`)
 					log(`total: ${ms(pingDuration + dialDuration)}`)
 				}
-
-				this.setState({ logText })
 				return { aborted: false }
 			})
 			.catch(err => {
-				let logText = this.state.logText
-				let log = msg => (logText += this.logLine(mode.toUpperCase() + ': ' + msg))
-
 				switch (err.error) {
 					case 'NODE_ID_DECODE_ERROR':
 						log('wrong node ID: ' + err.description)
@@ -95,25 +94,39 @@ export class PingMyNode extends PureComponent {
 							onError(err)
 						}
 				}
-
-				this.setState({ logText })
 				return { aborted: isAbortError(err) }
-			})
-			.finally(() => {
-				this.pingAbortController[mode] = null
 			})
 	}
 	/**
 	 * @param {boolean} dialOnly
 	 */
-	pingAllModes(dialOnly) {
-		this.setState({ pending: true })
-		Promise.all([
-			this.pingMode(dialOnly, 'tcp'), //
-			this.pingMode(dialOnly, 'quic'),
-		]).then(results => {
-			if (!results.some(x => x.aborted)) this.setState({ pending: false })
-		})
+	async pingAllModes(dialOnly) {
+		this.setState({ pending: true, logText: '' })
+
+		if (this.pingAbortController !== null) this.pingAbortController.abort()
+		let abortController = (this.pingAbortController = new AbortController())
+
+		this.addLogLine('started')
+		this.addLogLine('')
+
+		try {
+			for (const sat of usableSatellites) {
+				this.addLogLine('via: ' + sat.label + (sat.quic ? '' : ' (no QUIC)'))
+
+				/** @type {Promise<{aborted:boolean}>[]} */
+				let promises = []
+				promises.push(this.pingMode(dialOnly, 'tcp', sat.num, abortController))
+				if (sat.quic) promises.push(this.pingMode(dialOnly, 'quic', sat.num, abortController))
+				await Promise.all(promises)
+
+				this.addLogLine('')
+			}
+		} finally {
+			this.setState({ pending: false })
+			this.pingAbortController = null
+		}
+
+		this.addLogLine('done.')
 	}
 	rememberNode(id, address) {
 		let nodes = this.state.pingedNodes

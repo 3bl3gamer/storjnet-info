@@ -22,24 +22,29 @@ type UserNodeWithErr struct {
 	Err error
 }
 
-func doPing(sat *utils.Satellite, node *core.Node) (time.Duration, error) {
+func doPing(sats utils.Satellites, node *core.Node) (time.Duration, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	stt := time.Now()
-	conn, err := sat.Dial(ctx, node.Address, node.ID, utils.SatModeTCP)
-	if err != nil {
-		return 0, ErrDialFail.WithCause(err)
-	}
-	defer conn.Close()
-
-	if node.PingMode == "ping" {
-		if err := sat.Ping(ctx, conn, utils.SatModeTCP); err != nil && !utils.IsUntrustedSatPingError(err) {
-			return 0, ErrPingFail.WithCause(err)
+	var lastErr error
+	for _, sat := range sats {
+		stt := time.Now()
+		conn, err := sat.Dial(ctx, node.Address, node.ID, utils.SatModeTCP)
+		if err != nil {
+			lastErr = ErrDialFail.WithCause(err)
+			continue
 		}
-	}
+		defer conn.Close()
 
-	return time.Now().Sub(stt), nil
+		if node.PingMode == "ping" {
+			if err := sat.Ping(ctx, conn, utils.SatModeTCP); err != nil && !utils.IsUntrustedSatPingError(err) {
+				lastErr = ErrPingFail.WithCause(err)
+				continue
+			}
+		}
+		return time.Now().Sub(stt), nil
+	}
+	return 0, merry.Wrap(lastErr)
 }
 
 type NodeIDListAsPGTuple []*core.UserNode
@@ -109,8 +114,8 @@ func startOldPingNodesLoader(db *pg.DB, userNodesChan chan *core.UserNode, chunk
 func startNodesPinger(db *pg.DB, userNodesInChan chan *core.UserNode, userNodesOutChan chan *UserNodeWithErr, routinesCount int) utils.Worker {
 	worker := utils.NewSimpleWorker(routinesCount)
 
-	sat := &utils.Satellite{}
-	if err := sat.SetUp("identity"); err != nil {
+	sats, err := utils.SatellitesSetUpFromEnv()
+	if err != nil {
 		worker.AddError(err)
 		return worker
 	}
@@ -128,7 +133,7 @@ func startNodesPinger(db *pg.DB, userNodesInChan chan *core.UserNode, userNodesO
 				nodeWithErr := &UserNodeWithErr{UserNode: *userNode, Err: nil}
 				nodeWithErr.LastPingedAt = time.Now()
 
-				pingDuration, err := doPing(sat, &userNode.Node)
+				pingDuration, err := doPing(sats, &userNode.Node)
 				if err != nil {
 					atomic.AddInt64(&countErrTotal, 1)
 					if merry.Is(err, ErrDialFail) {

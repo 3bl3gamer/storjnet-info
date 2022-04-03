@@ -10,7 +10,7 @@
 		"concat-with-sourcemaps": "^1.1.0",
 		"gl-matrix": "^3.4.3",
 		"htm": "^3.0.4",
-		"locmap": "github:3bl3gamer/locmap#v1.5.0",
+		"locmap": "github:3bl3gamer/locmap#v1.8.0",
 		"preact": "^10.5.13",
 		"rollup": "^2.52.3",
 		"rollup-plugin-node-resolve": "^5.2.0",

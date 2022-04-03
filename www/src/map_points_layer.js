@@ -134,8 +134,9 @@ export function PointsLayer() {
 
 	/** @param {import('locmap').LocMap} map */
 	function mouse2pos(map) {
-		let lon = map.x2lon(mouse.x + map.getTopLeftXShift())
-		let lat = map.y2lat(mouse.y + map.getTopLeftYShift())
+		let [topLeftXShift, topLeftYShift] = map.getViewBoxShift()
+		let lon = map.x2lon(mouse.x + topLeftXShift)
+		let lat = map.y2lat(mouse.y + topLeftYShift)
 		return [lon, lat]
 	}
 
@@ -232,10 +233,11 @@ export function PointsLayer() {
 
 		const mapCanvas = map.getCanvas()
 		const mapZoom = map.getZoom()
-		let left = (map.getXShift() - mapCanvas.width / 2 / devicePixelRatio) / mapZoom
-		let right = (map.getXShift() + mapCanvas.width / 2 / devicePixelRatio) / mapZoom
-		let top = (map.getYShift() + mapCanvas.height / 2 / devicePixelRatio) / mapZoom
-		let bottom = (map.getYShift() - mapCanvas.height / 2 / devicePixelRatio) / mapZoom
+		let [xShift, yShift] = map.getShift()
+		let left = (xShift - mapCanvas.width / 2 / devicePixelRatio) / mapZoom
+		let right = (xShift + mapCanvas.width / 2 / devicePixelRatio) / mapZoom
+		let top = (yShift + mapCanvas.height / 2 / devicePixelRatio) / mapZoom
+		let bottom = (yShift - mapCanvas.height / 2 / devicePixelRatio) / mapZoom
 		mat4.ortho(mvMatrix, left, right, top, bottom, -1, 1)
 
 		if (gl) {

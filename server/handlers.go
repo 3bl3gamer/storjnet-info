@@ -95,7 +95,19 @@ func HandleIndex(wr http.ResponseWriter, r *http.Request, ps httprouter.Params) 
 }
 
 func HandlePingMyNode(wr http.ResponseWriter, r *http.Request, ps httprouter.Params) (httputils.TemplateCtx, error) {
-	return map[string]interface{}{"FPath": "ping_my_node.html"}, nil
+	sats := r.Context().Value(CtxKeySatellites).(utils.Satellites)
+
+	type SatInfo struct {
+		Num   int64  `json:"num"`
+		Label string `json:"label"`
+		Quic  bool   `json:"quic"`
+	}
+	var satsInfo []SatInfo
+	for i, sat := range sats {
+		satsInfo = append(satsInfo, SatInfo{Num: int64(i), Label: sat.Label, Quic: sat.QUICDialer != nil})
+	}
+
+	return map[string]interface{}{"FPath": "ping_my_node.html", "UsableSats": satsInfo}, nil
 }
 
 func HandleNeighbors(wr http.ResponseWriter, r *http.Request, ps httprouter.Params) (httputils.TemplateCtx, error) {
@@ -148,11 +160,12 @@ func HandleLang(wr http.ResponseWriter, r *http.Request, ps httprouter.Params) e
 }
 
 func HandleAPIPingMyNode(wr http.ResponseWriter, r *http.Request, ps httprouter.Params) (interface{}, error) {
-	sat := r.Context().Value(CtxKeySatellite).(*utils.Satellite)
+	sats := r.Context().Value(CtxKeySatellites).(utils.Satellites)
 	params := &struct {
-		ID, Address string
-		DialOnly    bool
-		Mode        string
+		ID, Address  string
+		DialOnly     bool
+		Mode         string
+		SatelliteNum int64
 	}{}
 	if jsonErr := unmarshalFromBody(r, params); jsonErr != nil {
 		return *jsonErr, nil
@@ -166,6 +179,11 @@ func HandleAPIPingMyNode(wr http.ResponseWriter, r *http.Request, ps httprouter.
 	satMode := utils.SatModeTCP
 	if params.Mode == "quic" {
 		satMode = utils.SatModeQUIC
+	}
+
+	sat := sats[0]
+	if params.SatelliteNum >= 0 && params.SatelliteNum < int64(len(sats)) {
+		sat = sats[params.SatelliteNum]
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)

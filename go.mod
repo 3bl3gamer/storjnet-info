@@ -14,7 +14,7 @@ require (
 	github.com/lib/pq v1.10.4
 	github.com/rs/zerolog v1.26.0
 	github.com/spf13/cobra v1.2.1
-	golang.org/x/net v0.0.0-20211201190559-0a0e4e1bb54c
+	golang.org/x/net v0.0.0-20220111093109-d55c255bac03
 	storj.io/common v0.0.0-20211117105955-223055ce9dfd
 	storj.io/storj v1.44.1
 	storj.io/uplink v1.7.1-0.20211031201307-b30e004c1ccb

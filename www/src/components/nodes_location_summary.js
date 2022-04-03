@@ -46,8 +46,7 @@ const NodesLocationMap = memo(function NodesLocationMap() {
 		if (!mapWrapRef.current) return
 
 		const map = new LocMap(mapWrapRef.current, ProjectionMercator)
-		map.updateLocation(0, 34, Math.log2(map.getCanvas().getBoundingClientRect().width))
-		if (map.getViewBoxYShift() < 0) map.move(0, map.getViewBoxYShift())
+		map.updateLocation(0, 34, map.getCanvas().getBoundingClientRect().width)
 
 		const tileContainer = new SmoothTileContainer(256, (x, y, z) => {
 			//return `https://${oneOf('a','b','c','d')}.basemaps.cartocdn.com/rastertiles/dark_all/${z}/${x}/${y}@1x.png`
