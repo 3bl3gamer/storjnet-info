@@ -15,9 +15,9 @@ require (
 	github.com/rs/zerolog v1.26.0
 	github.com/spf13/cobra v1.2.1
 	golang.org/x/net v0.0.0-20220111093109-d55c255bac03
-	storj.io/common v0.0.0-20211117105955-223055ce9dfd
-	storj.io/storj v1.44.1
-	storj.io/uplink v1.7.1-0.20211031201307-b30e004c1ccb
+	storj.io/common v0.0.0-20220215191549-ee3a77cfa9eb
+	storj.io/storj v1.50.4
+	storj.io/uplink v1.7.2-0.20220216123701-9e00d72711dc
 )
 
 require (
@@ -53,7 +53,7 @@ require (
 	github.com/jinzhu/inflection v1.0.0 // indirect
 	github.com/jtolds/monkit-hw/v2 v2.0.0-20191108235325-141a0da276b3 // indirect
 	github.com/jtolds/tracetagger/v2 v2.0.0-rc5 // indirect
-	github.com/lucas-clemente/quic-go v0.23.0 // indirect
+	github.com/lucas-clemente/quic-go v0.25.0 // indirect
 	github.com/marten-seemann/qtls-go1-16 v0.1.4 // indirect
 	github.com/marten-seemann/qtls-go1-17 v0.1.0 // indirect
 	github.com/nxadm/tail v1.4.8 // indirect
@@ -81,20 +81,20 @@ require (
 	go.uber.org/atomic v1.7.0 // indirect
 	go.uber.org/multierr v1.6.0 // indirect
 	go.uber.org/zap v1.17.0 // indirect
-	golang.org/x/crypto v0.0.0-20211108221036-ceb1ce70b4fa // indirect
+	golang.org/x/crypto v0.0.0-20220131195533-30dcbda58838 // indirect
 	golang.org/x/mod v0.4.2 // indirect
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c // indirect
-	golang.org/x/sys v0.0.0-20211109065445-02f5c0300f6e // indirect
+	golang.org/x/sys v0.0.0-20220128215802-99c3d69c2c27 // indirect
 	golang.org/x/text v0.3.6 // indirect
 	golang.org/x/time v0.0.0-20200630173020-3af7569d3a1e // indirect
 	golang.org/x/tools v0.1.7 // indirect
 	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
-	google.golang.org/protobuf v1.26.0 // indirect
+	google.golang.org/protobuf v1.27.1 // indirect
 	gopkg.in/segmentio/analytics-go.v3 v3.1.0 // indirect
 	gopkg.in/tomb.v1 v1.0.0-20141024135613-dd632973f1e7 // indirect
 	mellium.im/sasl v0.2.1 // indirect
-	storj.io/drpc v0.0.26 // indirect
-	storj.io/monkit-jaeger v0.0.0-20210426161729-debb1cbcbbd7 // indirect
-	storj.io/private v0.0.0-20211029202355-a7eae71c382a // indirect
+	storj.io/drpc v0.0.29 // indirect
+	storj.io/monkit-jaeger v0.0.0-20220131130547-dc4cb5a0d97a // indirect
+	storj.io/private v0.0.0-20220131131751-c913260b9ec2 // indirect
 )

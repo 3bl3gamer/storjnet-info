@@ -43,9 +43,9 @@ func FetchAndProcess(satelliteAddress string) error {
 	}
 
 	beginObjectReq := &metaclient.BeginObjectParams{
-		Bucket:        []byte("test-bucket"),
-		EncryptedPath: []byte("f1"),
-		ExpiresAt:     time.Now().Add(time.Minute),
+		Bucket:             []byte("test-bucket"),
+		EncryptedObjectKey: []byte("f1"),
+		ExpiresAt:          time.Now().Add(time.Minute),
 	}
 	maxEncryptedSegmentSize := int64(67254016)
 	currentSegment := 0
