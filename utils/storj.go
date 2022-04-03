@@ -75,6 +75,10 @@ func (sat *Satellite) dialerFor(mode SatMode) *rpc.Dialer {
 	return sat.QUICDialer
 }
 
+func (sat *Satellite) UsesProxy() bool {
+	return sat.QUICDialer == nil
+}
+
 func (sat *Satellite) Dial(ctx context.Context, address string, id storj.NodeID, mode SatMode) (*rpc.Conn, error) {
 	dialer := sat.dialerFor(mode)
 	if dialer == nil {
@@ -155,13 +159,13 @@ func SatellitesSetUpFromEnv() (Satellites, error) {
 	return sats, nil
 }
 
-func (sats Satellites) DialAndClose(address string, id storj.NodeID, mode SatMode, timeout time.Duration) error {
+func (sats Satellites) DialAndClose(address string, id storj.NodeID, mode SatMode, timeout time.Duration) (*Satellite, error) {
 	var lastErr error
 	for _, sat := range sats {
 		lastErr = sat.DialAndClose(address, id, mode, timeout)
 		if lastErr == nil {
-			return nil
+			return sat, nil
 		}
 	}
-	return merry.Wrap(lastErr)
+	return nil, merry.Wrap(lastErr)
 }

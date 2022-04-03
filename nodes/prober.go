@@ -39,23 +39,28 @@ func errIsKnown(err error) bool {
 			(strings.Contains(msg, ": connect: connection refused") ||
 				strings.Contains(msg, ": connect: no route to host") ||
 				strings.Contains(msg, ": i/o timeout"))) ||
-		strings.HasPrefix(msg, "rpc: tls peer certificate verification error: tlsopts error: peer ID did not match requested ID")
+		(strings.HasPrefix(msg, "rpc: socks connect") &&
+			(strings.HasSuffix(msg, "connection refused") ||
+				strings.HasSuffix(msg, "host unreachable") ||
+				strings.Contains(msg, ": i/o timeout"))) ||
+		strings.HasPrefix(msg, "rpc: tls peer certificate verification error: tlsopts: peer ID did not match requested ID")
 }
 
-func probeWithTimeout(sats utils.Satellites, nodeID storj.NodeID, address string, mode utils.SatMode) error {
-	return merry.Wrap(sats.DialAndClose(address, nodeID, mode, 5*time.Second))
+func probeWithTimeout(sats utils.Satellites, nodeID storj.NodeID, address string, mode utils.SatMode) (*utils.Satellite, error) {
+	sat, err := sats.DialAndClose(address, nodeID, mode, 5*time.Second)
+	return sat, merry.Wrap(err)
 }
-func probe(sats utils.Satellites, node *ProbeNode) (tcpErr error, quicErr error) {
+func probe(sats utils.Satellites, node *ProbeNode) (tcpSat *utils.Satellite, tcpErr error, quicErr error) {
 	address := node.IPAddr + ":" + strconv.Itoa(int(node.Port))
 	wg := sync.WaitGroup{}
 
 	wg.Add(2)
 	go func() {
-		tcpErr = probeWithTimeout(sats, node.ID, address, utils.SatModeTCP)
+		tcpSat, tcpErr = probeWithTimeout(sats, node.ID, address, utils.SatModeTCP)
 		wg.Done()
 	}()
 	go func() {
-		quicErr = probeWithTimeout(sats, node.ID, address, utils.SatModeQUIC)
+		_, quicErr = probeWithTimeout(sats, node.ID, address, utils.SatModeQUIC)
 		wg.Done()
 	}()
 
@@ -127,25 +132,30 @@ func startNodesProber(db *pg.DB, nodesInChan chan *ProbeNode, nodesOutChan chan 
 	stamp := time.Now().Unix()
 	countTotal := int64(0)
 	countOk := int64(0)
+	countProxyOk := int64(0)
 	countErr := int64(0)
 	for i := 0; i < routinesCount; i++ {
 		go func() {
 			defer worker.Done()
 			for node := range nodesInChan {
-				tcpErr, quicErr := probe(sats, node)
+				tcpSat, tcpErr, quicErr := probe(sats, node)
 				if tcpErr != nil && quicErr != nil {
 					atomic.AddInt64(&countErr, 1)
 					if !errIsKnown(tcpErr) {
 						log.Info().Str("id", node.ID.String()).Msg(tcpErr.Error())
 					}
 				} else {
+					if tcpSat != nil && tcpSat.UsesProxy() {
+						atomic.AddInt64(&countProxyOk, 1)
+					}
 					atomic.AddInt64(&countOk, 1)
 					nodesOutChan <- &ProbeNodeErr{Node: node, TCPErr: tcpErr, QUICErr: quicErr}
 				}
 
 				if atomic.AddInt64(&countTotal, 1)%100 == 0 {
 					log.Info().
-						Int64("total", countTotal).Int64("ok", countOk).Int64("err", countErr).
+						Int64("total", countTotal).
+						Int64("ok", countOk).Int64("proxyOk", countProxyOk).Int64("err", countErr).
 						Float64("rpm", float64(countTotal)/float64(time.Now().Unix()-stamp)*60).
 						Msg("PROBE:GET")
 				}
