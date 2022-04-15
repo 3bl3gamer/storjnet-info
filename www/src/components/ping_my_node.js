@@ -111,7 +111,7 @@ export class PingMyNode extends PureComponent {
 
 		try {
 			for (const sat of usableSatellites) {
-				this.addLogLine('via: ' + sat.label + (sat.quic ? '' : ' (no QUIC)'))
+				this.addLogLine('via: ' + sat.label + (sat.quic ? '' : ' (proxy, no QUIC)'))
 
 				/** @type {Promise<{aborted:boolean}>[]} */
 				let promises = []

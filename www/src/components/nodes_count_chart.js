@@ -196,7 +196,7 @@ export function NodesCountChart() {
 					: `(node is considered active if it was reachable within the last 24 hours)`}
 			</span>
 		</p>
-		${note && html`<p class="dim small"><b>${noteDate.toISOString().substr(0, 10)}:</b> ${note}</p>`}
+		${note && html`<p class="dim small"><b>${noteDate.toISOString().slice(0, 10)}:</b> ${note}</p>`}
 		<div class="chart">
 			<canvas class="main-canvas" ref=${canvasExt.setRef}></canvas>
 			<div class="legend">

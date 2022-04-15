@@ -1,5 +1,5 @@
 import { apiReq } from 'src/api'
-import { L } from 'src/i18n'
+import { L, lang } from 'src/i18n'
 import { onError } from 'src/errors'
 import {
 	CanvasExt,
@@ -21,6 +21,7 @@ import { bindHandlers, delayedRedraw, getJSONContent, hoverSingle } from 'src/ut
 import { html } from 'src/utils/htm'
 
 import './pings_chart.css'
+import { Fragment } from 'preact'
 
 /** @typedef {{id:string, address:string}} PingNode */
 
@@ -409,14 +410,30 @@ export class SatsPingsChartsList extends PureComponent {
 	 * @param {SPCL_Props} props
 	 * @param {SPCL_State} state
 	 */
-	render(props, { currentSatNodes, isLoaded }) {
-		return currentSatNodes.map(
-			(n, i) =>
-				html`
-					<!-- using key to trigger PingsChart remount (and load) on isLoaded change, TODO -->
-					<${PingsChart} key=${i + '|' + isLoaded} group="sat" node=${n} isPending=${!isLoaded} />
-				`,
-		)
+	render(props, { currentSatNodes, isLoaded, startDate, endDate }) {
+		const noteDate = new Date('2022-04-14T12:00:00Z')
+		const note =
+			startDate < noteDate && endDate > noteDate
+				? lang === 'ru'
+					? 'сервер переехал из Парижа в Санкт-Петербург, пинги изменились.'
+					: 'the server was moved from Paris to St. Petersburg, ping times have changed.'
+				: null
+
+		return html`<${Fragment}>
+			${currentSatNodes.map(
+				(n, i) =>
+					html`
+						<!-- using key to trigger PingsChart remount (and load) on isLoaded change, TODO -->
+						<${PingsChart}
+							key=${i + '|' + isLoaded}
+							group="sat"
+							node=${n}
+							isPending=${!isLoaded}
+						/>
+					`,
+			)}
+			${note && html`<p class="warn small"><b>${noteDate.toISOString().slice(0, 10)}:</b> ${note}</p>`}
+		</${Fragment}>`
 	}
 }
 
@@ -433,11 +450,11 @@ export const SatsPingsCharts = memo(function SatsPingsCharts() {
 		<${SatsPingsChartsList} defaultSatNodes=${defaultSatNodes} />
 		<p class="dim small">
 			${L(
-				'Once a minute a connection is established with the satellites from a server near Paris, ' +
+				'Once a minute a connection is established with the satellites from a server in St. Petersburg, ' +
 					'elapsed time is saved. Timeout is 2 s. ' +
 					'Narrow red stripes are not a sign of offline: just for some reason a single response was not received.',
 				'ru',
-				'Раз в минуту с сателлитами устанавливается соединение из сервера под Парижем, ' +
+				'Раз в минуту с сателлитами устанавливается соединение из сервера в Санкт-Петербурге, ' +
 					'затраченное время сохраняется. Таймаут — 2 с. ' +
 					'Узкие красные полосы — не 100%-признак оффлайна: просто по какой-то причине не вернулся одиночный ответ.',
 			)}
