@@ -206,7 +206,10 @@ func (c *GitHubVersionChecker) FetchCurVersion() error {
 }
 
 func (c *GitHubVersionChecker) VersionHasChanged() bool {
-	return !c.curVersion.Equals(c.prevVersion)
+	// GitHub sometimes starts returning a previous version for a short period.
+	// So ignoring the version downgrade here.
+	return c.curVersion.GT(c.prevVersion)
+	// return !c.curVersion.Equals(c.prevVersion)
 }
 
 func (c *GitHubVersionChecker) DebugVersions() (string, string) {
