@@ -24,7 +24,6 @@ require (
 	github.com/ansel1/merry/v2 v2.0.0-beta.10 // indirect
 	github.com/apache/thrift v0.12.0 // indirect
 	github.com/boombuler/barcode v1.0.1-0.20190219062509-6c824513bacc // indirect
-	github.com/btcsuite/btcutil v1.0.3-0.20201208143702-a53e38424cce // indirect
 	github.com/calebcase/tmpfile v1.0.3 // indirect
 	github.com/cespare/xxhash/v2 v2.1.1 // indirect
 	github.com/cheekybits/genny v1.0.0 // indirect
@@ -56,6 +55,7 @@ require (
 	github.com/lucas-clemente/quic-go v0.25.0 // indirect
 	github.com/marten-seemann/qtls-go1-16 v0.1.4 // indirect
 	github.com/marten-seemann/qtls-go1-17 v0.1.0 // indirect
+	github.com/marten-seemann/qtls-go1-18 v0.1.0-beta.1 // indirect
 	github.com/nxadm/tail v1.4.8 // indirect
 	github.com/onsi/ginkgo v1.16.4 // indirect
 	github.com/oschwald/maxminddb-golang v1.8.0 // indirect
@@ -93,7 +93,7 @@ require (
 	google.golang.org/protobuf v1.27.1 // indirect
 	gopkg.in/segmentio/analytics-go.v3 v3.1.0 // indirect
 	gopkg.in/tomb.v1 v1.0.0-20141024135613-dd632973f1e7 // indirect
-	mellium.im/sasl v0.2.1 // indirect
+	mellium.im/sasl v0.3.1 // indirect
 	storj.io/drpc v0.0.29 // indirect
 	storj.io/monkit-jaeger v0.0.0-20220131130547-dc4cb5a0d97a // indirect
 	storj.io/private v0.0.0-20220131131751-c913260b9ec2 // indirect
