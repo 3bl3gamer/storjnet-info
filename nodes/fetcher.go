@@ -51,7 +51,7 @@ func FetchAndProcess(satelliteAddress string) error {
 	currentSegment := 0
 	beginSegment := metaclient.BeginSegmentParams{
 		MaxOrderLimit: maxEncryptedSegmentSize,
-		Position: storj.SegmentPosition{
+		Position: metaclient.SegmentPosition{
 			Index: int32(currentSegment),
 		},
 	}
