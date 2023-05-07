@@ -1,6 +1,6 @@
 [Unit]
 Description=Storjnet nodes updating daemon
-After=network.target
+After=network.target postgresql.service
 
 [Service]
 User=storj
