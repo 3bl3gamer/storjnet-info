@@ -2,6 +2,7 @@ package nodes
 
 import (
 	"context"
+	"storjnet/core"
 	"storjnet/utils"
 	"strconv"
 	"strings"
@@ -27,7 +28,11 @@ func FetchAndProcess(satelliteAddress string) error {
 	}
 
 	db := utils.MakePGConnection()
-	gdb, err := utils.MakeGeoIPConnection()
+	gdb, err := utils.MakeGeoIPCityConnection()
+	if err != nil {
+		return merry.Wrap(err)
+	}
+	asndb, err := utils.MakeGeoIPASNConnection()
 	if err != nil {
 		return merry.Wrap(err)
 	}
@@ -63,7 +68,7 @@ func FetchAndProcess(satelliteAddress string) error {
 	if err != nil {
 		return merry.Wrap(err)
 	}
-	return merry.Wrap(saveLimits(db, gdb, satelliteAddress, segResponse.Limits))
+	return merry.Wrap(saveLimits(db, gdb, asndb, satelliteAddress, segResponse.Limits))
 }
 
 type NodeLocation struct {
@@ -73,10 +78,11 @@ type NodeLocation struct {
 	Latitude  float32 `json:"latitude"`
 }
 
-func saveLimits(db *pg.DB, gdb *geoip.GeoIP, satelliteAddress string, limits []*pb.AddressedOrderLimit) error {
+func saveLimits(db *pg.DB, gdb, asndb *geoip.GeoIP, satelliteAddress string, limits []*pb.AddressedOrderLimit) error {
 	stt := time.Now()
 	newCount := 0
 	locCount := 0
+	ipTypeCount := 0
 	err := db.RunInTransaction(func(tx *pg.Tx) error {
 		ids := make([]storj.NodeID, len(limits))
 		for i, l := range limits {
@@ -105,6 +111,7 @@ func saveLimits(db *pg.DB, gdb *geoip.GeoIP, satelliteAddress string, limits []*
 			}
 
 			var loc *NodeLocation
+			var ipType *string
 			if rec := gdb.GetRecord(ipAddr); rec != nil {
 				loc = &NodeLocation{
 					Country:   rec.CountryName,
@@ -112,17 +119,25 @@ func saveLimits(db *pg.DB, gdb *geoip.GeoIP, satelliteAddress string, limits []*
 					Longitude: rec.Longitude,
 					Latitude:  rec.Latitude,
 				}
+
+				foundIpType, ok, err := core.FindCachedIPType(db, asndb, ipAddr)
+				if err != nil {
+					return merry.Wrap(err)
+				}
+				if ok {
+					ipType = &foundIpType
+				}
 			}
 
 			var xmax string
 			_, err = tx.QueryOne(&xmax, `
 				INSERT INTO storjnet.nodes
-					(id, ip_addr, port, location, last_received_from_sat_at) VALUES (?,?,?,?,NOW())
+					(id, ip_addr, port, location, ip_type, last_received_from_sat_at) VALUES (?,?,?,?,?,NOW())
 				ON CONFLICT (id) DO UPDATE SET
-					ip_addr = EXCLUDED.ip_addr, port = EXCLUDED.port, location = EXCLUDED.location,
+					ip_addr = EXCLUDED.ip_addr, port = EXCLUDED.port, location = EXCLUDED.location, ip_type = EXCLUDED.ip_type,
 					last_received_from_sat_at = NOW()
 				RETURNING xmax`,
-				nodeID, ipAddr, port, loc)
+				nodeID, ipAddr, port, loc, ipType)
 			if err != nil {
 				return merry.Wrap(err)
 			}
@@ -131,6 +146,9 @@ func saveLimits(db *pg.DB, gdb *geoip.GeoIP, satelliteAddress string, limits []*
 			}
 			if loc != nil {
 				locCount++
+			}
+			if ipType != nil {
+				ipTypeCount++
 			}
 
 			_, err = tx.Exec(`
@@ -149,7 +167,7 @@ func saveLimits(db *pg.DB, gdb *geoip.GeoIP, satelliteAddress string, limits []*
 		return nil
 	})
 	log.Info().
-		Int("total", len(limits)).Int("new", newCount).Int("with_location", locCount).
+		Int("total", len(limits)).Int("new", newCount).Int("with_location", locCount).Int("with_ip_type", ipTypeCount).
 		TimeDiff("elapsed", time.Now(), stt).
 		Msg("nodes saved")
 	return merry.Wrap(err)

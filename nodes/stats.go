@@ -24,6 +24,7 @@ func saveNodeStats(db *pg.DB, errors *[]error) {
 		countries,
 		subnets_top,
 		subnet_sizes,
+		ip_types,
 		ports
 	) VALUES ((
 		SELECT count(*) FROM nodes
@@ -96,12 +97,18 @@ func saveNodeStats(db *pg.DB, errors *[]error) {
 			GROUP BY size
 		) AS t
 	), (
+		SELECT jsonb_object_agg(COALESCE(ip_type, '<unknown>'), cnt) FROM (
+			SELECT ip_type, count(*) AS cnt
+			FROM nodes
+			WHERE updated_at > NOW() - INTERVAL '1 day'
+			GROUP BY ip_type
+		) AS t
+	), (
 		SELECT jsonb_object_agg(port, cnt) FROM (
 			SELECT port, count(*) AS cnt
 			FROM nodes
 			WHERE updated_at > NOW() - INTERVAL '1 day'
 			GROUP BY port
-			ORDER BY cnt DESC
 			LIMIT 100
 		) AS t
 	))`)

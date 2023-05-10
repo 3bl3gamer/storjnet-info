@@ -18,6 +18,7 @@ const NodesSummary = memo(function NodesSummary() {
 		 *   subnetsCount: number,
 		 *   subnetsTop: {subnet:string, size:number}[],
 		 *   subnetSizes: {size:number, count:number}[],
+		 *   ipTypes: {type:string, count:number}[],
 		 * } | null}
 		 */ (null),
 	)
@@ -59,11 +60,11 @@ const NodesSummary = memo(function NodesSummary() {
 							? count + '+'
 							: html`${count}<span class="dim">–${nextCount - 1}</span>`,
 					count: stats.subnetSizes
-						.filter(x => x.count >= count && x.count < nextCount)
-						.map(x => x.size)
+						.filter(x => x.size >= count && x.size < nextCount)
+						.map(x => x.count)
 						.reduce((a, b) => a + b, 0),
 				}
-			})
+			}).filter(x => x.count > 0)
 		}
 	}, [stats, isExpanded])
 
@@ -121,10 +122,12 @@ const NodesSummary = memo(function NodesSummary() {
 				</thead>
 				<tbody>
 					${sizesStats === null
-						? zeroes(SIZES_STATS_COUNTS).map(
+						? zeroes(SIZES_STATS_COUNTS.length).map(
 								x =>
 									html`<tr>
-										${x}
+										<td class="dim" colspan="2">
+											${L('loading...', 'ru', 'загрузка...')}
+										</td>
 									</tr>`,
 						  )
 						: sizesStats.map(
@@ -136,6 +139,8 @@ const NodesSummary = memo(function NodesSummary() {
 						  )}
 					<tr>
 						${!isExpanded &&
+						sizesStats &&
+						sizesStats.length > 0 &&
 						html`
 							<td colspan="3">
 								<button class="unwrap-button" onclick=${onExpand}>
@@ -146,11 +151,46 @@ const NodesSummary = memo(function NodesSummary() {
 					</tr>
 				</tbody>
 			</table>
+			<table class="node-ip-types-table underlined wide-padded">
+				<thead>
+					<tr>
+						<td>
+							${L('Type', 'ru', 'Тип')}
+							<div class="small dim">${L('of IP-addr', 'ru', 'IP-адреса')}</div>
+						</td>
+						<td>
+							${L('Nodes', 'ru', 'Кол-во')}
+							<div class="small dim">${L('count', 'ru', 'нод')}</div>
+						</td>
+					</tr>
+				</thead>
+				<tbody>
+					${stats === null
+						? zeroes(4).map(
+								(_, i) => html`<tr>
+									<td colspan="2" class="dim">${L('loading...', 'ru', 'загрузка...')}</td>
+								</tr>`,
+						  )
+						: stats.ipTypes.map(
+								item =>
+									html`<tr>
+										<td>${item.type}</td>
+										<td>${item.count}</td>
+									</tr>`,
+						  )}
+					<tr>
+						<td colspan="2" class="dim small">
+							${L('based on', 'ru', 'по данным')}<br />
+							<a href="https://incolumitas.com/pages/IP-API/">incolumitas.com/pages/IP-API</a>
+						</td>
+					</tr>
+				</tbody>
+			</table>
 		</div>
 		<p>
 			${lang === 'ru'
-				? `Ноды запущены как минимум в ${L.n(subnetsCount, 'подсети', 'подсетях', 'подсетях')}.`
-				: `Nodes are running in at least ${L.n(subnetsCount, 'subnet', 'subnets')}.`}
+				? `Ноды запущены как минимум в ${L.n(subnetsCount, 'подсети', 'подсетях', 'подсетях')} /24.`
+				: `Nodes are running in at least ${L.n(subnetsCount, 'subnet', 'subnets')} /24.`}
 		</p>
 	`
 })

@@ -61,12 +61,20 @@ func MakePGConnection() *pg.DB {
 	return db
 }
 
-func MakeGeoIPConnection() (*geoip.GeoIP, error) {
+func MakeGeoIPCityConnection() (*geoip.GeoIP, error) {
 	gdb, err := geoip.Open("/usr/share/GeoIP/GeoIPCity.dat")
 	if err != nil {
 		return nil, merry.Wrap(err)
 	}
 	return gdb, nil
+}
+
+func MakeGeoIPASNConnection() (*geoip.GeoIP, error) {
+	asndb, err := geoip.Open("/usr/share/GeoIP/GeoIPASNum.dat")
+	if err != nil {
+		return nil, merry.Wrap(err)
+	}
+	return asndb, nil
 }
 
 func IsConstrError(err error, table, kind, name string) bool {

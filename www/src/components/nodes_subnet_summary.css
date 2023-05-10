@@ -3,11 +3,13 @@
 	flex-direction: row;
 	align-items: flex-start;
 	flex-wrap: wrap;
+	justify-content: space-around;
+}
+.node-subnets-summary-wrap table {
+	margin-left: 24px;
+	margin-right: 24px;
 }
 
-.node-subnets-table {
-	margin-right: 64px;
-}
 .node-subnets-table tbody td {
 	text-align: right;
 }
@@ -15,6 +17,9 @@
 	border-bottom: none;
 }
 
+.node-subnet-sizes-table tbody td:last-child {
+	text-align: right;
+}
 .node-subnet-sizes-table tbody tr:last-child td {
 	text-align: center;
 }
@@ -27,4 +32,17 @@
 	text-decoration: underline;
 	font: inherit;
 	cursor: pointer;
+}
+
+.node-ip-types-table tbody td:first-child {
+	text-align: center;
+}
+.node-ip-types-table tbody td:last-child {
+	text-align: right;
+}
+.node-ip-types-table tbody tr:last-child {
+	border-bottom: none;
+}
+.node-ip-types-table tbody tr:last-child td {
+	text-align: center;
 }

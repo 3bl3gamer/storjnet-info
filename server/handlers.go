@@ -532,10 +532,15 @@ func HandleAPINodesSubnetSummary(wr http.ResponseWriter, r *http.Request, ps htt
 		Size  int64 `json:"size"`
 		Count int64 `json:"count"`
 	}
+	type IPTypeItem struct {
+		Type  string `json:"type"`
+		Count int64  `json:"count"`
+	}
 	var stats struct {
-		SubnetsCount int64      `json:"subnetsCount"`
-		SubnetsTop   []TopItem  `json:"subnetsTop"`
-		SubnetSizes  []SizeItem `json:"subnetSizes"`
+		SubnetsCount int64        `json:"subnetsCount"`
+		SubnetsTop   []TopItem    `json:"subnetsTop"`
+		SubnetSizes  []SizeItem   `json:"subnetSizes"`
+		IPTypes      []IPTypeItem `json:"ipTypes"`
 	}
 	// do not QueryOne: there may be no data and empty (unchanged) stats should be returned
 	_, err := db.Query(&stats, `
@@ -554,7 +559,14 @@ func HandleAPINodesSubnetSummary(wr http.ResponseWriter, r *http.Request, ps htt
 					SELECT t FROM jsonb_each(subnet_sizes) AS t
 					ORDER BY (t).key::int ASC
 				) AS t
-			) AS subnet_sizes
+			) AS subnet_sizes,
+			(
+				SELECT jsonb_agg(jsonb_build_object('type', (t).key, 'count', (t).value))
+				FROM (
+					SELECT t FROM jsonb_each(ip_types) AS t
+					ORDER BY (t).value::int DESC
+				) AS t
+			) AS ip_types
 		FROM node_stats
 		WHERE created_at <= ?
 		ORDER BY id DESC LIMIT 1
@@ -570,6 +582,9 @@ func HandleAPINodesSubnetSummary(wr http.ResponseWriter, r *http.Request, ps htt
 	}
 	if stats.SubnetSizes == nil {
 		stats.SubnetSizes = []SizeItem{}
+	}
+	if stats.IPTypes == nil {
+		stats.IPTypes = []IPTypeItem{}
 	}
 	return stats, nil
 }
