@@ -22,6 +22,8 @@ func saveNodeStats(db *pg.DB, errors *[]error) {
 		all_sat_offers_count_hours,
 		per_sat_offers_count_hours,
 		countries,
+		subnets_top,
+		subnet_sizes,
 		ports
 	) VALUES ((
 		SELECT count(*) FROM nodes
@@ -71,6 +73,27 @@ func saveNodeStats(db *pg.DB, errors *[]error) {
 			FROM nodes
 			WHERE updated_at > NOW() - INTERVAL '1 day'
 			GROUP BY country
+		) AS t
+	), (
+		SELECT jsonb_object_agg(net, size) FROM (
+			SELECT net, count(*) as size FROM (
+				SELECT host(set_masklen(ip_addr, 24)::cidr) AS net
+				FROM nodes
+				WHERE updated_at > NOW() - INTERVAL '1 day'
+			) AS t
+			GROUP BY net HAVING count(*) >= 10
+		) AS t
+	), (
+		SELECT jsonb_object_agg(size, cnt) FROM (
+			SELECT size, count(*) as cnt FROM (
+				SELECT net, count(*) as size FROM (
+					SELECT host(set_masklen(ip_addr, 24)::cidr) AS net
+					FROM nodes
+					WHERE updated_at > NOW() - INTERVAL '1 day'
+				) AS t
+				GROUP BY net
+			) AS t
+			GROUP BY size
 		) AS t
 	), (
 		SELECT jsonb_object_agg(port, cnt) FROM (

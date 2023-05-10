@@ -13,6 +13,7 @@ import { PingMyNode } from './components/ping_my_node'
 import { AuthForm } from './components/auth'
 import { SearchNeighbors } from './components/search_neighbors'
 import { UserDashboardNodes, UserDashboardPings } from './components/user_dashboard'
+import { NodesSubnetSummary } from './components/nodes_subnet_summary'
 
 renderIfExists(AuthForm, '.auth-forms')
 renderIfExists(RewindControl, '.rewind-control')
@@ -20,6 +21,7 @@ renderIfExists(SatsPingsCharts, '.sat-nodes')
 renderIfExists(StorjTxSummary, '.storj-tx-summary')
 renderIfExists(NodesCountChart, '.nodes-count-chart')
 renderIfExists(NodesLocationSummary, '.nodes-location-summary')
+renderIfExists(NodesSubnetSummary, '.nodes-subnet-summary')
 renderIfExists(PingMyNode, '.ping-my-node')
 renderIfExists(SearchNeighbors, '.search-neighbors')
 renderIfExists(UserDashboardNodes, '.user-dashboard-nodes')

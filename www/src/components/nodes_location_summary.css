@@ -5,15 +5,16 @@
 	background-color: #eee;
 }
 
-.node-countries-table td:last-child {
+.node-countries-table td:first-child,
+.node-countries-table tbody td:last-child {
 	text-align: right;
 }
 
-.node-countries-table tr:last-child {
+.node-countries-table tbody tr:last-child {
 	border-bottom: none;
 }
 
-.node-countries-table tr:last-child td {
+.node-countries-table tbody tr:last-child td {
 	text-align: center;
 }
 

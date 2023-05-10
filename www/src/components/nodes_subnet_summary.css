@@ -1,0 +1,30 @@
+.node-subnets-summary-wrap {
+	display: flex;
+	flex-direction: row;
+	align-items: flex-start;
+	flex-wrap: wrap;
+}
+
+.node-subnets-table {
+	margin-right: 64px;
+}
+.node-subnets-table tbody td {
+	text-align: right;
+}
+.node-subnets-table tbody tr:last-child {
+	border-bottom: none;
+}
+
+.node-subnet-sizes-table tbody tr:last-child td {
+	text-align: center;
+}
+.node-subnet-sizes-table tbody tr:last-child {
+	border-bottom: none;
+}
+.node-subnet-sizes-table .unwrap-button {
+	background: none;
+	border: none;
+	text-decoration: underline;
+	font: inherit;
+	cursor: pointer;
+}

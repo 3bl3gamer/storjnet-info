@@ -519,6 +519,61 @@ func HandleAPINodesLocationSummary(wr http.ResponseWriter, r *http.Request, ps h
 	return stats, nil
 }
 
+func HandleAPINodesSubnetSummary(wr http.ResponseWriter, r *http.Request, ps httprouter.Params) (interface{}, error) {
+	db := r.Context().Value(CtxKeyDB).(*pg.DB)
+
+	endDate := extractEndDateFromQuery(r.URL.Query())
+
+	type TopItem struct {
+		Subnet string `json:"subnet"`
+		Size   int64  `json:"size"`
+	}
+	type SizeItem struct {
+		Size  int64 `json:"size"`
+		Count int64 `json:"count"`
+	}
+	var stats struct {
+		SubnetsCount int64      `json:"subnetsCount"`
+		SubnetsTop   []TopItem  `json:"subnetsTop"`
+		SubnetSizes  []SizeItem `json:"subnetSizes"`
+	}
+	// do not QueryOne: there may be no data and empty (unchanged) stats should be returned
+	_, err := db.Query(&stats, `
+		SELECT
+			(
+				SELECT jsonb_agg(jsonb_build_object('subnet', (t).key, 'size', (t).value))
+				FROM (
+					SELECT t FROM jsonb_each(subnets_top) AS t
+					ORDER BY (t).value::int DESC
+					LIMIT 5
+				) AS t
+			) AS subnets_top,
+			(
+				SELECT jsonb_agg(jsonb_build_object('size', (t).key::int, 'count', (t).value))
+				FROM (
+					SELECT t FROM jsonb_each(subnet_sizes) AS t
+					ORDER BY (t).key::int ASC
+				) AS t
+			) AS subnet_sizes
+		FROM node_stats
+		WHERE created_at <= ?
+		ORDER BY id DESC LIMIT 1
+		`, endDate.AddDate(0, 0, 1))
+	if err != nil {
+		return nil, merry.Wrap(err)
+	}
+	for _, subnetSize := range stats.SubnetSizes {
+		stats.SubnetsCount += subnetSize.Count
+	}
+	if stats.SubnetsTop == nil {
+		stats.SubnetsTop = []TopItem{}
+	}
+	if stats.SubnetSizes == nil {
+		stats.SubnetSizes = []SizeItem{}
+	}
+	return stats, nil
+}
+
 type CountriesStatItem struct {
 	name  string
 	count int64
@@ -583,7 +638,9 @@ func (list CountriesStatItemList) findCountRight(name string, fromIndex int) (in
 }
 
 // Assumes Postgres JSONB keys are sorted by (len(key), key):
-//  {"Chile": 9, "China": 86, "India": 100, "Italy": 107, ... "Bosnia and Herzegovina": 1, "Saint Pierre and Miquelon": 1}
+//
+//	{"Chile": 9, "China": 86, "India": 100, "Italy": 107, ... "Bosnia and Herzegovina": 1, "Saint Pierre and Miquelon": 1}
+//
 // so each time country index is same or near prev index.
 func (list CountriesStatItemList) FindCountFor(name string, prevIndex int) (int64, int) {
 	if prevIndex != -1 && prevIndex < len(list) {

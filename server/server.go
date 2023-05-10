@@ -281,6 +281,7 @@ func StartHTTPServer(address string, env utils.Env) error {
 	route("GET", "/api/nodes/locations", WithGzip, HandleAPINodesLocations)
 	route("GET", "/api/nodes/location_summary", HandleAPINodesLocationSummary)
 	route("GET", "/api/nodes/countries", WithGzip, HandleAPINodesCountries)
+	route("GET", "/api/nodes/subnet_summary", HandleAPINodesSubnetSummary)
 	route("GET", "/api/nodes/counts", WithGzip, HandleAPINodesCounts)
 	route("POST", "/api/client_errors", WithOptUser, HandleAPIClientErrors)
 

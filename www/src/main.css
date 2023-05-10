@@ -44,7 +44,6 @@ table.underlined tr {
 
 table.wide-padded td:not(:first-child) {
 	padding: 1px 0 1px 15px;
-	/* text-align: right; */
 }
 
 code,

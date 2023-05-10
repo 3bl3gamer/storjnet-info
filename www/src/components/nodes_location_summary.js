@@ -5,7 +5,6 @@ import { onError } from 'src/errors'
 import { html } from 'src/utils/htm'
 import { zeroes } from 'src/utils/arrays'
 import { intervalIsDefault, toISODateString, useHashInterval, watchHashInterval } from 'src/utils/time'
-
 import {
 	LocMap,
 	ProjectionMercator,
@@ -19,10 +18,10 @@ import {
 	loadTileImage,
 } from 'locmap'
 import { PointsLayer } from 'src/map_points_layer'
-
-import './nodes_location_summary.css'
 import { NodeCountriesChart } from './node_countries_chart'
 import { useCallback, useEffect, useRef, useState } from 'preact/hooks'
+
+import './nodes_location_summary.css'
 
 const NodesLocationMap = memo(function NodesLocationMap() {
 	const mapPointsLayer = useRef(new PointsLayer()).current
@@ -86,7 +85,7 @@ const NodesLocationMap = memo(function NodesLocationMap() {
 
 const NodesSummary = memo(function NodesSummary() {
 	const [stats, setStats] = useState(
-		/**@type {{countriesCount:number, countriesTop:{country:string, count:string}[]}|null}*/ (null),
+		/**@type {{countriesCount:number, countriesTop:{country:string, count:number}[]}|null}*/ (null),
 	)
 	const [isExpanded, setIsExpanded] = useState(false)
 	const [, endDate] = useHashInterval()
@@ -121,32 +120,34 @@ const NodesSummary = memo(function NodesSummary() {
 						<td>${L('Nodes', 'ru', 'Кол-во')}</td>
 					</tr>
 				</thead>
-				${stats === null
-					? zeroes(10).map(
-							(_, i) => html`<tr>
-								<td class="dim">${i + 1}</td>
-								<td class="dim">${L('loading...', 'ru', 'загрузка...')}</td>
-								<td class="dim">...</td>
-							</tr>`,
-					  )
-					: (isExpanded ? stats.countriesTop : stats.countriesTop.slice(0, 10)).map(
-							(item, i) =>
-								html`<tr>
-									<td>${i + 1}</td>
-									<td>${item.country}</td>
-									<td>${item.count}</td>
+				<tbody>
+					${stats === null
+						? zeroes(10).map(
+								(_, i) => html`<tr>
+									<td class="dim">${i + 1}</td>
+									<td class="dim">${L('loading...', 'ru', 'загрузка...')}</td>
+									<td class="dim">...</td>
 								</tr>`,
-					  )}
-				<tr>
-					${!isExpanded &&
-					html`
-						<td colspan="3">
-							<button class="unwrap-button" onclick=${onExpand}>
-								${L('Expand', 'ru', 'Развернуть')}
-							</button>
-						</td>
-					`}
-				</tr>
+						  )
+						: (isExpanded ? stats.countriesTop : stats.countriesTop.slice(0, 10)).map(
+								(item, i) =>
+									html`<tr>
+										<td>${i + 1}</td>
+										<td>${item.country}</td>
+										<td>${item.count}</td>
+									</tr>`,
+						  )}
+					<tr>
+						${!isExpanded &&
+						html`
+							<td colspan="3">
+								<button class="unwrap-button" onclick=${onExpand}>
+									${L('Expand', 'ru', 'Развернуть')}
+								</button>
+							</td>
+						`}
+					</tr>
+				</tbody>
 			</table>
 		</div>
 		<p>
