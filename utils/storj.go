@@ -88,6 +88,10 @@ func (sat *Satellite) Dial(ctx context.Context, address string, id storj.NodeID,
 	if err != nil {
 		return nil, merry.Wrap(err)
 	}
+	// forcing Dial to happen NOW (otherwise it will be delayed until next RPC call)
+	if err := conn.ForceState(ctx); err != nil {
+		return nil, merry.Wrap(err)
+	}
 	return conn, nil
 }
 
