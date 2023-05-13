@@ -503,7 +503,7 @@ func HandleAPINodesLocationSummary(wr http.ResponseWriter, r *http.Request, ps h
 			(
 				SELECT jsonb_agg(jsonb_build_object('country', (nc).key, 'nodes', (nc).value, 'subnets', (sc).value))
 				FROM (
-					SELECT nc, sc FROM jsonb_each(countries) AS nc JOIN jsonb_each(subnet_countries) AS sc ON (nc).key = (sc).key
+					SELECT nc, sc FROM jsonb_each(countries) AS nc FULL OUTER JOIN jsonb_each(subnet_countries) AS sc ON (nc).key = (sc).key
 					ORDER BY (nc).value::int DESC
 				) AS t
 			) AS countries_top

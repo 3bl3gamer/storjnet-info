@@ -155,8 +155,12 @@ const NodesSummary = memo(function NodesSummary() {
 									html`<tr>
 										<td>${i + 1}</td>
 										<td>${item.country}</td>
-										<td class=${sortCol === 'nodes' ? '' : 'dim'}>${item.nodes}</td>
-										<td class=${sortCol === 'subnets' ? '' : 'dim'}>${item.subnets}</td>
+										<td class=${sortCol === 'nodes' ? '' : 'dim'}>
+											${blankIfZero(item.nodes)}
+										</td>
+										<td class=${sortCol === 'subnets' ? '' : 'dim'}>
+											${blankIfZero(item.subnets)}
+										</td>
 									</tr>`,
 						  )}
 					<tr>
@@ -211,4 +215,9 @@ export class NodesLocationSummary extends PureComponent {
 			<${NodesLocationMap} />
 		`
 	}
+}
+
+/** @param {number} num */
+function blankIfZero(num) {
+	return num === 0 ? '' : num + ''
 }
