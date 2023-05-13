@@ -143,7 +143,7 @@ const NodesSummary = memo(function NodesSummary() {
 						sizesStats.length > 0 &&
 						html`
 							<td colspan="3">
-								<button class="unwrap-button" onclick=${onExpand}>
+								<button class="a-like" onclick=${onExpand}>
 									${L('Expand', 'ru', 'Развернуть')}
 								</button>
 							</td>

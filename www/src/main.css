@@ -69,6 +69,14 @@ p,
 	margin-bottom: 16px;
 }
 
+button.a-like {
+	background: none;
+	border: none;
+	text-decoration: underline dotted;
+	font: inherit;
+	cursor: pointer;
+}
+
 /* =================== */
 
 html {

@@ -26,13 +26,6 @@
 .node-subnet-sizes-table tbody tr:last-child {
 	border-bottom: none;
 }
-.node-subnet-sizes-table .unwrap-button {
-	background: none;
-	border: none;
-	text-decoration: underline;
-	font: inherit;
-	cursor: pointer;
-}
 
 .node-ip-types-table tbody td:first-child {
 	text-align: center;

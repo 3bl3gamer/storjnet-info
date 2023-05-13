@@ -486,7 +486,8 @@ func HandleAPINodesLocationSummary(wr http.ResponseWriter, r *http.Request, ps h
 
 	type TopItem struct {
 		Country string `json:"country"`
-		Count   int64  `json:"count"`
+		Nodes   int64  `json:"nodes"`
+		Subnets int64  `json:"subnets"`
 	}
 	var stats struct {
 		CountriesCount int64     `json:"countriesCount"`
@@ -500,10 +501,10 @@ func HandleAPINodesLocationSummary(wr http.ResponseWriter, r *http.Request, ps h
 				FROM jsonb_object_keys(countries) AS key
 			) AS countries_count,
 			(
-				SELECT jsonb_agg(jsonb_build_object('country', (t).key, 'count', (t).value))
+				SELECT jsonb_agg(jsonb_build_object('country', (nc).key, 'nodes', (nc).value, 'subnets', (sc).value))
 				FROM (
-					SELECT t FROM jsonb_each(countries) AS t
-					ORDER BY (t).value::int DESC
+					SELECT nc, sc FROM jsonb_each(countries) AS nc JOIN jsonb_each(subnet_countries) AS sc ON (nc).key = (sc).key
+					ORDER BY (nc).value::int DESC
 				) AS t
 			) AS countries_top
 		FROM node_stats

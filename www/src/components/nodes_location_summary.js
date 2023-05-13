@@ -19,7 +19,7 @@ import {
 } from 'locmap'
 import { PointsLayer } from 'src/map_points_layer'
 import { NodeCountriesChart } from './node_countries_chart'
-import { useCallback, useEffect, useRef, useState } from 'preact/hooks'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks'
 
 import './nodes_location_summary.css'
 
@@ -85,9 +85,15 @@ const NodesLocationMap = memo(function NodesLocationMap() {
 
 const NodesSummary = memo(function NodesSummary() {
 	const [stats, setStats] = useState(
-		/**@type {{countriesCount:number, countriesTop:{country:string, count:number}[]}|null}*/ (null),
+		/**
+		 * @type {{
+		 *   countriesCount: number,
+		 *   countriesTop: {country:string, nodes:number, subnets:number}[]
+		 * } | null}
+		 */ (null),
 	)
 	const [isExpanded, setIsExpanded] = useState(false)
+	const [sortCol, setSortCol] = useState(/**@type {'nodes'|'subnets'}*/ ('nodes'))
 	const [, endDate] = useHashInterval()
 
 	useEffect(() => {
@@ -109,6 +115,11 @@ const NodesSummary = memo(function NodesSummary() {
 		setIsExpanded(true)
 	}, [])
 
+	const countriesTopSorted = useMemo(() => {
+		if (stats === null) return null
+		return stats.countriesTop.sort((a, b) => b[sortCol] - a[sortCol])
+	}, [stats, sortCol])
+
 	const countriesCount = stats && stats.countriesCount
 	return html`
 		<div class="p-like">
@@ -117,31 +128,42 @@ const NodesSummary = memo(function NodesSummary() {
 					<tr>
 						<td>${L('#', 'ru', '№')}</td>
 						<td>${L('Country', 'ru', 'Страна')}</td>
-						<td>${L('Nodes', 'ru', 'Кол-во')}</td>
+						<td>
+							<button class="a-like" onclick=${() => setSortCol('nodes')}>
+								${L('Nodes', 'ru', 'Ноды')}${sortCol === 'nodes' ? '▼' : ''}
+							</button>
+						</td>
+						<td>
+							<button class="a-like" onclick=${() => setSortCol('subnets')}>
+								${L('Subnets', 'ru', 'Подсети')}${sortCol === 'subnets' ? '▼' : ''}
+							</button>
+						</td>
 					</tr>
 				</thead>
 				<tbody>
-					${stats === null
+					${countriesTopSorted === null
 						? zeroes(10).map(
 								(_, i) => html`<tr>
 									<td class="dim">${i + 1}</td>
 									<td class="dim">${L('loading...', 'ru', 'загрузка...')}</td>
 									<td class="dim">...</td>
+									<td class="dim">...</td>
 								</tr>`,
 						  )
-						: (isExpanded ? stats.countriesTop : stats.countriesTop.slice(0, 10)).map(
+						: (isExpanded ? countriesTopSorted : countriesTopSorted.slice(0, 10)).map(
 								(item, i) =>
 									html`<tr>
 										<td>${i + 1}</td>
 										<td>${item.country}</td>
-										<td>${item.count}</td>
+										<td class=${sortCol === 'nodes' ? '' : 'dim'}>${item.nodes}</td>
+										<td class=${sortCol === 'subnets' ? '' : 'dim'}>${item.subnets}</td>
 									</tr>`,
 						  )}
 					<tr>
 						${!isExpanded &&
 						html`
-							<td colspan="3">
-								<button class="unwrap-button" onclick=${onExpand}>
+							<td colspan="4">
+								<button class="a-like" onclick=${onExpand}>
 									${L('Expand', 'ru', 'Развернуть')}
 								</button>
 							</td>

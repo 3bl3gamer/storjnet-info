@@ -6,7 +6,8 @@
 }
 
 .node-countries-table td:first-child,
-.node-countries-table tbody td:last-child {
+.node-countries-table tbody td:nth-child(3),
+.node-countries-table tbody td:nth-child(4) {
 	text-align: right;
 }
 
@@ -16,12 +17,4 @@
 
 .node-countries-table tbody tr:last-child td {
 	text-align: center;
-}
-
-.node-countries-table .unwrap-button {
-	background: none;
-	border: none;
-	text-decoration: underline;
-	font: inherit;
-	cursor: pointer;
 }

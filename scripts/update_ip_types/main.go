@@ -47,25 +47,28 @@ func CMDFillNodeASNs(cmd *cobra.Command, args []string) error {
 
 	fromTime := time.Time{}
 	for {
-		nodes := make([]Node, 100)
-		_, err := db.Query(&nodes, `
-			SELECT id as raw_id, ip_addr, asn, last_received_from_sat_at AS time
-			FROM nodes
-			WHERE last_received_from_sat_at > ?
-			  AND updated_at > NOW() - INTERVAL '4 days'
-			ORDER BY last_received_from_sat_at ASC
-			LIMIT 1000`,
-			fromTime)
-		if err != nil {
-			return merry.Wrap(err)
-		}
-		if len(nodes) == 0 {
-			break
-		}
-
-		log.Debug().Int("count", len(nodes)).Msg("nodes chunk")
-
+		shouldStop := false
 		err = db.RunInTransaction(func(tx *pg.Tx) error {
+			nodes := make([]Node, 100)
+			_, err := tx.Query(&nodes, `
+				SELECT id as raw_id, ip_addr, asn, last_received_from_sat_at AS time
+				FROM nodes
+				WHERE last_received_from_sat_at > ?
+				AND updated_at > NOW() - INTERVAL '4 days'
+				ORDER BY last_received_from_sat_at ASC
+				LIMIT 1000
+				FOR UPDATE`,
+				fromTime)
+			if err != nil {
+				return merry.Wrap(err)
+			}
+			if len(nodes) == 0 {
+				shouldStop = true
+				return nil
+			}
+
+			log.Debug().Int("count", len(nodes)).Msg("nodes chunk")
+
 			for _, node := range nodes {
 				fromTime = node.Time
 
@@ -98,6 +101,9 @@ func CMDFillNodeASNs(cmd *cobra.Command, args []string) error {
 		})
 		if err != nil {
 			return merry.Wrap(err)
+		}
+		if shouldStop {
+			break
 		}
 	}
 	return nil
