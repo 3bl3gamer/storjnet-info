@@ -111,7 +111,7 @@ func saveLimits(db *pg.DB, gdb, asndb *geoip.GeoIP, satelliteAddress string, lim
 			}
 
 			var loc *NodeLocation
-			var ipType *string
+			var asn *int64
 			if rec := gdb.GetRecord(ipAddr); rec != nil {
 				loc = &NodeLocation{
 					Country:   rec.CountryName,
@@ -120,24 +120,28 @@ func saveLimits(db *pg.DB, gdb, asndb *geoip.GeoIP, satelliteAddress string, lim
 					Latitude:  rec.Latitude,
 				}
 
-				foundIpType, ok, err := core.FindCachedIPType(db, asndb, ipAddr)
+				foundAsn, ok, err := core.FindIPAddrASN(asndb, ipAddr)
 				if err != nil {
 					return merry.Wrap(err)
 				}
 				if ok {
-					ipType = &foundIpType
+					asn = &foundAsn
+				}
+
+				if _, err := core.UpdateASInfo(db, foundAsn); err != nil {
+					log.Error().Err(err).Int64("asn", foundAsn).Msg("failed to update AS info")
 				}
 			}
 
 			var xmax string
 			_, err = tx.QueryOne(&xmax, `
 				INSERT INTO storjnet.nodes
-					(id, ip_addr, port, location, ip_type, last_received_from_sat_at) VALUES (?,?,?,?,?,NOW())
+					(id, ip_addr, port, location, asn, last_received_from_sat_at) VALUES (?,?,?,?,?,NOW())
 				ON CONFLICT (id) DO UPDATE SET
-					ip_addr = EXCLUDED.ip_addr, port = EXCLUDED.port, location = EXCLUDED.location, ip_type = EXCLUDED.ip_type,
+					ip_addr = EXCLUDED.ip_addr, port = EXCLUDED.port, location = EXCLUDED.location, asn = EXCLUDED.asn,
 					last_received_from_sat_at = NOW()
 				RETURNING xmax`,
-				nodeID, ipAddr, port, loc, ipType)
+				nodeID, ipAddr, port, loc, asn)
 			if err != nil {
 				return merry.Wrap(err)
 			}
@@ -147,7 +151,7 @@ func saveLimits(db *pg.DB, gdb, asndb *geoip.GeoIP, satelliteAddress string, lim
 			if loc != nil {
 				locCount++
 			}
-			if ipType != nil {
+			if asn != nil {
 				ipTypeCount++
 			}
 

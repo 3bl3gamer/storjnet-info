@@ -97,8 +97,10 @@ func saveNodeStats(db *pg.DB, errors *[]error) {
 			GROUP BY size
 		) AS t
 	), (
-		SELECT jsonb_object_agg(COALESCE(ip_type, '<unknown>'), cnt) FROM (
-			SELECT ip_type, count(*) AS cnt
+		SELECT jsonb_object_agg(ip_type, cnt) FROM (
+			SELECT
+				COALESCE((SELECT COALESCE(ipinfo->>'type', incolumitas->>'type') FROM autonomous_systems WHERE number = nodes.asn), '<unknown>') AS ip_type,
+				count(*) AS cnt
 			FROM nodes
 			WHERE updated_at > NOW() - INTERVAL '1 day'
 			GROUP BY ip_type

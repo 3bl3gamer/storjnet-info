@@ -43,6 +43,3 @@
 .node-ip-types-table tbody tr:last-child {
 	border-bottom: none;
 }
-.node-ip-types-table tbody tr:last-child td {
-	text-align: center;
-}

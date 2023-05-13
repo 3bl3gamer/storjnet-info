@@ -178,12 +178,6 @@ const NodesSummary = memo(function NodesSummary() {
 										<td>${item.count}</td>
 									</tr>`,
 						  )}
-					<tr>
-						<td colspan="2" class="dim small">
-							${L('based on', 'ru', 'по данным')}<br />
-							<a href="https://incolumitas.com/pages/IP-API/">incolumitas.com/pages/IP-API</a>
-						</td>
-					</tr>
 				</tbody>
 			</table>
 		</div>
