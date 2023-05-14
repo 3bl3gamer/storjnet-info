@@ -7,7 +7,8 @@
 
 .node-countries-table td:first-child,
 .node-countries-table tbody td:nth-child(3),
-.node-countries-table tbody td:nth-child(4) {
+.node-countries-table tbody td:nth-child(4),
+.node-countries-table tbody td:nth-child(5) {
 	text-align: right;
 }
 

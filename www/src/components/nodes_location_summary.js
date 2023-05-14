@@ -93,7 +93,7 @@ const NodesSummary = memo(function NodesSummary() {
 		 */ (null),
 	)
 	const [isExpanded, setIsExpanded] = useState(false)
-	const [sortCol, setSortCol] = useState(/**@type {'nodes'|'subnets'}*/ ('nodes'))
+	const [sortCol, setSortCol] = useState(/**@type {'nodes'|'subnets'|'nodesPerSub'}*/ ('nodes'))
 	const [, endDate] = useHashInterval()
 
 	useEffect(() => {
@@ -117,7 +117,11 @@ const NodesSummary = memo(function NodesSummary() {
 
 	const countriesTopSorted = useMemo(() => {
 		if (stats === null) return null
-		return stats.countriesTop.sort((a, b) => b[sortCol] - a[sortCol])
+		return stats.countriesTop.sort(
+			sortCol === 'nodesPerSub'
+				? (a, b) => b.nodes / b.subnets - a.nodes / a.subnets
+				: (a, b) => b[sortCol] - a[sortCol],
+		)
 	}, [stats, sortCol])
 
 	const countriesCount = stats && stats.countriesCount
@@ -138,6 +142,11 @@ const NodesSummary = memo(function NodesSummary() {
 								${L('Subnets', 'ru', 'Подсети')}${sortCol === 'subnets' ? '▼' : ''}
 							</button>
 						</td>
+						<td>
+							<button class="a-like" onclick=${() => setSortCol('nodesPerSub')}>
+								${L('Avg', 'ru', 'Сред.')}${sortCol === 'nodesPerSub' ? '▼' : ''}
+							</button>
+						</td>
 					</tr>
 				</thead>
 				<tbody>
@@ -146,6 +155,7 @@ const NodesSummary = memo(function NodesSummary() {
 								(_, i) => html`<tr>
 									<td class="dim">${i + 1}</td>
 									<td class="dim">${L('loading...', 'ru', 'загрузка...')}</td>
+									<td class="dim">...</td>
 									<td class="dim">...</td>
 									<td class="dim">...</td>
 								</tr>`,
@@ -160,6 +170,11 @@ const NodesSummary = memo(function NodesSummary() {
 										</td>
 										<td class=${sortCol === 'subnets' ? '' : 'dim'}>
 											${blankIfZero(item.subnets)}
+										</td>
+										<td class=${sortCol === 'nodesPerSub' ? '' : 'dim'}>
+											${item.subnets === 0
+												? ''
+												: (item.nodes / item.subnets).toFixed(1)}
 										</td>
 									</tr>`,
 						  )}
