@@ -80,6 +80,7 @@ type NodeLocation struct {
 
 func saveLimits(db *pg.DB, gdb, asndb *geoip.GeoIP, satelliteAddress string, limits []*pb.AddressedOrderLimit) error {
 	stt := time.Now()
+	var asnsToUpdate []int64
 	newCount := 0
 	locCount := 0
 	ipTypeCount := 0
@@ -88,11 +89,11 @@ func saveLimits(db *pg.DB, gdb, asndb *geoip.GeoIP, satelliteAddress string, lim
 		for i, l := range limits {
 			ids[i] = l.Limit.StorageNodeId
 		}
-		_, err := tx.Exec(`SELECT 1 FROM storjnet.nodes WHERE id IN (?) FOR UPDATE`, pg.In(ids))
+		_, err := tx.Exec(`SELECT 1 FROM nodes WHERE id IN (?) FOR UPDATE`, pg.In(ids))
 		if err != nil {
 			return merry.Wrap(err)
 		}
-		_, err = tx.Exec(`SELECT 1 FROM storjnet.nodes_sat_offers WHERE node_id IN (?) FOR UPDATE`, pg.In(ids))
+		_, err = tx.Exec(`SELECT 1 FROM nodes_sat_offers WHERE node_id IN (?) FOR UPDATE`, pg.In(ids))
 		if err != nil {
 			return merry.Wrap(err)
 		}
@@ -126,16 +127,13 @@ func saveLimits(db *pg.DB, gdb, asndb *geoip.GeoIP, satelliteAddress string, lim
 				}
 				if ok {
 					asn = &foundAsn
-				}
-
-				if _, err := core.UpdateASInfo(db, foundAsn); err != nil {
-					log.Error().Err(err).Int64("asn", foundAsn).Msg("failed to update AS info")
+					asnsToUpdate = append(asnsToUpdate, foundAsn)
 				}
 			}
 
 			var xmax string
 			_, err = tx.QueryOne(&xmax, `
-				INSERT INTO storjnet.nodes
+				INSERT INTO nodes
 					(id, ip_addr, port, location, asn, last_received_from_sat_at) VALUES (?,?,?,?,?,NOW())
 				ON CONFLICT (id) DO UPDATE SET
 					ip_addr = EXCLUDED.ip_addr, port = EXCLUDED.port, location = EXCLUDED.location, asn = EXCLUDED.asn,
@@ -156,7 +154,7 @@ func saveLimits(db *pg.DB, gdb, asndb *geoip.GeoIP, satelliteAddress string, lim
 			}
 
 			_, err = tx.Exec(`
-				INSERT INTO storjnet.nodes_sat_offers (node_id,satellite_name,stamps) VALUES (?,?,array[now()])
+				INSERT INTO nodes_sat_offers (node_id,satellite_name,stamps) VALUES (?,?,array[now()])
 				ON CONFLICT (node_id,satellite_name) DO UPDATE
 				SET stamps = (
 					SELECT array_agg(s)
@@ -174,6 +172,18 @@ func saveLimits(db *pg.DB, gdb, asndb *geoip.GeoIP, satelliteAddress string, lim
 		Int("total", len(limits)).Int("new", newCount).Int("with_location", locCount).Int("with_ip_type", ipTypeCount).
 		TimeDiff("elapsed", time.Now(), stt).
 		Msg("nodes saved")
+
+	asnUpdStart := time.Now()
+	for _, asn := range asnsToUpdate {
+		// if ASN updates took too long for some reason, skipping remaining updates,
+		// otherwise a lot of fetcher processes can remain running and eat up all memory
+		if time.Now().Sub(asnUpdStart) > 10*time.Second {
+			break
+		}
+		if _, err := core.UpdateASInfo(db, asn); err != nil {
+			log.Error().Err(err).Int64("asn", asn).Msg("failed to update AS info")
+		}
+	}
 	return merry.Wrap(err)
 }
 

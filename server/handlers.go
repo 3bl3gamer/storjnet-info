@@ -59,7 +59,7 @@ func extractStartEndDatesFromQuery(query url.Values, shortKeys bool) (time.Time,
 		return defaultStartEndInterval()
 	}
 	delta := endTime.Sub(startTime)
-	if delta > 94*24*time.Hour || delta < 20*time.Hour {
+	if delta > 12*31*24*time.Hour || delta < 20*time.Hour {
 		return defaultStartEndInterval()
 	}
 	return startTime, endTime

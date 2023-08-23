@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/abh/geoip"
 	"github.com/ansel1/merry"
@@ -78,7 +79,10 @@ func fetchASInfo(asn int64) (asInfo, error) {
 	if err != nil {
 		return asInfo{}, merry.Wrap(err)
 	}
-	resp, err := http.DefaultClient.Do(req)
+	httpClient := http.Client{
+		Timeout: 2 * time.Second,
+	}
+	resp, err := httpClient.Do(req)
 	if err != nil {
 		return asInfo{}, merry.Wrap(err)
 	}
