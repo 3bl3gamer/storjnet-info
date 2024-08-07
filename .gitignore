@@ -1,6 +1,8 @@
 .vscode
 storjnet
 scripts/probe_nodes/probe_nodes
+scripts/node_id_conv/node_id_conv
+scripts/update_ip_types/update_ip_types
 identity
 history
 dumps

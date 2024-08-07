@@ -222,12 +222,20 @@ func StartProber() error {
 		startNodesProber(db, nodesInChan, nodesOutChan, probeRoutinesCount),
 		startPingedNodesSaver(db, nodesOutChan, 32),
 	}
+
+	iter := 0
 	for {
 		for _, worker := range workers {
 			if err := worker.PopError(); err != nil {
 				return err
 			}
 		}
+
+		iter += 1
+		if iter%5 == 0 {
+			log.Info().Int("in_chan", len(nodesInChan)).Int("out_chan", len(nodesOutChan)).Msg("PROBE:STAT")
+		}
+
 		time.Sleep(time.Second)
 	}
 }
