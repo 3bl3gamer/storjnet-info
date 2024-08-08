@@ -99,7 +99,7 @@ func setSessionCookie(wr http.ResponseWriter, sessid string) {
 }
 
 func UpdateUserLastSeenAtIfNeed(db *pg.DB, user *User) {
-	if time.Now().Sub(user.LastSeenAt) < time.Minute {
+	if time.Since(user.LastSeenAt) < time.Minute {
 		return
 	}
 	id := user.ID

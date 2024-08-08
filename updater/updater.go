@@ -42,7 +42,7 @@ func doPing(sats utils.Satellites, node *core.Node) (time.Duration, error) {
 				continue
 			}
 		}
-		return time.Now().Sub(stt), nil
+		return time.Since(stt), nil
 	}
 	return 0, merry.Wrap(lastErr)
 }
@@ -111,7 +111,7 @@ func startOldPingNodesLoader(db *pg.DB, userNodesChan chan *core.UserNode, chunk
 	return worker
 }
 
-func startNodesPinger(db *pg.DB, userNodesInChan chan *core.UserNode, userNodesOutChan chan *UserNodeWithErr, routinesCount int) utils.Worker {
+func startNodesPinger(userNodesInChan chan *core.UserNode, userNodesOutChan chan *UserNodeWithErr, routinesCount int) utils.Worker {
 	worker := utils.NewSimpleWorker(routinesCount)
 
 	sats, err := utils.SatellitesSetUpFromEnv()
@@ -281,7 +281,7 @@ func StartUpdater() error {
 
 	workers := []utils.Worker{
 		startOldPingNodesLoader(db, userNodesInChan, 16),
-		startNodesPinger(db, userNodesInChan, userNodesOutChan, 16),
+		startNodesPinger(userNodesInChan, userNodesOutChan, 16),
 		startPingedNodesSaver(db, userNodesOutChan, 8),
 	}
 	for {

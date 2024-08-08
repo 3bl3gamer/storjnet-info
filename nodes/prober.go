@@ -120,7 +120,7 @@ func startOldNodesLoader(db *pg.DB, nodesChan chan *ProbeNode, chunkSize int) ut
 	return worker
 }
 
-func startNodesProber(db *pg.DB, nodesInChan chan *ProbeNode, nodesOutChan chan *ProbeNodeErr, routinesCount int) utils.Worker {
+func startNodesProber(nodesInChan chan *ProbeNode, nodesOutChan chan *ProbeNodeErr, routinesCount int) utils.Worker {
 	worker := utils.NewSimpleWorker(routinesCount)
 
 	sats, err := utils.SatellitesSetUpFromEnv()
@@ -219,7 +219,7 @@ func StartProber() error {
 
 	workers := []utils.Worker{
 		startOldNodesLoader(db, nodesInChan, 128),
-		startNodesProber(db, nodesInChan, nodesOutChan, probeRoutinesCount),
+		startNodesProber(nodesInChan, nodesOutChan, probeRoutinesCount),
 		startPingedNodesSaver(db, nodesOutChan, 32),
 	}
 

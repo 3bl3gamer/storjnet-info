@@ -24,7 +24,7 @@ Usage:
 `
 
 func usage() {
-	fmt.Printf(usageText)
+	fmt.Print(usageText)
 	flag.PrintDefaults()
 	os.Exit(2)
 }

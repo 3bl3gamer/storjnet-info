@@ -89,9 +89,7 @@ func forEachLine(fromString FromStringFunc, toString ToStringFunc) error {
 		if len(line) == 0 {
 			continue
 		}
-		if strings.HasPrefix(line, "\\x") { //cut off Postgresql HEX prefix (if any)
-			line = line[2:]
-		}
+		line = strings.TrimPrefix(line, "\\x") //cut off Postgresql HEX prefix (if any)
 		id, err := fromString(line)
 		if err != nil {
 			return merry.Wrap(err)

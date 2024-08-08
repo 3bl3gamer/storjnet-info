@@ -131,7 +131,7 @@ func (l L10nUtls) DateTimeMonth(t time.Time) string {
 }
 
 func (l L10nUtls) Ago(t time.Time) string {
-	delta := time.Now().Sub(t)
+	delta := time.Since(t)
 	days := int64(delta / (24 * time.Hour))
 	hours := int64((delta / time.Hour) % 24)
 	minutes := int64((delta / time.Minute) % 60)

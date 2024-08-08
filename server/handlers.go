@@ -79,10 +79,6 @@ func extractEndDateFromQuery(query url.Values) time.Time {
 	return endTime
 }
 
-func extractEndDateStrFromQuery(query url.Values) string {
-	return extractEndDateFromQuery(query).Format("2006-01-02")
-}
-
 func HandleIndex(wr http.ResponseWriter, r *http.Request, ps httprouter.Params) (httputils.TemplateCtx, error) {
 	db := r.Context().Value(CtxKeyDB).(*pg.DB)
 	user := r.Context().Value(CtxKeyUser).(*core.User)
@@ -155,7 +151,7 @@ func HandleLang(wr http.ResponseWriter, r *http.Request, ps httprouter.Params) e
 	if ref == "" {
 		ref = "/"
 	}
-	http.Redirect(wr, r, ref, 303)
+	http.Redirect(wr, r, ref, http.StatusSeeOther)
 	return nil
 }
 
@@ -194,7 +190,7 @@ func HandleAPIPingMyNode(wr http.ResponseWriter, r *http.Request, ps httprouter.
 	if err != nil {
 		return httputils.JsonError{Code: 400, Error: "NODE_DIAL_ERROR", Description: err.Error()}, nil
 	}
-	dialDuration := time.Now().Sub(stt).Seconds()
+	dialDuration := time.Since(stt).Seconds()
 	defer conn.Close()
 
 	var pingDuration float64
@@ -203,7 +199,7 @@ func HandleAPIPingMyNode(wr http.ResponseWriter, r *http.Request, ps httprouter.
 		if err := sat.Ping(ctx, conn, satMode); err != nil && !utils.IsUntrustedSatPingError(err) {
 			return httputils.JsonError{Code: 400, Error: "NODE_PING_ERROR", Description: err.Error()}, nil
 		}
-		pingDuration = time.Now().Sub(stt).Seconds()
+		pingDuration = time.Since(stt).Seconds()
 	}
 	return map[string]interface{}{"pingDuration": pingDuration, "dialDuration": dialDuration}, nil
 }
