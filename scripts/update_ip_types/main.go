@@ -33,7 +33,7 @@ var fillASIPInfoDataCmd = &cobra.Command{
 
 func CMDFillNodeASNs(cmd *cobra.Command, args []string) error {
 	db := utils.MakePGConnection()
-	asndb, err := utils.MakeGeoIPASNConnection()
+	asndb, err := utils.OpenGeoIPConn("GeoLite2-ASN.mmdb")
 	if err != nil {
 		return merry.Wrap(err)
 	}
@@ -77,14 +77,15 @@ func CMDFillNodeASNs(cmd *cobra.Command, args []string) error {
 					return merry.Wrap(err)
 				}
 
-				geoipAsn, asnFound, err := core.FindIPAddrASN(asndb, node.IPAddr)
+				geoipAs, asFound, err := asndb.ASNStr(node.IPAddr)
 				if err != nil {
 					return merry.Wrap(err)
 				}
-				if !asnFound {
+				if !asFound {
 					log.Warn().Str("IP", node.IPAddr).Msg("ASN not found")
 					continue
 				}
+				geoipAsn := int64(geoipAs.AutonomousSystemNumber)
 
 				if _, err := core.UpdateASInfo(db, geoipAsn); err != nil {
 					log.Error().Err(err).Int64("asn", geoipAsn).Msg("failed to update AS info")
@@ -116,7 +117,7 @@ func CMDFillASIPInfoData(cmd *cobra.Command, args []string) error {
 	}
 
 	db := utils.MakePGConnection()
-	asndb, err := utils.MakeGeoIPASNConnection()
+	asndb, err := utils.OpenGeoIPConn("GeoLite2-ASN.mmdb")
 	if err != nil {
 		return merry.Wrap(err)
 	}
@@ -152,13 +153,14 @@ func CMDFillASIPInfoData(cmd *cobra.Command, args []string) error {
 		for _, node := range nodes {
 			fromTime = node.Time
 
-			geoipAsn, asnFound, err := core.FindIPAddrASN(asndb, node.IPAddr)
+			geoipAs, asFound, err := asndb.ASNStr(node.IPAddr)
 			if err != nil {
 				return merry.Wrap(err)
 			}
-			if !asnFound {
+			if !asFound {
 				continue
 			}
+			geoipAsn := int64(geoipAs.AutonomousSystemNumber)
 			if _, ok := savedASNs[geoipAsn]; ok {
 				continue
 			}

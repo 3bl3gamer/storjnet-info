@@ -4,33 +4,12 @@ import (
 	"encoding/json"
 	"net/http"
 	"strconv"
-	"strings"
 	"time"
 
-	"github.com/abh/geoip"
 	"github.com/ansel1/merry"
 	"github.com/go-pg/pg/v9"
 	"github.com/rs/zerolog/log"
 )
-
-func FindIPAddrASN(asndb *geoip.GeoIP, ipAddr string) (int64, bool, error) {
-	asnAndName, _ := asndb.GetName(ipAddr)
-	if asnAndName == "" {
-		return 0, false, nil
-	}
-
-	asnAndNameSlice := strings.SplitN(asnAndName, " ", 2)
-	asnStr := asnAndNameSlice[0]
-	asnStr = strings.ToUpper(asnStr)
-	if strings.HasPrefix(asnStr, "AS") {
-		asnStr = asnStr[2:]
-	}
-	asn, err := strconv.ParseInt(asnStr, 10, 64)
-	if err != nil {
-		return 0, false, merry.Prependf(err, "parsing AS number from '%s':", asnAndName)
-	}
-	return asn, true, nil
-}
 
 func UpdateASInfo(db *pg.DB, asn int64) (bool, error) {
 	var t int64

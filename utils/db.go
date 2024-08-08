@@ -2,14 +2,18 @@ package utils
 
 import (
 	"context"
-	"log"
+	"net"
+	"os"
+	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"time"
 
-	"github.com/abh/geoip"
 	"github.com/ansel1/merry"
 	"github.com/go-pg/pg/v9"
 	"github.com/lib/pq"
+	"github.com/oschwald/geoip2-golang"
+	"github.com/rs/zerolog/log"
 )
 
 func align(sql string) string {
@@ -61,20 +65,100 @@ func MakePGConnection() *pg.DB {
 	return db
 }
 
-func MakeGeoIPCityConnection() (*geoip.GeoIP, error) {
-	gdb, err := geoip.Open("/usr/share/GeoIP/GeoIPCity.dat")
-	if err != nil {
-		return nil, merry.Wrap(err)
-	}
-	return gdb, nil
+type GeoIPConn struct {
+	value       atomic.Value
+	fpath       string
+	lastModTime time.Time
 }
 
-func MakeGeoIPASNConnection() (*geoip.GeoIP, error) {
-	asndb, err := geoip.Open("/usr/share/GeoIP/GeoIPASNum.dat")
+func OpenGeoIPConn(fpath string) (*GeoIPConn, error) {
+	var err error
+	fpath, err = filepath.Abs(fpath)
 	if err != nil {
 		return nil, merry.Wrap(err)
 	}
-	return asndb, nil
+
+	geoip := &GeoIPConn{
+		value: atomic.Value{},
+		fpath: fpath,
+	}
+
+	if _, err := geoip.reopenIfUpdated(); err != nil {
+		return nil, merry.Wrap(err)
+	}
+
+	go func() {
+		for {
+			reopened, err := geoip.reopenIfUpdated()
+			if err != nil {
+				log.Error().Err(err).Str("fpath", fpath).Msg("failed to reopen GeoIP DB, keep using old one")
+			}
+			if reopened {
+				log.Debug().Str("fpath", fpath).Msg("reopened GeoIP DB connection")
+			}
+			time.Sleep(time.Minute)
+		}
+	}()
+
+	return geoip, nil
+}
+
+func (c *GeoIPConn) reopenIfUpdated() (bool, error) {
+	stat, err := os.Stat(c.fpath)
+	if err != nil {
+		return false, merry.Wrap(err)
+	}
+
+	if stat.ModTime().After(c.lastModTime) {
+		conn, err := geoip2.Open(c.fpath)
+		if err != nil {
+			return false, merry.Wrap(err)
+		}
+		// no need to wait for old connection users and close it explictly:
+		// the connection has finalizer and will be closed automatically
+		// https://github.com/oschwald/geoip2-golang/issues/63#issuecomment-651125478
+		// https://github.com/oschwald/maxminddb-golang/blob/main/reader_mmap.go#L50
+		c.value.Store(conn)
+		c.lastModTime = stat.ModTime()
+		return true, nil
+	}
+	return false, nil
+}
+
+func (c *GeoIPConn) CityStr(ipStr string) (*geoip2.City, bool, error) {
+	ipAddress := net.ParseIP(ipStr)
+	if ipAddress == nil {
+		return nil, false, merry.New("invalid IP: " + ipStr)
+	}
+	conn := c.value.Load().(*geoip2.Reader)
+	city, err := conn.City(ipAddress)
+	if err != nil {
+		return nil, false, merry.Wrap(err)
+	}
+	if city.Country.IsoCode == "" {
+		return nil, false, nil
+	}
+	return city, true, nil
+}
+
+func (c *GeoIPConn) ASNStr(ipStr string) (*geoip2.ASN, bool, error) {
+	ipAddress := net.ParseIP(ipStr)
+	if ipAddress == nil {
+		return nil, false, merry.New("invalid IP: " + ipStr)
+	}
+	conn := c.value.Load().(*geoip2.Reader)
+	asn, err := conn.ASN(ipAddress)
+	if err != nil {
+		return nil, false, merry.Wrap(err)
+	}
+	if asn.AutonomousSystemNumber == 0 {
+		return nil, false, nil
+	}
+	return asn, true, nil
+}
+
+func (c *GeoIPConn) Close() {
+	panic("not implemented")
 }
 
 func IsConstrError(err error, table, kind, name string) bool {

@@ -8,7 +8,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/abh/geoip"
 	"github.com/ansel1/merry"
 	"github.com/go-pg/pg/v9"
 	"github.com/rs/zerolog/log"
@@ -28,11 +27,11 @@ func FetchAndProcess(satelliteAddress string) error {
 	}
 
 	db := utils.MakePGConnection()
-	gdb, err := utils.MakeGeoIPCityConnection()
+	gdb, err := utils.OpenGeoIPConn("GeoLite2-City.mmdb")
 	if err != nil {
 		return merry.Wrap(err)
 	}
-	asndb, err := utils.MakeGeoIPASNConnection()
+	asndb, err := utils.OpenGeoIPConn("GeoLite2-ASN.mmdb")
 	if err != nil {
 		return merry.Wrap(err)
 	}
@@ -78,7 +77,7 @@ type NodeLocation struct {
 	Latitude  float32 `json:"latitude"`
 }
 
-func saveLimits(db *pg.DB, gdb, asndb *geoip.GeoIP, satelliteAddress string, limits []*pb.AddressedOrderLimit) error {
+func saveLimits(db *pg.DB, gdb, asndb *utils.GeoIPConn, satelliteAddress string, limits []*pb.AddressedOrderLimit) error {
 	stt := time.Now()
 	var asnsToUpdate []int64
 	newCount := 0
@@ -113,21 +112,29 @@ func saveLimits(db *pg.DB, gdb, asndb *geoip.GeoIP, satelliteAddress string, lim
 
 			var loc *NodeLocation
 			var asn *int64
-			if rec := gdb.GetRecord(ipAddr); rec != nil {
-				loc = &NodeLocation{
-					Country:   rec.CountryName,
-					City:      rec.City,
-					Longitude: rec.Longitude,
-					Latitude:  rec.Latitude,
-				}
-
-				foundAsn, ok, err := core.FindIPAddrASN(asndb, ipAddr)
+			{
+				city, cityFound, err := gdb.CityStr(ipAddr)
 				if err != nil {
 					return merry.Wrap(err)
 				}
-				if ok {
-					asn = &foundAsn
-					asnsToUpdate = append(asnsToUpdate, foundAsn)
+				if cityFound {
+					loc = &NodeLocation{
+						Country:   city.Country.Names["en"],
+						City:      city.City.Names["en"],
+						Longitude: float32(city.Location.Longitude),
+						Latitude:  float32(city.Location.Latitude),
+					}
+				}
+			}
+			{
+				as, asFound, err := asndb.ASNStr(ipAddr)
+				if err != nil {
+					return merry.Wrap(err)
+				}
+				if asFound {
+					asn_ := int64(as.AutonomousSystemNumber)
+					asn = &asn_
+					asnsToUpdate = append(asnsToUpdate, asn_)
 				}
 			}
 
@@ -177,7 +184,7 @@ func saveLimits(db *pg.DB, gdb, asndb *geoip.GeoIP, satelliteAddress string, lim
 	for _, asn := range asnsToUpdate {
 		// if ASN updates took too long for some reason, skipping remaining updates,
 		// otherwise a lot of fetcher processes can remain running and eat up all memory
-		if time.Now().Sub(asnUpdStart) > 10*time.Second {
+		if time.Since(asnUpdStart) > 10*time.Second {
 			break
 		}
 		if _, err := core.UpdateASInfo(db, asn); err != nil {

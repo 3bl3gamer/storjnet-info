@@ -1,6 +1,21 @@
-* * * * * /home/storj/storjnet/storjnet check-versions --tg-bot-token=<tg_token> --github-oauth-token <github_token>
+* * * * * /home/storj/storjnet/storjnet check-versions --tg-bot-token=<tg_token> --github-oauth-token=<github_token>
 
-5 * * * * /home/storj/storjnet/scripts/daily_backup.sh
+#5 * * * * /home/storj/storjnet/scripts/daily_backup.sh
 
 ETHERSCAN_API_KEY=<key>
-30 * * * * /home/storj/storjnet/storjnet fetch-transactions
+*/30 * * * * /home/storj/storjnet/storjnet fetch-transactions
+
+STORJ_API_KEY=<asia_east_api_key>
+* * * * * /home/storj/storjnet/storjnet fetch-nodes --satellite=121RTSDpyNZVcEU84Ticf2L1ntiuUimbWgfATz21tuvgk3vzoA6@asia-east-1.tardigrade.io:7777
+STORJ_API_KEY=<us_central_api_key>
+* * * * * /home/storj/storjnet/storjnet fetch-nodes --satellite=12EayRS2V1kEsWESU9QMRseFhdxYxKicsiFmxrsLZHeLUtdps3S@us-central-1.tardigrade.io:7777
+STORJ_API_KEY=<europe_west_api_key>
+* * * * * /home/storj/storjnet/storjnet fetch-nodes --satellite=12L9ZFwhzVpuEKMUNUqkaTLGzwY9G24tbiigLiXpmZWKwmcNDDs@europe-west-1.tardigrade.io:7777
+
+10 * * * * /home/storj/storjnet/storjnet stat-nodes
+
+05 */3 * * * /home/storj/storjnet/storjnet snap-node-locations
+
+MAXMIND_KEY=<key>
+30 10 * * 1 scripts/geoip_db_load.sh GeoLite2-ASN
+35 10 * * 1 scripts/geoip_db_load.sh GeoLite2-City

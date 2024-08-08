@@ -1,10 +1,11 @@
 module storjnet
 
-go 1.20
+go 1.21
+
+toolchain go1.22.5
 
 require (
 	github.com/3bl3gamer/go-http-utils v0.0.7
-	github.com/abh/geoip v0.0.0-20160510155516-07cea4480daa
 	github.com/ansel1/merry v1.7.0
 	github.com/blang/semver v3.5.1+incompatible
 	github.com/go-pg/migrations/v7 v7.1.11
@@ -12,6 +13,7 @@ require (
 	github.com/go-telegram-bot-api/telegram-bot-api v4.6.4+incompatible
 	github.com/julienschmidt/httprouter v1.3.0
 	github.com/lib/pq v1.10.9
+	github.com/oschwald/geoip2-golang v1.11.0
 	github.com/rs/zerolog v1.29.1
 	github.com/spf13/cobra v1.7.0
 	golang.org/x/net v0.17.0
@@ -63,7 +65,7 @@ require (
 	github.com/mattn/go-colorable v0.1.12 // indirect
 	github.com/mattn/go-isatty v0.0.14 // indirect
 	github.com/onsi/ginkgo/v2 v2.9.5 // indirect
-	github.com/oschwald/maxminddb-golang v1.8.0 // indirect
+	github.com/oschwald/maxminddb-golang v1.13.0 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pquerna/otp v1.3.0 // indirect
 	github.com/quic-go/qtls-go1-20 v0.3.1 // indirect
@@ -97,7 +99,7 @@ require (
 	golang.org/x/exp v0.0.0-20221205204356-47842c84f3db // indirect
 	golang.org/x/mod v0.10.0 // indirect
 	golang.org/x/sync v0.2.0 // indirect
-	golang.org/x/sys v0.13.0 // indirect
+	golang.org/x/sys v0.20.0 // indirect
 	golang.org/x/text v0.13.0 // indirect
 	golang.org/x/time v0.0.0-20200630173020-3af7569d3a1e // indirect
 	golang.org/x/tools v0.9.1 // indirect
