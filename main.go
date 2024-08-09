@@ -4,6 +4,7 @@ import (
 	"os"
 	"storjnet/core"
 	"storjnet/nodes"
+	"storjnet/optimizer"
 	"storjnet/server"
 	"storjnet/tgbot"
 	"storjnet/transactions"
@@ -95,6 +96,11 @@ var (
 		Short: "print snapshot of nodes geolocations",
 		RunE:  CMDPrintNodeLocations,
 	}
+	optimizeDBCmd = &cobra.Command{
+		Use:   "optimize-db",
+		Short: "vacuum some big tables, update partitions",
+		RunE:  CMDOptimizeDB,
+	}
 )
 
 func CMDHttp(cmd *cobra.Command, args []string) error {
@@ -153,6 +159,10 @@ func CMDPrintNodeLocations(cmd *cobra.Command, args []string) error {
 	return merry.Wrap(nodes.PrintLocsSnapshot(nodeLocsSnapFPath))
 }
 
+func CMDOptimizeDB(cmd *cobra.Command, args []string) error {
+	return merry.Wrap(optimizer.OptimizeDB())
+}
+
 func init() {
 	rootCmd.AddCommand(httpCmd)
 	rootCmd.AddCommand(updateCmd)
@@ -164,6 +174,7 @@ func init() {
 	rootCmd.AddCommand(statNodesCmd)
 	rootCmd.AddCommand(snapNodeLocationsCmd)
 	rootCmd.AddCommand(printNodeLocationsCmd)
+	rootCmd.AddCommand(optimizeDBCmd)
 
 	flags := httpCmd.Flags()
 	flags.Var(&env, "env", "evironment, dev or prod")
