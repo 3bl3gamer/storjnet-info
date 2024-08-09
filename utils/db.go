@@ -72,10 +72,19 @@ type GeoIPConn struct {
 }
 
 func OpenGeoIPConn(fpath string) (*GeoIPConn, error) {
-	var err error
-	fpath, err = filepath.Abs(fpath)
-	if err != nil {
+	_, err := os.Stat(fpath)
+	if err != nil && !os.IsNotExist(err) {
 		return nil, merry.Wrap(err)
+	}
+	if os.IsNotExist(err) {
+		if !filepath.IsAbs(fpath) {
+			ex, err := os.Executable()
+			if err != nil {
+				return nil, merry.Wrap(err)
+			}
+			baseDir := filepath.Dir(ex)
+			fpath = filepath.Clean(baseDir + "/" + fpath)
+		}
 	}
 
 	geoip := &GeoIPConn{

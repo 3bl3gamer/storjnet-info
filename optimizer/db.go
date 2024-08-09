@@ -1,7 +1,6 @@
 package optimizer
 
 import (
-	"fmt"
 	"regexp"
 	"storjnet/utils"
 	"strings"
@@ -20,13 +19,17 @@ func OptimizeDB() error {
 		return merry.Wrap(err)
 	}
 
-	for _, name := range []string{"user_nodes_history__current", "node_daily_stats"} {
+	log.Info().Msg("pausing a bit")
+	time.Sleep(3 * time.Second)
+
+	for _, name := range []string{"user_nodes_history__current" /*, "node_daily_stats"*/} {
 		log.Info().Str("name", name).Msg("vacuuming")
 		if err := vacuumIfHaveEnoughSpace(db, name); err != nil {
 			return merry.Wrap(err)
 		}
 	}
 
+	log.Info().Msg("done.")
 	return nil
 }
 
@@ -46,7 +49,6 @@ func updateDatePartitions(db *pg.DB, parentTableName string, partitionDurationMo
 	if err != nil {
 		return merry.Wrap(err)
 	}
-	fmt.Println(allPartitionTableNames)
 
 	archiveTableNameRe := regexp.MustCompile(`^.*?__(\d{4}_\d\d_\d\d)__(\d{4}_\d\d_\d\d)$`)
 
@@ -86,10 +88,9 @@ func updateDatePartitions(db *pg.DB, parentTableName string, partitionDurationMo
 		return merry.Errorf("no __current table among %s's partition tables: %v", parentTableName, allPartitionTableNames)
 	}
 
-	fmt.Println(currentTableName, lastArchiveTable)
-
-	archiveEndDate := time.Now().In(time.UTC).Add(-12 * time.Hour).Truncate(24 * time.Hour) //TODO 24
-	log.Info().Str("date", archiveEndDate.String()).Msg("going to archive records before")
+	archiveEndOffset := time.Hour //durtion since midnight UTC after which nothing should update yesterday records
+	archiveEndDate := time.Now().In(time.UTC).Add(-archiveEndOffset).Truncate(24 * time.Hour)
+	log.Info().Str("date", archiveEndDate.String()).Str("name", parentTableName).Msg("going to archive records before")
 
 	var minCurDate time.Time
 	_, err = db.QueryOne(&minCurDate, `SELECT min(date) FROM `+currentTableName)
@@ -102,7 +103,7 @@ func updateDatePartitions(db *pg.DB, parentTableName string, partitionDurationMo
 			Str("old_date", minCurDate.Format("2006-01-02")).
 			Msg("current partition has old enough records, going to transfer them to previous partition")
 
-		lastArchivePartitionJustCreated := false
+		// lastArchivePartitionJustCreated := false
 		err := db.RunInTransaction(func(tx *pg.Tx) error {
 			var lastArchiveTableIsAttached bool
 			if lastArchiveTable == nil || lastArchiveTable.IsFullFor(partitionDurationMonths) {
@@ -112,7 +113,7 @@ func updateDatePartitions(db *pg.DB, parentTableName string, partitionDurationMo
 				} else {
 					startDate = lastArchiveTable.EndDate
 				}
-				endDate := startDate //truncMonthDown(startDate, partitionDurationMonths).AddDate(0, partitionDurationMonths, 0)
+				endDate := startDate
 
 				newTableName := tableName(startDate, endDate)
 
@@ -125,7 +126,7 @@ func updateDatePartitions(db *pg.DB, parentTableName string, partitionDurationMo
 
 				lastArchiveTable = &ArchiveTable{Name: newTableName, StartDate: startDate, EndDate: endDate}
 				lastArchiveTableIsAttached = false
-				lastArchivePartitionJustCreated = true
+				// lastArchivePartitionJustCreated = true
 			} else {
 				log.Info().Str("name", lastArchiveTable.Name).Msg("using existing archive partition")
 				lastArchiveTableIsAttached = true
@@ -134,6 +135,12 @@ func updateDatePartitions(db *pg.DB, parentTableName string, partitionDurationMo
 			newEndDate := dateMin(archiveEndDate, lastArchiveTable.MaxEndDate(partitionDurationMonths))
 			newArchTableName := tableName(lastArchiveTable.StartDate, newEndDate)
 
+			log.Info().
+				Str("from", lastArchiveTable.EndDate.Format("2006-01-02")).
+				Str("to", newEndDate.Format("2006-01-02")).
+				Msg("will move archive partition end")
+
+			log.Info().Str("name", currentTableName).Msg("counting rows to move")
 			var rowsCount int64
 			_, err := tx.QueryOne(&rowsCount,
 				`SELECT count(*) FROM storjnet.`+currentTableName+` WHERE date >= ? AND date < ?`,
@@ -142,12 +149,7 @@ func updateDatePartitions(db *pg.DB, parentTableName string, partitionDurationMo
 				return merry.Wrap(err)
 			}
 
-			log.Info().
-				Str("from", lastArchiveTable.EndDate.Format("2006-01-02")).
-				Str("to", newEndDate.Format("2006-01-02")).
-				Msg("will move archive partition end")
-
-			log.Info().Str("to", newArchTableName).Msg("renamin archive partition")
+			log.Info().Str("to", newArchTableName).Msg("renaming archive partition")
 			_, err = tx.Exec(`ALTER TABLE storjnet.` + lastArchiveTable.Name + ` RENAME TO ` + newArchTableName + ``)
 			if err != nil {
 				return merry.Wrap(err)
@@ -198,12 +200,13 @@ func updateDatePartitions(db *pg.DB, parentTableName string, partitionDurationMo
 
 		log.Info().Msg("commited")
 
-		if !lastArchivePartitionJustCreated {
-			log.Info().Str("name", lastArchiveTable.Name).Msg("vacuuming")
-			if err := vacuumIfHaveEnoughSpace(db, lastArchiveTable.Name); err != nil {
-				return merry.Wrap(err)
-			}
-		}
+		// locks parent table, disabled for now
+		// if !lastArchivePartitionJustCreated {
+		// 	log.Info().Str("name", lastArchiveTable.Name).Msg("vacuuming")
+		// 	if err := vacuumIfHaveEnoughSpace(db, lastArchiveTable.Name); err != nil {
+		// 		return merry.Wrap(err)
+		// 	}
+		// }
 	} else {
 		log.Info().Msg("nothing to archive")
 	}
@@ -226,31 +229,10 @@ func (t ArchiveTable) IsFullFor(partitionDurationMonths int) bool {
 	return !t.EndDate.Before(t.MaxEndDate(partitionDurationMonths))
 }
 
-// func (t ArchiveTable) DurationMonths() int {
-// 	return monthsCount(t.StartDate, t.EndDate)
-// }
-
-// func monthsCount(start, end time.Time) int {
-// 	years := end.Year() - start.Year()
-// 	months := int(end.Month()) - int(start.Month())
-
-// 	count := years*12 + months
-
-// 	if end.Day() < start.Day() {
-// 		count -= 1
-// 	}
-// 	return count
-// }
-
 func truncMonthDown(d time.Time, months int) time.Time {
 	month := (int(d.Month()-1)/months)*months + 1
 	return time.Date(d.Year(), time.Month(month), 1, 0, 0, 0, 0, time.UTC)
 }
-
-// func truncMonthUp(d time.Time, months int) time.Time {
-// 	month := ((int(d.Month()-1)+(months-1))/months)*months + 1
-// 	return time.Date(d.Year(), time.Month(month), 1, 0, 0, 0, 0, time.UTC)
-// }
 
 func dateMin(a, b time.Time) time.Time {
 	if a.Before(b) {

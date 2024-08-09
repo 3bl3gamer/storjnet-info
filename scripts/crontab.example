@@ -19,3 +19,5 @@ STORJ_API_KEY=<europe_west_api_key>
 MAXMIND_KEY=<key>
 30 10 * * 1 scripts/geoip_db_load.sh GeoLite2-ASN
 35 10 * * 1 scripts/geoip_db_load.sh GeoLite2-City
+
+15 1 * * * /home/storj/storjnet/storjnet optimize-db
