@@ -33,6 +33,7 @@ var tgBotCmdFlags = struct {
 }{}
 var nodesCmdFlags = struct {
 	satelliteAddress string
+	socksProxy       string
 }{}
 var statNodesGroup string
 var nodeLocsSnapFPath string
@@ -137,7 +138,7 @@ func CMDFetchTransactions(cmd *cobra.Command, args []string) error {
 }
 
 func CMDFetchNodes(cmd *cobra.Command, args []string) error {
-	return merry.Wrap(nodes.FetchAndProcess(nodesCmdFlags.satelliteAddress))
+	return merry.Wrap(nodes.FetchAndProcess(nodesCmdFlags.satelliteAddress, nodesCmdFlags.socksProxy))
 }
 
 func CMDProbeNodes(cmd *cobra.Command, args []string) error {
@@ -198,6 +199,7 @@ func init() {
 
 	flags = fetchNodesCmd.Flags()
 	flags.StringVar(&nodesCmdFlags.satelliteAddress, "satellite", "", "satellite id@address:port")
+	flags.StringVar(&nodesCmdFlags.socksProxy, "socks-proxy", "", "proxy for satellite requests, address:port or address:port:user:passwd")
 	fetchNodesCmd.MarkFlagRequired("satellite")
 
 	flags = statNodesCmd.Flags()

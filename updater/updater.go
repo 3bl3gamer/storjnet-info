@@ -276,20 +276,28 @@ func startPingedNodesSaver(db *pg.DB, userNodesChan chan *UserNodeWithErr, chunk
 
 func StartUpdater() error {
 	db := utils.MakePGConnection()
-	userNodesInChan := make(chan *core.UserNode, 16)
-	userNodesOutChan := make(chan *UserNodeWithErr, 16)
+	userNodesInChan := make(chan *core.UserNode, 32)
+	userNodesOutChan := make(chan *UserNodeWithErr, 32)
 
 	workers := []utils.Worker{
-		startOldPingNodesLoader(db, userNodesInChan, 16),
-		startNodesPinger(userNodesInChan, userNodesOutChan, 16),
-		startPingedNodesSaver(db, userNodesOutChan, 8),
+		startOldPingNodesLoader(db, userNodesInChan, 32),
+		startNodesPinger(userNodesInChan, userNodesOutChan, 32),
+		startPingedNodesSaver(db, userNodesOutChan, 16),
 	}
+
+	iter := 0
 	for {
 		for _, worker := range workers {
 			if err := worker.PopError(); err != nil {
 				return err
 			}
 		}
+
+		iter += 1
+		if iter%5 == 0 {
+			log.Info().Int("in_chan", len(userNodesInChan)).Int("out_chan", len(userNodesOutChan)).Msg("PING:STAT")
+		}
+
 		time.Sleep(time.Second)
 	}
 }

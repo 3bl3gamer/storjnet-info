@@ -11,6 +11,7 @@ import (
 	"github.com/ansel1/merry"
 	"github.com/go-pg/pg/v9"
 	"github.com/rs/zerolog/log"
+	"golang.org/x/net/proxy"
 	"storj.io/common/identity"
 	"storj.io/common/macaroon"
 	"storj.io/common/pb"
@@ -20,7 +21,7 @@ import (
 	"storj.io/uplink/private/metaclient"
 )
 
-func FetchAndProcess(satelliteAddress string) error {
+func FetchAndProcess(satelliteAddress string, socksProxy string) error {
 	apiKey, err := utils.RequireEnv("STORJ_API_KEY")
 	if err != nil {
 		return merry.Wrap(err)
@@ -37,11 +38,19 @@ func FetchAndProcess(satelliteAddress string) error {
 	}
 	ctx := context.Background()
 
+	var proxyDialer proxy.ContextDialer
+	if socksProxy != "" {
+		proxyDialer, err = parseSocksProxy(socksProxy)
+		if err != nil {
+			return merry.Wrap(err)
+		}
+	}
+
 	parsedAPIKey, err := macaroon.ParseAPIKey(apiKey)
 	if err != nil {
 		return merry.Wrap(err)
 	}
-	metainfoClient, _, _, err := dial(ctx, satelliteAddress, parsedAPIKey)
+	metainfoClient, _, _, err := dial(ctx, satelliteAddress, parsedAPIKey, proxyDialer)
 	if err != nil {
 		return merry.Wrap(err)
 	}
@@ -195,7 +204,7 @@ func saveLimits(db *pg.DB, gdb, asndb *utils.GeoIPConn, satelliteAddress string,
 }
 
 // config.dial
-func dial(ctx context.Context, satelliteAddress string, apiKey *macaroon.APIKey) (_ *metaclient.Client, _ rpc.Dialer, fullNodeURL string, err error) {
+func dial(ctx context.Context, satelliteAddress string, apiKey *macaroon.APIKey, proxyDialer proxy.ContextDialer) (_ *metaclient.Client, _ rpc.Dialer, fullNodeURL string, err error) {
 	ident, err := identity.NewFullIdentity(ctx, identity.NewCAOptions{
 		Difficulty:  0,
 		Concurrency: 1,
@@ -216,16 +225,18 @@ func dial(ctx context.Context, satelliteAddress string, apiKey *macaroon.APIKey)
 
 	dialer := rpc.NewDefaultDialer(tlsOptions)
 	dialer.DialTimeout = 30 * time.Second
-	// if config.DialContext != nil {
-	// 	dialer.Transport = dialContextFunc(config.DialContext)
-	// }
+
+	if proxyDialer != nil {
+		tcpAdapter := &rpc.ConnectorAdapter{DialContext: proxyDialer.DialContext}
+		dialer.Connector = rpc.NewDefaultTCPConnector(tcpAdapter)
+	}
 
 	nodeURL, err := storj.ParseNodeURL(satelliteAddress)
 	if err != nil {
 		return nil, rpc.Dialer{}, "", merry.Wrap(err)
 	}
 
-	// Node id is required in satelliteNodeID for all unknown (non-storj) satellites.
+	// Node ID is required in satelliteNodeID for all unknown (non-storj) satellites.
 	// For known satellite it will be automatically prepended.
 	if nodeURL.ID.IsZero() {
 		nodeID, found := rpc.KnownNodeID(nodeURL.Address)
@@ -242,4 +253,30 @@ func dial(ctx context.Context, satelliteAddress string, apiKey *macaroon.APIKey)
 	metainfo, err := metaclient.DialNodeURL(ctx, dialer, satelliteAddress, apiKey, userAgent)
 
 	return metainfo, dialer, satelliteAddress, merry.Wrap(err)
+}
+
+func parseSocksProxy(cfg string) (proxy.ContextDialer, error) {
+	items := strings.SplitN(cfg, ":", 4) //address:port or address:port:user:passwd
+	if len(items) < 2 {
+		return nil, merry.New("invalid socks proxy config: " + cfg)
+	}
+
+	address := items[0] + ":" + items[1]
+
+	var auth *proxy.Auth
+	if len(items) >= 3 {
+		password := ""
+		if len(items) >= 4 {
+			password = items[3]
+		}
+		auth = &proxy.Auth{User: items[2], Password: password}
+	}
+
+	dialer, err := proxy.SOCKS5("tcp", address, auth, proxy.Direct)
+	if err != nil {
+		return nil, merry.Wrap(err)
+	}
+	// SOCKS5() returns proxy.Dialer which in fact is also a proxy.ContextDialer
+	ctxDialer := dialer.(proxy.ContextDialer)
+	return ctxDialer, nil
 }
