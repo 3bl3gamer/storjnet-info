@@ -53,12 +53,12 @@ func (sat *Satellite) SetUp(label string, identityDir string, tcpProxyDialer pro
 		return merry.Wrap(err)
 	}
 
-	var tcpAdapter *rpc.ConnectorAdapter
+	var tcpDialer rpc.DialFunc
 	if tcpProxyDialer != nil {
-		tcpAdapter = &rpc.ConnectorAdapter{DialContext: tcpProxyDialer.DialContext}
+		tcpDialer = tcpProxyDialer.DialContext
 	}
 	sat.TCPDialer = rpc.NewDefaultDialer(tlsOptions)
-	sat.TCPDialer.Connector = rpc.NewDefaultTCPConnector(tcpAdapter)
+	sat.TCPDialer.Connector = rpc.NewDefaultTCPConnector(tcpDialer)
 
 	if tcpProxyDialer == nil {
 		quicDialer := rpc.NewDefaultDialer(tlsOptions)

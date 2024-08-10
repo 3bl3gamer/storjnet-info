@@ -227,8 +227,7 @@ func dial(ctx context.Context, satelliteAddress string, apiKey *macaroon.APIKey,
 	dialer.DialTimeout = 30 * time.Second
 
 	if proxyDialer != nil {
-		tcpAdapter := &rpc.ConnectorAdapter{DialContext: proxyDialer.DialContext}
-		dialer.Connector = rpc.NewDefaultTCPConnector(tcpAdapter)
+		dialer.Connector = rpc.NewDefaultTCPConnector(proxyDialer.DialContext)
 	}
 
 	nodeURL, err := storj.ParseNodeURL(satelliteAddress)
