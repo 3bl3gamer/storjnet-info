@@ -6,6 +6,7 @@ import (
 	"encoding/binary"
 	"io"
 	"net/http"
+	"net/netip"
 	"net/url"
 	"storjnet/core"
 	"storjnet/utils"
@@ -256,6 +257,108 @@ func HandleAPINeighborsExt(wr http.ResponseWriter, r *http.Request, ps httproute
 		return nil, merry.Wrap(err)
 	}
 	return map[string]interface{}{"counts": items}, nil
+}
+
+func HandleAPIIPsInfo(wr http.ResponseWriter, r *http.Request, ps httprouter.Params) (interface{}, error) {
+	db := r.Context().Value(CtxKeyDB).(*pg.DB)
+	params := &struct {
+		IPs []string
+	}{}
+	if jsonErr := unmarshalFromBody(r, params); jsonErr != nil {
+		return *jsonErr, nil
+	}
+
+	parsedIPs := make([]netip.Addr, len(params.IPs))
+	for i, ipStr := range params.IPs {
+		if ip, err := netip.ParseAddr(ipStr); err == nil {
+			parsedIPs[i] = ip
+		} else {
+			return httputils.JsonError{Code: 400, Error: "IP_INVALID", Description: err.Error()}, nil
+		}
+	}
+
+	asInfos := make([]*struct {
+		ASN       int64     `json:"asn"`
+		Org       string    `json:"org"`
+		Type      string    `json:"type"`
+		Domain    string    `json:"domain"`
+		Descr     string    `json:"descr"`
+		UpdatedAt time.Time `json:"updatedAt"`
+		Prefix    string    `json:"prefix"`
+		IPs       []string  `json:"ips"`
+	}, 0)
+	_, err := db.Query(&asInfos, `
+		SELECT
+			autonomous_systems.number AS asn,
+			incolumitas->>'org' AS org,
+			incolumitas->>'type' AS type,
+			incolumitas->>'domain' AS domain,
+			incolumitas->>'descr' AS descr,
+			incolumitas_updated_at as updated_at,
+			prefix
+		FROM autonomous_systems
+		JOIN autonomous_systems_prefixes ON autonomous_systems.number = autonomous_systems_prefixes.number
+		WHERE incolumitas IS NOT NULL
+		  AND autonomous_systems_prefixes.source = 'incolumitas'
+		  AND autonomous_systems_prefixes.prefix >>= ANY(?::inet[])`,
+		pg.Array(params.IPs))
+	if err != nil {
+		return nil, merry.Wrap(err)
+	}
+
+	// writing request IPs to corresponding AS infos
+	for _, info := range asInfos {
+		prefix, err := netip.ParsePrefix(info.Prefix)
+		if err != nil {
+			return nil, merry.Wrap(err)
+		}
+		for i, ipStr := range params.IPs {
+			if prefix.Contains(parsedIPs[i]) {
+				info.IPs = append(info.IPs, ipStr)
+			}
+		}
+		if info.IPs == nil {
+			info.IPs = make([]string, 0)
+		}
+	}
+
+	compInfos := make([]*struct {
+		IPFrom    utils.NetAddrPG `json:"ipFrom"`
+		IPTo      utils.NetAddrPG `json:"ipTo"`
+		Name      string          `json:"name"`
+		Type      string          `json:"type"`
+		Domain    string          `json:"domain"`
+		UpdatedAt time.Time       `json:"updatedAt"`
+		IPs       []string        `json:"ips"`
+	}, 0)
+	_, err = db.Query(&compInfos, `
+		SELECT
+			ip_from,
+			ip_to,
+			incolumitas->>'name' AS name,
+			incolumitas->>'type' AS type,
+			incolumitas->>'domain' AS domain,
+			incolumitas_updated_at as updated_at
+		FROM network_companies
+		WHERE exists(SELECT 1 FROM unnest(?::inet[]) AS ip WHERE ip BETWEEN ip_from AND ip_to)`,
+		pg.Array(params.IPs))
+	if err != nil {
+		return nil, merry.Wrap(err)
+	}
+
+	// writing request IPs to corresponding company infos
+	for _, info := range compInfos {
+		for i, ipStr := range params.IPs {
+			if !parsedIPs[i].Less(info.IPFrom.Addr) && !info.IPTo.Less(parsedIPs[i]) {
+				info.IPs = append(info.IPs, ipStr)
+			}
+		}
+		if info.IPs == nil {
+			info.IPs = make([]string, 0)
+		}
+	}
+
+	return map[string]interface{}{"as": asInfos, "companies": compInfos}, nil
 }
 
 func HandleAPIRegister(wr http.ResponseWriter, r *http.Request, ps httprouter.Params) (interface{}, error) {

@@ -75,11 +75,12 @@ export function Help({ contentFunc, letter = '?' }) {
 
 /**
  * @param {{
+ *   classes?: string
  *   contentFunc(): import('preact').JSX.Element,
  *   children: import('preact').JSX.Element
  * }} props
  */
-export function HelpLine({ contentFunc, children }) {
+export function HelpLine({ classes, contentFunc, children }) {
 	const [isShown, setIsShown] = useState(false)
 
 	const onClick = useCallback(() => {
@@ -90,7 +91,7 @@ export function HelpLine({ contentFunc, children }) {
 	}, [setIsShown])
 
 	return html`
-		<button class="help-line" onclick=${onClick}>${children}</button>
+		<button class="help-line ${classes ?? ''}" onclick=${onClick}>${children}</button>
 		${isShown &&
 		createPortal(
 			html`<${Popup} onClose=${onPopupClose}>${contentFunc()}</${Popup}>`, //

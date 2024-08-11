@@ -6,8 +6,7 @@
 .user-nodes-list {
 	position: relative;
 	display: inline-block;
-	max-width: 100%;
-	min-width: 32px;
+	width: 100%;
 	min-height: 32px;
 	overflow-x: auto;
 }
@@ -18,7 +17,7 @@
 }
 
 .user-nodes-list .user-nodes-table .neighbors-title-cell-inner {
-	margin: 0 -21px 0 -8px;
+	margin: 0 -15px 0 -5px;
 }
 
 .user-nodes-list .node {
@@ -98,6 +97,42 @@
 }
 .user-nodes-list .node .node-remove-button:hover {
 	opacity: 1;
+}
+
+.user-nodes-list .ip-info {
+	white-space: nowrap;
+}
+.user-nodes-list .ip-info .help-line {
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+.user-nodes-list .ip-info:hover .help-line {
+	overflow: visible;
+	position: relative;
+	background-color: rgba(255, 255, 255, 0.9);
+	padding-right: 2px;
+	margin-right: -2px;
+}
+.user-nodes-list .ip-info:not(:hover) .help-line {
+	text-decoration: none;
+	max-width: 100%;
+}
+.user-nodes-list .ip-company-name {
+	max-width: 256px;
+}
+.user-nodes-list .ip-company-name.compact {
+	max-width: 192px;
+}
+.user-nodes-list .ip-as-descr {
+	max-width: 192px;
+}
+
+table.ip-info-full th {
+	text-align: right;
+	padding-right: 8px;
+}
+table.ip-info-full {
+	margin-bottom: 12px;
 }
 
 .node-add-form {

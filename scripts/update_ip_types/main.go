@@ -30,6 +30,10 @@ var fillASIPInfoDataCmd = &cobra.Command{
 	Use:  "fill-as-ipinfo-data",
 	RunE: CMDFillASIPInfoData,
 }
+var fillIPCompaniesCmd = &cobra.Command{
+	Use:  "fill-ip-companies",
+	RunE: CMDFillIPCompanies,
+}
 
 func CMDFillNodeASNs(cmd *cobra.Command, args []string) error {
 	db := utils.MakePGConnection()
@@ -49,12 +53,12 @@ func CMDFillNodeASNs(cmd *cobra.Command, args []string) error {
 	for {
 		shouldStop := false
 		err = db.RunInTransaction(func(tx *pg.Tx) error {
-			nodes := make([]Node, 100)
+			nodes := make([]Node, 1000)
 			_, err := tx.Query(&nodes, `
 				SELECT id as raw_id, ip_addr, asn, last_received_from_sat_at AS time
 				FROM nodes
 				WHERE last_received_from_sat_at > ?
-				AND updated_at > NOW() - INTERVAL '4 days'
+				  AND updated_at > NOW() - INTERVAL '4 days'
 				ORDER BY last_received_from_sat_at ASC
 				LIMIT 1000
 				FOR UPDATE`,
@@ -87,7 +91,7 @@ func CMDFillNodeASNs(cmd *cobra.Command, args []string) error {
 				}
 				geoipAsn := int64(geoipAs.AutonomousSystemNumber)
 
-				if _, err := core.UpdateASInfo(db, geoipAsn); err != nil {
+				if _, err := core.UpdateASInfoIfNeed(db, geoipAsn); err != nil {
 					log.Error().Err(err).Int64("asn", geoipAsn).Msg("failed to update AS info")
 				}
 
@@ -247,9 +251,157 @@ func CMDFillASIPInfoData(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
+func CMDFillIPCompanies(cmd *cobra.Command, args []string) error {
+	db := utils.MakePGConnection()
+
+	// if _, err := core.UpdateASInfoIfNeed(db, 1); err != nil {
+	// 	return merry.Wrap(err)
+	// }
+	// return nil
+
+	// if _, err := core.UpdateIPCompanyIfNeed(db, "1.2.3.4"); err != nil {
+	// 	return merry.Wrap(err)
+	// }
+	// return nil
+
+	// ip, mask, _ := net.ParseCIDR("2001:41d0::/32")
+	// fmt.Println(ip, mask, mask.IP, mask.Mask)
+	// fmt.Println(mask.Mask.Size())
+	// lastIP := make(net.IP, net.IPv6len)
+	// copy(lastIP, mask.IP)
+	// for i := range mask.Mask {
+	// 	lastIP[i] |= ^mask.Mask[i]
+	// }
+	// fmt.Println(lastIP)
+	// return nil
+
+	// var ranges []struct {
+	// 	IPFrom net.IP
+	// 	IPTo   net.IP
+	// }
+	// _, err := db.Query(&ranges, `SELECT ip_from, ip_to FROM network_companies WHERE network IS NULL`)
+	// if err != nil {
+	// 	return merry.Wrap(err)
+	// }
+	// for _, rng := range ranges {
+	// 	fmt.Println(rng)
+	// 	// mix := make(net.IP, net.IPv6len)
+	// 	maskLen := 32
+	// 	isOnMask := true
+	// 	for i := net.IPv6len - 1; i >= 0; i-- {
+	// 		fmt.Printf("%08b %08b\n", rng.IPFrom[i], rng.IPTo[i])
+	// 		for j := 0; j < 8; j++ {
+	// 			bitFrom := (rng.IPFrom[i] & (1 << j)) != 0
+	// 			bitTo := (rng.IPTo[i] & (1 << j)) != 0
+	// 			// isMaskBit := isOnMask && (rng.IPFrom[i]&(1<<j) == 0) && (rng.IPTo[i]&(1<<j) != 0)
+	// 			if !(!bitFrom && bitTo) {
+	// 				isOnMask = false
+	// 			}
+
+	// 			if isOnMask {
+	// 				maskLen -= 1
+	// 			} else if bitFrom != bitTo {
+	// 				return merry.Errorf("invalid range at byte %d bit %d: %s - %s", net.IPv6len-1-i, j, rng.IPFrom, rng.IPTo)
+	// 			}
+	// 		}
+	// 	}
+	// 	fmt.Println(maskLen)
+	// 	// _, err := db.Query()
+	// }
+	// return nil
+
+	// =====
+
+	// var addrs []string
+	// _, err := db.Query(&addrs, `SELECT address FROM user_nodes WHERE last_pinged_at > now() - interval '1 year' AND ip IS NULL`)
+	// if err != nil {
+	// 	return merry.Wrap(err)
+	// }
+	// checkedAddrs := make(map[string]struct{})
+	// for addrI, address := range addrs {
+	// 	addr := address
+	// 	sepIndex := strings.LastIndex(addr, ":")
+	// 	if sepIndex == -1 {
+	// 		continue
+	// 	}
+	// 	addr = addr[:sepIndex]
+
+	// 	if _, ok := checkedAddrs[addr]; ok {
+	// 		continue
+	// 	}
+	// 	checkedAddrs[addr] = struct{}{}
+
+	// 	var ipsStr []string
+	// 	if _, err := netip.ParseAddr(addr); err == nil {
+	// 		ipsStr = append(ipsStr, addr)
+	// 	} else {
+	// 		ips, _ := net.LookupIP(addr)
+	// 		for _, ip := range ips {
+	// 			ipsStr = append(ipsStr, ip.String())
+	// 		}
+	// 	}
+
+	// 	for _, ip := range ipsStr {
+	// 		if _, err := core.UpdateIPCompanyIfNeed(db, ip); err != nil {
+	// 			return merry.Wrap(err)
+	// 		}
+	// 	}
+	// 	if len(ipsStr) > 0 {
+	// 		_, err := db.Exec(`UPDATE user_nodes SET ip = ? WHERE address = ?`, ipsStr[0], address)
+	// 		if err != nil {
+	// 			return merry.Wrap(err)
+	// 		}
+	// 	}
+
+	// 	if addrI%10 == 0 {
+	// 		fmt.Println(addrI, "/", len(addrs))
+	// 	}
+	// }
+	// return nil
+
+	// =====
+
+	type Node struct {
+		IPAddr string
+		Time   time.Time
+	}
+
+	fromTime := time.Time{}
+	for {
+		nodes := make([]Node, 1000)
+		_, err := db.Query(&nodes, `
+			SELECT ip_addr, last_received_from_sat_at AS time
+			FROM nodes
+			WHERE last_received_from_sat_at > ?
+			  AND updated_at > NOW() - INTERVAL '4 days'
+			ORDER BY last_received_from_sat_at ASC, created_at
+			LIMIT 1000`,
+			fromTime)
+		if err != nil {
+			return merry.Wrap(err)
+		}
+		if len(nodes) == 0 {
+			break
+		}
+		log.Debug().Int("count", len(nodes)).Msg("nodes chunk")
+
+		for _, node := range nodes {
+			fromTime = node.Time
+
+			if _, err := core.UpdateIPCompanyIfNeed(db, node.IPAddr); err != nil {
+				return merry.Wrap(err)
+			}
+		}
+
+		// break
+	}
+	return nil
+}
+
 func init() {
 	rootCmd.AddCommand(fillNodeASNsCmd)
 	rootCmd.AddCommand(fillASIPInfoDataCmd)
+	rootCmd.AddCommand(fillIPCompaniesCmd)
 }
 
 func main() {

@@ -18,8 +18,11 @@ import { findMeaningfulOctets, isIPv4, resolve, ResolveError } from 'src/utils/d
 import { isPromise } from 'src/utils/types'
 
 import './user_nodes.css'
+import { Fragment } from 'preact'
+import { useStorageState } from 'src/utils/store'
 
-/** @typedef {{
+/**
+ * @typedef {{
  *   id: string,
  *   address: string,
  *   pingMode: 'off'|'dial'|'ping',
@@ -28,8 +31,41 @@ import './user_nodes.css'
  *   lastPing: number,
  *   lastPingWasOk: boolean,
  *   isLoading?: boolean
- * }} UserNode */
+ * }} UserNode
+ */
+
 /** @typedef {{foreignNodesCount:number, nodesTotal:number}} NeighborCounts */
+
+/**
+ * @typedef {{
+ *   as: {
+ *     asn: number,
+ *     org: string,
+ *     type: string,
+ *     domain: string,
+ *     descr: string,
+ *     updatedAt: string,
+ *     prefix: string,
+ *     ips: string[],
+ *   }[],
+ *   companies: {
+ *     ipFrom: string,
+ *     ipTo: string,
+ *     name: string,
+ *     type: string,
+ *     domain: string,
+ *     updatedAt: string,
+ *     ips: string[],
+ * }[],
+ * }} IPsInfoResponse
+ */
+
+/**
+ * @typedef {{
+ *   as: IPsInfoResponse['as'] | undefined,
+ *   companies: IPsInfoResponse['companies'] | undefined,
+ * }} IPInfo
+ */
 
 /** @type {UserNode} */
 const BLANK_NODE = {
@@ -62,10 +98,14 @@ function NodeIPError({ error }) {
 	`
 }
 
-/** @param {{counts:NeighborCounts|Promise<unknown>}} props */
+function DimNA() {
+	return html`<span class="dim">${L('N/a', 'ru', 'Н/д')}</span>`
+}
+
+/** @param {{counts:NeighborCounts|undefined|Promise<unknown>}} props */
 function NodeNeighbors({ counts }) {
 	if (isPromise(counts)) return '…'
-	if (!counts) return html`<span class="dim">${L('N/a', 'ru', 'Н/д')}</span>`
+	if (!counts) return DimNA()
 	let status = counts.foreignNodesCount === 0 ? '' : 'warn'
 	return html`
 		<span class=${status}>
@@ -73,6 +113,106 @@ function NodeNeighbors({ counts }) {
 			<span class="dim">/${counts.nodesTotal}</span>
 		</span>
 	`
+}
+
+/** @param {{ipInfo:IPInfo|undefined|Promise<unknown>, ipInfoExpanded:boolean}} props */
+function NodeIPInfoCells({ ipInfo, ipInfoExpanded }) {
+	const compsPlaceholder = isPromise(ipInfo) ? '…' : !ipInfo?.companies ? DimNA() : undefined
+	const asPlaceholder = isPromise(ipInfo) ? '…' : !ipInfo?.as ? DimNA() : undefined
+	const comps = isPromise(ipInfo) ? undefined : ipInfo?.companies
+	const as = isPromise(ipInfo) ? undefined : ipInfo?.as
+
+	const helpPopupContent = useCallback(() => {
+		return html`<${NodeIPInfoFull} ipInfo=${ipInfo} />`
+	}, [ipInfo])
+
+	const cells = [
+		html`<td class="ip-info ip-company-name ${ipInfoExpanded ? '' : 'compact'}">
+			<${HelpLine} contentFunc=${helpPopupContent}>${compsPlaceholder ?? comps?.[0].name ?? '—'}<//>
+		</td>`,
+	]
+
+	if (ipInfoExpanded) {
+		cells.push(
+			html`<td class="ip-info ip-as-descr">
+					<${HelpLine} contentFunc=${helpPopupContent}>${asPlaceholder ?? as?.[0].descr ?? '—'}<//>
+				</td>
+				<td class="ip-info ip-as-prefix">
+					<${HelpLine} contentFunc=${helpPopupContent}>${asPlaceholder ?? as?.[0].prefix ?? '—'}<//>
+				</td>`,
+		)
+	}
+
+	return html`<${Fragment}>${cells}</${Fragment}>`
+}
+
+function NodeIPInfoFull({ ipInfo }) {
+	if (isPromise(ipInfo) || !ipInfo) return DimNA()
+
+	return html`<h3>${L('Company', 'ru', 'Компания')}</h3>
+		${ipInfo.companies
+			? ipInfo.companies.map(
+					comp =>
+						html`<table class="ip-info-full">
+							<tr>
+								<th>${L('Name', 'ru', 'Название')}</th>
+								<td>${comp.name ?? '—'}</td>
+							</tr>
+							<tr>
+								<th>${L('Domain', 'ru', 'Домен')}</th>
+								<td>${comp.domain ?? '—'}</td>
+							</tr>
+							<tr>
+								<th>${L('Type', 'ru', 'Тип')}</th>
+								<td>${comp.type ?? '—'}</td>
+							</tr>
+							<tr>
+								<th>${L('IP range', 'ru', 'Диапазон')}</th>
+								<td>${comp.ipFrom} – ${comp.ipTo}</td>
+							</tr>
+							<tr>
+								<th>${L('Updated', 'ru', 'Обновлено')}</th>
+								<td>${new Date(comp.updatedAt).toLocaleString(lang)}</td>
+							</tr>
+						</table>`,
+			  )
+			: html`<p>${DimNA()}</p>`}
+		<h3>${L('Autonomous system', 'ru', 'Автономная система')}</h3>
+		${ipInfo.as
+			? ipInfo.as.map(
+					as =>
+						html`<table class="ip-info-full">
+							<tr>
+								<th>ASN</th>
+								<td>${as.asn}</td>
+							</tr>
+							<tr>
+								<th>${L('Name', 'ru', 'Название')}</th>
+								<td>${as.org ?? '—'}</td>
+							</tr>
+							<tr>
+								<th>${L('Descr', 'ru', 'Описание')}</th>
+								<td>${as.descr ?? '—'}</td>
+							</tr>
+							<tr>
+								<th>${L('Domain', 'ru', 'Домен')}</th>
+								<td>${as.domain ?? '—'}</td>
+							</tr>
+							<tr>
+								<th>${L('Type', 'ru', 'Тип')}</th>
+								<td>${as.type ?? '—'}</td>
+							</tr>
+							<tr>
+								<th>${L('Prefix', 'ru', 'Префикс')}</th>
+								<td>${as.prefix}</td>
+							</tr>
+							<tr>
+								<th>${L('Updated', 'ru', 'Обновлено')}</th>
+								<td>${new Date(as.updatedAt).toLocaleString(lang)}</td>
+							</tr>
+						</table>`,
+			  )
+			: html`<p>${DimNA()}</p>`}`
 }
 
 /**
@@ -83,7 +223,9 @@ function NodeNeighbors({ counts }) {
  * @prop {(node:UserNode) => void} onChange
  * @prop {(node:UserNode) => void} onRemove
  * @prop {undefined|Error|Promise<unknown>|string} resolvedIP
- * @prop {NeighborCounts|Promise<unknown>} neighborCounts
+ * @prop {NeighborCounts|undefined|Promise<unknown>} neighborCounts
+ * @prop {IPInfo|undefined|Promise<unknown>} nodeIpInfo
+ * @prop {boolean} nodeIpInfoExpanded
  * @extends {PureComponent<UNI_Props, {}>}
  */
 class UserNodeItem extends PureComponent {
@@ -131,7 +273,7 @@ class UserNodeItem extends PureComponent {
 	 * @param {UNI_Props} props
 	 * @param {{}} state
 	 */
-	render({ node, nodeUpdateTime, resolvedIP, neighborCounts }, state) {
+	render({ node, nodeUpdateTime, resolvedIP, neighborCounts, nodeIpInfo, nodeIpInfoExpanded }, state) {
 		const pingModes = [
 			['ping', 'ping'],
 			['dial', 'dial'],
@@ -191,6 +333,7 @@ class UserNodeItem extends PureComponent {
 				<td class="node-neighbors">
 					<${NodeNeighbors} counts=${neighborCounts} />
 				</td>
+				<${NodeIPInfoCells} ipInfo=${nodeIpInfo} ipInfoExpanded=${nodeIpInfoExpanded} />
 				<td>
 					<button class="node-remove-button" onclick=${this.onRemoveClick}>✕</button>
 				</td>
@@ -308,8 +451,11 @@ export const UserNodesList = memo(function UserNodesList(
 	const [nodeError, setNodeError] = useState(/**@type {string|null}*/ (null))
 	const [pendingNodes, setPendingNodes] = useState(/**@type {Record<string, UserNode>}*/ ({}))
 	const [neighborCounts, setNeighborCounts] = useState(
-		/**@type {Record<string, NeighborCounts|Promise<unknown>>}*/ ({}),
+		/**@type {Record<string, NeighborCounts|undefined|Promise<unknown>>}*/ ({}),
 	)
+	const [nodeIpInfos, setNodeIpInfos] = useState(/**@type {Record<string, IPInfo|Promise<unknown>>}*/ ({}))
+	const [nodeIpInfoExpanded, setNodeIpInfoExpanded] = //
+		useStorageState('nodes_list_ipinfo_expanded', raw => !!raw)
 
 	// special form so we can change outer object (and get reactivity) without copying inner one each time
 	const [resolved, setResolved] = useState({
@@ -323,6 +469,16 @@ export const UserNodesList = memo(function UserNodesList(
 		},
 		[resolved],
 	)
+	const finishedResolvedNodeAddrs = useMemo(() => {
+		for (const node of nodes) {
+			const res = resolved.addrs[withoutPort(node.address)]
+			if (typeof res !== 'string' && !(res instanceof Error)) return null
+		}
+		const ips = nodes //
+			.map(x => resolved.addrs[withoutPort(x.address)])
+			.filter(x => typeof x === 'string') //skipping errors
+		return Array.from(new Set(ips))
+	}, [nodes, resolved])
 
 	const sortedNodes = useMemo(() => {
 		const woPend = nodes.filter(n => !(n.id in pendingNodes))
@@ -331,16 +487,54 @@ export const UserNodesList = memo(function UserNodesList(
 	}, [nodes, pendingNodes])
 
 	useEffect(() => {
-		for (const node of nodes) {
-			const res = resolved.addrs[withoutPort(node.address)]
-			if (typeof res !== 'string' && !(res instanceof Error)) return
-		}
+		if (!finishedResolvedNodeAddrs) return
 
 		const abortController = new AbortController()
 
-		let subnets = nodes
-			.map(x => resolved.addrs[withoutPort(x.address)])
-			.filter(x => typeof x === 'string') //skipping errors
+		const promise = apiReq('POST', '/api/ips_info', {
+			data: { ips: finishedResolvedNodeAddrs },
+			signal: abortController.signal,
+		})
+			.then((/**@type {IPsInfoResponse}*/ res) => {
+				const asMap = /**@type {Record<string, IPsInfoResponse['as']>}*/ ({})
+				const compMap = /**@type {Record<string, IPsInfoResponse['companies']>}*/ ({})
+
+				for (const as of res.as)
+					for (const ip of as.ips) //
+						(asMap[ip] = asMap[ip] || []).push(as)
+				for (const comp of res.companies)
+					for (const ip of comp.ips) //
+						(compMap[ip] = compMap[ip] || []).push(comp)
+
+				for (const as of Object.values(asMap))
+					as.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+				for (const comps of Object.values(compMap))
+					comps.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+
+				const ipInfos = /**@type {Record<string, IPInfo>}*/ ({})
+				for (const node of nodes) {
+					let addr = resolved.addrs[withoutPort(node.address)]
+					if (typeof addr === 'string') {
+						ipInfos[node.id] = { as: asMap[addr], companies: compMap[addr] }
+					}
+				}
+				setNodeIpInfos(ipInfos)
+			})
+			.catch(onError)
+
+		let ipInfos = /** @type {Record<string, Promise<unknown>>} */ ({})
+		for (const node of nodes) ipInfos[node.id] = promise
+		setNodeIpInfos(ipInfos)
+
+		return () => abortController.abort()
+	}, [nodes, resolved, finishedResolvedNodeAddrs])
+
+	useEffect(() => {
+		if (!finishedResolvedNodeAddrs) return
+
+		const abortController = new AbortController()
+
+		let subnets = finishedResolvedNodeAddrs
 		let myNodeIds = nodes.map(x => x.id)
 
 		const promise = apiReq('POST', '/api/neighbors', {
@@ -350,7 +544,7 @@ export const UserNodesList = memo(function UserNodesList(
 			.then(res => {
 				let countsMap = {}
 				for (let item of res.counts) countsMap[item.subnet] = item
-				let counts = /** @type {Record<string, NeighborCounts>} */ ({})
+				let counts = /** @type {Record<string, NeighborCounts|undefined>} */ ({})
 				for (const node of nodes) {
 					let addr = resolved.addrs[withoutPort(node.address)]
 					if (typeof addr === 'string') {
@@ -367,7 +561,7 @@ export const UserNodesList = memo(function UserNodesList(
 		setNeighborCounts(counts)
 
 		return () => abortController.abort()
-	}, [nodes, resolved])
+	}, [nodes, resolved, finishedResolvedNodeAddrs])
 
 	// should go after /api/neighbors request effect, otherwise request will be sent twice: on this and on next rerender
 	useEffect(() => {
@@ -386,6 +580,10 @@ export const UserNodesList = memo(function UserNodesList(
 			updateResolved(address, promise)
 		}
 	}, [nodes, resolved])
+
+	const onIPInfoExpandClick = useCallback(() => {
+		setNodeIpInfoExpanded(x => !x)
+	}, [])
 
 	const setPendingNode = useCallback(
 		(/**@type {UserNode}*/ node) => {
@@ -464,6 +662,16 @@ export const UserNodesList = memo(function UserNodesList(
 										<${Help} contentFunc=${getNeighborsHelpContent} />
 									</span>
 								</td>
+								<td style="min-width:192px">
+									${L('Company', 'ru', 'Компания')}${' '}
+									<button class="help" onclick=${onIPInfoExpandClick}>
+										${nodeIpInfoExpanded ? '➖\uFE0E' : '➕\uFE0E'}
+									</button>
+								</td>
+								${nodeIpInfoExpanded
+									? html`<td>AS</td>
+											<td>${L('Prefix', 'ru', 'Префикс')}</td>`
+									: null}
 								<td></td>
 							</tr>
 						</thead>
@@ -476,6 +684,8 @@ export const UserNodesList = memo(function UserNodesList(
 										nodeUpdateTime=${nodesUpdateTime}
 										resolvedIP=${resolved.addrs[withoutPort(n.address)]}
 										neighborCounts=${neighborCounts[n.id]}
+										nodeIpInfo=${nodeIpInfos[n.id]}
+										nodeIpInfoExpanded=${nodeIpInfoExpanded}
 										onChange=${setNodeInner}
 										onRemove=${delNodeInner}
 									/>

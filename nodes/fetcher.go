@@ -88,7 +88,10 @@ type NodeLocation struct {
 
 func saveLimits(db *pg.DB, gdb, asndb *utils.GeoIPConn, satelliteAddress string, limits []*pb.AddressedOrderLimit) error {
 	stt := time.Now()
+
 	var asnsToUpdate []int64
+	var ipsToUpdate []string
+
 	newCount := 0
 	locCount := 0
 	ipTypeCount := 0
@@ -146,6 +149,7 @@ func saveLimits(db *pg.DB, gdb, asndb *utils.GeoIPConn, satelliteAddress string,
 					asnsToUpdate = append(asnsToUpdate, asn_)
 				}
 			}
+			ipsToUpdate = append(ipsToUpdate, ipAddr)
 
 			var xmax string
 			_, err = tx.QueryOne(&xmax, `
@@ -189,6 +193,18 @@ func saveLimits(db *pg.DB, gdb, asndb *utils.GeoIPConn, satelliteAddress string,
 		TimeDiff("elapsed", time.Now(), stt).
 		Msg("nodes saved")
 
+	ipsUpdStart := time.Now()
+	for _, ip := range ipsToUpdate {
+		// if IPs updates took too long for some reason, skipping remaining updates,
+		// otherwise a lot of fetcher processes can remain running and eat up all memory
+		if time.Since(ipsUpdStart) > 10*time.Second {
+			break
+		}
+		if _, err := core.UpdateIPCompanyIfNeed(db, ip); err != nil {
+			log.Error().Err(err).Str("ip", ip).Msg("failed to update IP company")
+		}
+	}
+
 	asnUpdStart := time.Now()
 	for _, asn := range asnsToUpdate {
 		// if ASN updates took too long for some reason, skipping remaining updates,
@@ -196,7 +212,7 @@ func saveLimits(db *pg.DB, gdb, asndb *utils.GeoIPConn, satelliteAddress string,
 		if time.Since(asnUpdStart) > 10*time.Second {
 			break
 		}
-		if _, err := core.UpdateASInfo(db, asn); err != nil {
+		if _, err := core.UpdateASInfoIfNeed(db, asn); err != nil {
 			log.Error().Err(err).Int64("asn", asn).Msg("failed to update AS info")
 		}
 	}

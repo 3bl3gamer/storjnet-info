@@ -3,6 +3,7 @@ package utils
 import (
 	"context"
 	"net"
+	"net/netip"
 	"os"
 	"path/filepath"
 	"strings"
@@ -11,6 +12,7 @@ import (
 
 	"github.com/ansel1/merry"
 	"github.com/go-pg/pg/v9"
+	"github.com/go-pg/pg/v9/types"
 	"github.com/lib/pq"
 	"github.com/oschwald/geoip2-golang"
 	"github.com/rs/zerolog/log"
@@ -168,6 +170,46 @@ func (c *GeoIPConn) ASNStr(ipStr string) (*geoip2.ASN, bool, error) {
 
 func (c *GeoIPConn) Close() {
 	panic("not implemented")
+}
+
+// because go-pg does not know anything about netip.Addr
+type NetAddrPG struct {
+	netip.Addr
+}
+
+var _ types.ValueAppender = (*NetAddrPG)(nil)
+
+// https://github.com/go-pg/pg/blob/v10/example_custom_test.go#L13-L49
+func (a NetAddrPG) AppendValue(b []byte, flags int) ([]byte, error) {
+	if flags == 1 {
+		b = append(b, '\'')
+	}
+	b = a.AppendTo(b)
+	if flags == 1 {
+		b = append(b, '\'')
+	}
+	return b, nil
+}
+
+var _ types.ValueScanner = (*NetAddrPG)(nil)
+
+// https://github.com/go-pg/pg/blob/v10/example_custom_test.go#L13-L49
+func (a *NetAddrPG) ScanValue(rd types.Reader, n int) error {
+	if n <= 0 {
+		a.Addr = netip.Addr{}
+		return nil
+	}
+
+	tmp, err := rd.ReadFullTemp()
+	if err != nil {
+		return err
+	}
+
+	a.Addr, err = netip.ParseAddr(string(tmp))
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func IsConstrError(err error, table, kind, name string) bool {
