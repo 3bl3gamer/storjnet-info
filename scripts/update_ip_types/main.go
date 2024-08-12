@@ -259,21 +259,12 @@ func CMDFillIPCompanies(cmd *cobra.Command, args []string) error {
 	// }
 	// return nil
 
-	// if _, err := core.UpdateIPCompanyIfNeed(db, "1.2.3.4"); err != nil {
+	// if _, err := core.UpdateIPCompanyIfNeed(db, "109.194.141.74"); err != nil {
 	// 	return merry.Wrap(err)
 	// }
 	// return nil
 
-	// ip, mask, _ := net.ParseCIDR("2001:41d0::/32")
-	// fmt.Println(ip, mask, mask.IP, mask.Mask)
-	// fmt.Println(mask.Mask.Size())
-	// lastIP := make(net.IP, net.IPv6len)
-	// copy(lastIP, mask.IP)
-	// for i := range mask.Mask {
-	// 	lastIP[i] |= ^mask.Mask[i]
-	// }
-	// fmt.Println(lastIP)
-	// return nil
+	// =====
 
 	// var ranges []struct {
 	// 	IPFrom net.IP
@@ -313,7 +304,7 @@ func CMDFillIPCompanies(cmd *cobra.Command, args []string) error {
 	// =====
 
 	// var addrs []string
-	// _, err := db.Query(&addrs, `SELECT address FROM user_nodes WHERE last_pinged_at > now() - interval '1 year' AND ip IS NULL`)
+	// _, err := db.Query(&addrs, `SELECT address FROM user_nodes WHERE last_pinged_at > now() - interval '1 year'`)
 	// if err != nil {
 	// 	return merry.Wrap(err)
 	// }
@@ -346,12 +337,6 @@ func CMDFillIPCompanies(cmd *cobra.Command, args []string) error {
 	// 			return merry.Wrap(err)
 	// 		}
 	// 	}
-	// 	if len(ipsStr) > 0 {
-	// 		_, err := db.Exec(`UPDATE user_nodes SET ip = ? WHERE address = ?`, ipsStr[0], address)
-	// 		if err != nil {
-	// 			return merry.Wrap(err)
-	// 		}
-	// 	}
 
 	// 	if addrI%10 == 0 {
 	// 		fmt.Println(addrI, "/", len(addrs))
@@ -373,7 +358,7 @@ func CMDFillIPCompanies(cmd *cobra.Command, args []string) error {
 			SELECT ip_addr, last_received_from_sat_at AS time
 			FROM nodes
 			WHERE last_received_from_sat_at > ?
-			  AND updated_at > NOW() - INTERVAL '4 days'
+			  AND updated_at > NOW() - INTERVAL '90 days'
 			ORDER BY last_received_from_sat_at ASC, created_at
 			LIMIT 1000`,
 			fromTime)

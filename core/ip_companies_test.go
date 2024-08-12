@@ -28,11 +28,11 @@ func Test_ipNetwork(t *testing.T) {
 		if err := json.Unmarshal([]byte(test.src), &network); err != nil {
 			t.Fatal(err)
 		}
-		if network.ipFrom.Compare(netip.MustParseAddr(test.ipFrom)) != 0 {
-			t.Errorf("%s: %s != %s", test.src, network.ipFrom, test.ipFrom)
+		if network.IPFrom.Compare(netip.MustParseAddr(test.ipFrom)) != 0 {
+			t.Errorf("%s: %s != %s", test.src, network.IPFrom, test.ipFrom)
 		}
-		if network.ipTo.Compare(netip.MustParseAddr(test.ipTo)) != 0 {
-			t.Errorf("%s: %s != %s", test.src, network.ipTo, test.ipTo)
+		if network.IPTo.Compare(netip.MustParseAddr(test.ipTo)) != 0 {
+			t.Errorf("%s: %s != %s", test.src, network.IPTo, test.ipTo)
 		}
 	}
 }

@@ -40,52 +40,93 @@ func UpdateIPCompanyIfNeed(db *pg.DB, ipAddr string) (bool, error) {
 	}
 
 	var intersections []struct {
-		IPFrom, IPTo utils.NetAddrPG
-		Incolumitas  ipCompanyInfoToSave
+		ID          int64
+		Network     ipNetwork
+		Incolumitas ipCompanyInfoToSave
 	}
 	_, err = db.Query(&intersections, `
-		SELECT ip_from, ip_to, incolumitas FROM network_companies WHERE ip_from <= ? AND ip_to >= ?`,
-		company.Network.ipTo, company.Network.ipFrom)
+		SELECT id, '"'||host(ip_from)||' - '||host(ip_to)||'"' AS network, incolumitas
+		FROM network_companies WHERE ip_from <= ? AND ip_to >= ?`,
+		company.Network.IPTo, company.Network.IPFrom)
 	if err != nil {
 		return false, merry.Wrap(err)
 	}
 
-	shouldUpdateByIPs := false
+	isAlreadySaved := false
 	for _, isec := range intersections {
-		if isec.IPFrom == company.Network.ipFrom && isec.IPTo == company.Network.ipTo {
-			shouldUpdateByIPs = true
-			break
-		} else {
-			log.Warn().Any("old", isec).Any("new", company).Msg("companies intersection")
+		// isec.range equals -> updating
+		if isec.Network.IPFrom == company.Network.IPFrom && isec.Network.IPTo == company.Network.IPTo {
+			if !isAlreadySaved {
+				log.Debug().Any("net", company.Network).Str("name", company.Name).Msg("updating company")
+				_, err := db.Exec(`
+				UPDATE network_companies SET incolumitas = ?, incolumitas_updated_at = NOW() WHERE id = ?`,
+					company.ipCompanyInfoToSave, isec.ID)
+				isAlreadySaved = true
+				if err != nil {
+					return false, merry.Wrap(err)
+				}
+			} else {
+				log.Debug().Any("net", company.Network).Any("old", isec.Network).Str("name", company.Name).Msg("removing existing double")
+				_, err := db.Exec(`
+					DELETE FROM network_companies WHERE id = ?`,
+					isec.ID)
+				if err != nil {
+					return false, merry.Wrap(err)
+				}
+			}
+			continue
 		}
+
+		// isec.range inside -> removing
+		if company.Network.IPFrom.LE(isec.Network.IPFrom) && isec.Network.IPTo.LE(company.Network.IPTo) {
+			if isec.Incolumitas.Equals(company.ipCompanyInfoToSave) {
+				log.Debug().Any("net", company.Network).Any("old", isec.Network).Str("name", company.Name).Msg("removing existing inner")
+				_, err := db.Exec(`
+					DELETE FROM network_companies WHERE id = ?`,
+					isec.ID)
+				if err != nil {
+					return false, merry.Wrap(err)
+				}
+				continue
+			}
+		}
+
+		// isec.range fully includes -> skipping
+		if isec.Network.IPFrom.LE(company.Network.IPFrom) && company.Network.IPTo.LE(isec.Network.IPTo) {
+			if isec.Incolumitas.Equals(company.ipCompanyInfoToSave) {
+				log.Debug().Any("net", company.Network).Any("old", isec.Network).Str("name", company.Name).Msg("skipping new inner")
+				isAlreadySaved = true
+				continue
+			}
+		}
+
+		log.Warn().Any("old", isec).Any("new", company).Msg("companies intersection")
 	}
 
-	if shouldUpdateByIPs {
-		log.Debug().Str("network", company.Network.String()).Str("name", company.Name).Msg("updating company")
-		_, err = db.Exec(`
-			UPDATE network_companies SET incolumitas = ?, incolumitas_updated_at = NOW()
-			WHERE (ip_from, ip_to) = (?, ?)`,
-			company.ipCompanyInfoToSave, company.Network.ipFrom, company.Network.ipTo)
-	} else {
-		log.Debug().Str("network", company.Network.String()).Str("name", company.Name).Msg("inserting company")
-		_, err = db.Exec(`
+	if !isAlreadySaved {
+		log.Debug().Any("net", company.Network).Str("name", company.Name).Msg("inserting company")
+		_, err := db.Exec(`
 			INSERT INTO network_companies (ip_from, ip_to, incolumitas, incolumitas_updated_at)
 			VALUES (?, ?, ?, NOW())`,
-			company.Network.ipFrom, company.Network.ipTo, company.ipCompanyInfoToSave)
-	}
-	if err != nil {
-		return false, merry.Wrap(err)
+			company.Network.IPFrom, company.Network.IPTo, company.ipCompanyInfoToSave)
+		if err != nil {
+			return false, merry.Wrap(err)
+		}
 	}
 	return true, nil
 }
 
 type ipNetwork struct {
-	ipFrom utils.NetAddrPG
-	ipTo   utils.NetAddrPG
+	IPFrom utils.NetAddrPG `json:"ip_from"`
+	IPTo   utils.NetAddrPG `json:"ip_to"`
 }
 
 func (n ipNetwork) String() string {
-	return n.ipFrom.String() + " - " + n.ipTo.String()
+	return n.IPFrom.String() + " - " + n.IPTo.String()
+}
+
+func (n ipNetwork) MarshalJSON() ([]byte, error) {
+	return []byte(`"` + n.String() + `"`), nil
 }
 
 func (n *ipNetwork) UnmarshalJSON(data []byte) error {
@@ -105,8 +146,8 @@ func (n *ipNetwork) UnmarshalJSON(data []byte) error {
 			return merry.Wrap(err)
 		}
 
-		n.ipFrom.Addr = ipFrom
-		n.ipTo.Addr = ipTo
+		n.IPFrom.Addr = ipFrom
+		n.IPTo.Addr = ipTo
 	} else {
 		prefix, err := netip.ParsePrefix(str)
 		if err != nil {
@@ -121,8 +162,8 @@ func (n *ipNetwork) UnmarshalJSON(data []byte) error {
 		ipToArr[prefixBits/8] |= (^byte(0)) >> (prefixBits % 8)
 		// fmt.Printf("%v (/%d) %08b %08b\n", ipToArr, prefix.Bits(), ipToArr[prefixBits/8], (^byte(0))>>(prefixBits%8))
 
-		n.ipFrom.Addr = prefix.Masked().Addr()
-		n.ipTo.Addr = netip.AddrFrom16(ipToArr).Unmap()
+		n.IPFrom.Addr = prefix.Masked().Addr()
+		n.IPTo.Addr = netip.AddrFrom16(ipToArr).Unmap()
 	}
 
 	return nil
@@ -132,6 +173,10 @@ type ipCompanyInfoToSave struct {
 	Name   string `json:"name"`   // "Supercom of California Limited",
 	Domain string `json:"domain"` // "supercom.ca",
 	Type   string `json:"type"`   // "business",
+}
+
+func (i ipCompanyInfoToSave) Equals(other ipCompanyInfoToSave) bool {
+	return i.Name == other.Name && i.Domain == other.Domain && i.Type == other.Type
 }
 
 type ipCompanyInfo struct {

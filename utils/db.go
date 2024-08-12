@@ -212,6 +212,14 @@ func (a *NetAddrPG) ScanValue(rd types.Reader, n int) error {
 	return nil
 }
 
+func (a NetAddrPG) GE(b NetAddrPG) bool {
+	return !a.Less(b.Addr)
+}
+
+func (a NetAddrPG) LE(b NetAddrPG) bool {
+	return !b.Less(a.Addr)
+}
+
 func IsConstrError(err error, table, kind, name string) bool {
 	if perr, ok := merry.Unwrap(err).(pg.Error); ok {
 		return perr.Field('t') == table &&
