@@ -14,7 +14,7 @@ import { bindHandlers } from 'src/utils/elems'
 import { memo, PureComponent } from 'src/utils/preact_compat'
 import { html } from 'src/utils/htm'
 import { Help, HelpLine } from './help'
-import { findMeaningfulOctets, isIPv4, resolve, ResolveError } from 'src/utils/dns'
+import { findMeaningfulOctets, isIPv4, prefixBits, resolve, ResolveError } from 'src/utils/dns'
 import { isPromise } from 'src/utils/types'
 
 import './user_nodes.css'
@@ -45,7 +45,7 @@ import { useStorageState } from 'src/utils/store'
  *     domain: string,
  *     descr: string,
  *     updatedAt: string,
- *     prefix: string,
+ *     prefixes: string[],
  *     ips: string[],
  *   }[],
  *   companies: {
@@ -138,14 +138,31 @@ function NodeIPInfoCells({ ipInfo, ipInfoExpanded }) {
 					<${HelpLine} contentFunc=${helpPopupContent}>${asPlaceholder ?? as?.[0].descr ?? '—'}<//>
 				</td>
 				<td class="ip-info ip-as-prefix">
-					<${HelpLine} contentFunc=${helpPopupContent}>${asPlaceholder ?? as?.[0].prefix ?? '—'}<//>
+					<${HelpLine} contentFunc=${helpPopupContent}>
+						${asPlaceholder ??
+						html`<${NodeIPInfoPrefixesPreview} prefixes=${as?.[0].prefixes} />` ??
+						'—'}
+					<//>
 				</td>`,
 		)
 	}
 
 	return html`<${Fragment}>${cells}</${Fragment}>`
 }
+/** @param {{prefixes:undefined|string[]}} props */
+function NodeIPInfoPrefixesPreview({ prefixes }) {
+	if (!prefixes || prefixes.length === 0) return '—'
+	if (prefixes.length === 1) return prefixes[0]
 
+	let narrowest = prefixes[0]
+	for (let i = 1; i < prefixes.length; i++)
+		if ((prefixBits(prefixes[i]) ?? 128) > (prefixBits(narrowest) ?? 128)) {
+			narrowest = prefixes[i]
+		}
+	return html`${narrowest} <span class="small dim">+${prefixes.length - 1}</span>`
+}
+
+/** @param {{ipInfo: IPInfo}} props */
 function NodeIPInfoFull({ ipInfo }) {
 	if (isPromise(ipInfo) || !ipInfo) return DimNA()
 
@@ -204,7 +221,7 @@ function NodeIPInfoFull({ ipInfo }) {
 							</tr>
 							<tr>
 								<th>${L('Prefix', 'ru', 'Префикс')}</th>
-								<td>${as.prefix}</td>
+								<td>${as.prefixes.map(x => html`<div>${x}</div>`)}</td>
 							</tr>
 							<tr>
 								<th>${L('Updated', 'ru', 'Обновлено')}</th>
@@ -451,9 +468,11 @@ export const UserNodesList = memo(function UserNodesList(
 	const [nodeError, setNodeError] = useState(/**@type {string|null}*/ (null))
 	const [pendingNodes, setPendingNodes] = useState(/**@type {Record<string, UserNode>}*/ ({}))
 	const [neighborCounts, setNeighborCounts] = useState(
-		/**@type {Record<string, NeighborCounts|undefined|Promise<unknown>>}*/ ({}),
+		/**@type {Promise<unknown>|Record<string, NeighborCounts|undefined>}*/ (Promise.resolve()),
 	)
-	const [nodeIpInfos, setNodeIpInfos] = useState(/**@type {Record<string, IPInfo|Promise<unknown>>}*/ ({}))
+	const [nodeIpInfos, setNodeIpInfos] = useState(
+		/**@type {Promise<unknown>|Record<string, IPInfo|undefined>}*/ (Promise.resolve()),
+	)
 	const [nodeIpInfoExpanded, setNodeIpInfoExpanded] = //
 		useStorageState('nodes_list_ipinfo_expanded', raw => !!raw)
 
@@ -522,9 +541,7 @@ export const UserNodesList = memo(function UserNodesList(
 			})
 			.catch(onError)
 
-		let ipInfos = /** @type {Record<string, Promise<unknown>>} */ ({})
-		for (const node of nodes) ipInfos[node.id] = promise
-		setNodeIpInfos(ipInfos)
+		setNodeIpInfos(promise)
 
 		return () => abortController.abort()
 	}, [nodes, resolved, finishedResolvedNodeAddrs])
@@ -556,9 +573,7 @@ export const UserNodesList = memo(function UserNodesList(
 			})
 			.catch(onError)
 
-		let counts = /** @type {Record<string, Promise<unknown>>} */ ({})
-		for (const node of nodes) counts[node.id] = promise
-		setNeighborCounts(counts)
+		setNeighborCounts(promise)
 
 		return () => abortController.abort()
 	}, [nodes, resolved, finishedResolvedNodeAddrs])
@@ -683,8 +698,10 @@ export const UserNodesList = memo(function UserNodesList(
 										node=${n}
 										nodeUpdateTime=${nodesUpdateTime}
 										resolvedIP=${resolved.addrs[withoutPort(n.address)]}
-										neighborCounts=${neighborCounts[n.id]}
-										nodeIpInfo=${nodeIpInfos[n.id]}
+										neighborCounts=${isPromise(neighborCounts)
+											? neighborCounts
+											: neighborCounts[n.id]}
+										nodeIpInfo=${isPromise(nodeIpInfos) ? nodeIpInfos : nodeIpInfos[n.id]}
 										nodeIpInfoExpanded=${nodeIpInfoExpanded}
 										onChange=${setNodeInner}
 										onRemove=${delNodeInner}

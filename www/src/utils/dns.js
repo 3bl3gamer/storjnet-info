@@ -19,6 +19,16 @@ export function isIPv4(value) {
 	return m && +m[1] < 256 && +m[2] < 256 && +m[3] < 256 && +m[4] < 256
 }
 
+/**
+ * @param {string} prefix 1.2.3.4/24
+ */
+export function prefixBits(prefix) {
+	const i = prefix.lastIndexOf('/')
+	if (i === -1) return null
+	const val = parseInt(prefix.slice(i + 1))
+	return isNaN(val) ? null : val
+}
+
 // https://www.iana.org/assignments/dns-parameters/dns-parameters.xhtml#table-dns-parameters-4
 const TYPE_A = 1
 // const TYPE_CNAME = 5

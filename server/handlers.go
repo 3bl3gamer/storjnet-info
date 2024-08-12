@@ -284,7 +284,7 @@ func HandleAPIIPsInfo(wr http.ResponseWriter, r *http.Request, ps httprouter.Par
 		Domain    string    `json:"domain"`
 		Descr     string    `json:"descr"`
 		UpdatedAt time.Time `json:"updatedAt"`
-		Prefix    string    `json:"prefix"`
+		Prefixes  []string  `json:"prefixes" pg:",array"`
 		IPs       []string  `json:"ips"`
 	}, 0)
 	_, err := db.Query(&asInfos, `
@@ -295,12 +295,15 @@ func HandleAPIIPsInfo(wr http.ResponseWriter, r *http.Request, ps httprouter.Par
 			incolumitas->>'domain' AS domain,
 			incolumitas->>'descr' AS descr,
 			incolumitas_updated_at as updated_at,
-			prefix
+			prefixes
 		FROM autonomous_systems
-		JOIN autonomous_systems_prefixes ON autonomous_systems.number = autonomous_systems_prefixes.number
-		WHERE incolumitas IS NOT NULL
-		  AND autonomous_systems_prefixes.source = 'incolumitas'
-		  AND autonomous_systems_prefixes.prefix >>= ANY(?::inet[])`,
+		JOIN (
+			SELECT number, array_agg(prefix) as prefixes
+			FROM autonomous_systems_prefixes
+			WHERE source = 'incolumitas'
+			  AND prefix >>= ANY(?::inet[])
+			GROUP BY number
+		) AS pref ON autonomous_systems.number = pref.number`,
 		pg.Array(params.IPs))
 	if err != nil {
 		return nil, merry.Wrap(err)
@@ -308,13 +311,20 @@ func HandleAPIIPsInfo(wr http.ResponseWriter, r *http.Request, ps httprouter.Par
 
 	// writing request IPs to corresponding AS infos
 	for _, info := range asInfos {
-		prefix, err := netip.ParsePrefix(info.Prefix)
-		if err != nil {
-			return nil, merry.Wrap(err)
+		prefixes := make([]netip.Prefix, len(info.Prefixes))
+		for i, prefixStr := range info.Prefixes {
+			prefixes[i], err = netip.ParsePrefix(prefixStr)
+			if err != nil {
+				return nil, merry.Wrap(err)
+			}
 		}
 		for i, ipStr := range params.IPs {
-			if prefix.Contains(parsedIPs[i]) {
-				info.IPs = append(info.IPs, ipStr)
+			ip := parsedIPs[i]
+			for _, prefix := range prefixes {
+				if prefix.Contains(ip) {
+					info.IPs = append(info.IPs, ipStr)
+					break
+				}
 			}
 		}
 		if info.IPs == nil {
