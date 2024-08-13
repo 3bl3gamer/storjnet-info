@@ -202,6 +202,9 @@ func saveLimits(db *pg.DB, gdb, asndb *utils.GeoIPConn, satelliteAddress string,
 		}
 		if _, err := core.UpdateIPCompanyIfNeed(db, ip); err != nil {
 			log.Error().Err(err).Str("ip", ip).Msg("failed to update IP company")
+			if merry.Is(err, core.ErrIncolumitasTooManyRequests) {
+				break
+			}
 		}
 	}
 
@@ -214,6 +217,9 @@ func saveLimits(db *pg.DB, gdb, asndb *utils.GeoIPConn, satelliteAddress string,
 		}
 		if _, err := core.UpdateASInfoIfNeed(db, asn); err != nil {
 			log.Error().Err(err).Int64("asn", asn).Msg("failed to update AS info")
+			if merry.Is(err, core.ErrIncolumitasTooManyRequests) {
+				break
+			}
 		}
 	}
 	return merry.Wrap(err)

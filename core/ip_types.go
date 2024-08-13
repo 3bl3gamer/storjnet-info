@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/netip"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/ansel1/merry"
@@ -111,6 +112,8 @@ type asInfoResponse struct {
 	Message string `json:"message"`
 }
 
+var ErrIncolumitasTooManyRequests = merry.New("incolumitas: too many requests")
+
 func fetchASInfo(asn int64) (asInfoResponse, error) {
 	req, err := http.NewRequest("GET", "https://api.incolumitas.com/?q=AS"+strconv.FormatInt(asn, 10), nil)
 	if err != nil {
@@ -130,7 +133,13 @@ func fetchASInfo(asn int64) (asInfoResponse, error) {
 		return asInfoResponse{}, merry.Wrap(err)
 	}
 	if info.Error != "" {
-		return asInfoResponse{}, merry.Errorf("ASN %d: %s: %s", asn, info.Error, info.Message)
+		var err merry.Error
+		if strings.Contains(info.Message, "Too many API requests") {
+			err = ErrIncolumitasTooManyRequests
+		} else {
+			err = merry.New("")
+		}
+		return asInfoResponse{}, err.Here().WithMessagef("ASN %d: %s: %s", asn, info.Error, info.Message)
 	}
 
 	log.Debug().Int64("ASN", asn).Str("org", info.Org).Str("type", info.Type).Msg("fetched AS type from incolumitas.com")

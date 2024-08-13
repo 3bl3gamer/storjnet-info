@@ -221,7 +221,13 @@ func fetchIPCompanyInfo(ipAddr string) (ipCompanyInfo, bool, error) {
 		return ipCompanyInfo{}, false, merry.Wrap(err)
 	}
 	if info.Error != "" {
-		return ipCompanyInfo{}, false, merry.Errorf("IP %s: %s: %s", ipAddr, info.Error, info.Message)
+		var err merry.Error
+		if strings.Contains(info.Message, "Too many API requests") {
+			err = ErrIncolumitasTooManyRequests
+		} else {
+			err = merry.New("")
+		}
+		return ipCompanyInfo{}, false, err.Here().WithMessagef("IP %s: %s: %s", ipAddr, info.Error, info.Message)
 	}
 
 	name := "n/a"
