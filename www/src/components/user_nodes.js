@@ -4,6 +4,8 @@ import { apiReq, apiReqIPsSanctions } from 'src/api'
 import { ago, L, lang } from 'src/i18n'
 import { onError } from 'src/errors'
 import {
+	NodeSanctionGeneralDescrPP,
+	NodeSanctionDescr,
 	PingModeDescription,
 	shortNodeID,
 	sortNodes,
@@ -14,7 +16,7 @@ import { bindHandlers } from 'src/utils/elems'
 import { memo, PureComponent } from 'src/utils/preact_compat'
 import { html } from 'src/utils/htm'
 import { Help, HelpLine } from './help'
-import { findMeaningfulOctets, isIPv4, prefixBits, resolve, ResolveError } from 'src/utils/dns'
+import { findMeaningfulOctets, prefixBits, ResolveError, useResolved } from 'src/utils/dns'
 import { isPromise } from 'src/utils/types'
 
 import './user_nodes.css'
@@ -67,9 +69,7 @@ import { useStorageState } from 'src/utils/store'
  * }} IPInfo
  */
 
-/**
- * @typedef {import('src/api').IPsSanctionsResponse['sanctions'][number]} NodeIPSanction
- */
+/** @typedef {import('src/api').NodeIPSanction} NodeIPSanction */
 
 /** @type {UserNode} */
 const BLANK_NODE = {
@@ -100,39 +100,11 @@ function NodeIPCell({ resolvedIP, sanction }) {
 	}
 
 	const getWarnContent = useCallback(() => {
-		const reason =
-			sanction?.reason === 'REGISTRATION_COUNTRY'
-				? L('IP registration country', 'ru', 'Страна регистрации IP-адреса')
-				: sanction?.reason === 'LOCATION_REGION'
-				? L('IP location', 'ru', 'Местоположение IP-адреса')
-				: (sanction?.reason ?? '').toLowerCase().replace(/_/g, ' ')
-
-		const threadUrl = 'https://forum.storj.io/t/missing-payouts-because-node-is-in-a-sanctioned-country'
-		const logicUrl =
-			'https://forum.storj.io/t/missing-payouts-because-node-is-in-a-sanctioned-country/27400/51'
+		if (!sanction) return
 
 		return html`<h3>${L('Possible payouts suspension', 'ru', 'Возможна приостановка выплат')}</h3>
-			<p class="warn">${reason}: <b>${sanction?.detail}</b></p>
-			<p>
-				${lang === 'ru'
-					? html`Судя по <a href=${threadUrl}>теме на форуме</a>, ноды с адресами в подсанкционных
-							странах/регионах <b>не получают оплату</b>.`
-					: html`According to <a href=${threadUrl}>the forum thread</a>, nodes with addresses in
-							sanctioned countries/regions <b>do not receive payouts</b>.`}
-				${' '}
-				${lang === 'ru'
-					? html`Хотя полного списка таких адресов нет, в${' '}
-							<a href=${logicUrl}>одном из сообщений</a> описана проверка на санкционность,
-							аналогичная используется и здесь.`
-					: html`Although there is no complete list of such addresses,${' '}
-							<a href=${logicUrl}>one of the posts</a> describes a sanction check, similar one
-							is used here.`}
-			</p>
-			<p>
-				${lang === 'ru'
-					? `Полный и актуальный исходный код проверки неизвестен. Если есть сомнения, можно воспользоваться скриптом из первого сообщения ветки или обатиться в поддержку.`
-					: `Complete and up-to-date source code of the check is unknown. If you have doubts, you can use the script from the thread's first post or contact support.`}
-			</p>
+			<p class="warn"><${NodeSanctionDescr} sanction=${sanction} /></p>
+			<${NodeSanctionGeneralDescrPP} />
 			<p>
 				${L('Arbitrary address can be checked ', 'ru', 'Произвольный адрес можно проверить ')}
 				<a href="/sanctions">${L('here', 'ru', 'здесь')}</a>.
@@ -140,7 +112,7 @@ function NodeIPCell({ resolvedIP, sanction }) {
 	}, [sanction])
 
 	if (sanction) {
-		content = html`<div class="warn" style="padding:0">
+		content = html`<div class="warn-no-pad">
 			<${HelpLine} contentFunc=${getWarnContent}>${content}<//>
 		</div>`
 	}
@@ -394,7 +366,6 @@ class UserNodeItem extends PureComponent {
 				</td>
 				<td>
 					<div class="node-ping-mode">
-						<!-- ${L('Uptime check', 'ru', 'Проверка аптайма')}: -->
 						<select name="pingMode" onchange=${this.onChange}>
 							${pingModes.map(
 								([name, label]) =>
@@ -531,48 +502,23 @@ export const UserNodesList = memo(function UserNodesList(
 	const [nodeIpInfoExpanded, setNodeIpInfoExpanded] = //
 		useStorageState('nodes_list_ipinfo_expanded', raw => !!raw)
 
-	// special form so we can change outer object (and get reactivity) without copying inner one each time
-	const [resolved, setResolved] = useState({
-		addrs: /**@type {Record<string,string|Promise<unknown>|Error>}*/ ({}),
-	})
-	const updateResolved = useCallback(
-		(/**@type {string}*/ addr, /**@type {string|Promise<unknown>}*/ res) => {
-			const addrs = resolved.addrs
-			addrs[addr] = res
-			setResolved({ addrs })
-		},
-		[resolved],
-	)
-
 	const sortedNodes = useMemo(() => {
 		const woPend = nodes.filter(n => !(n.id in pendingNodes))
 		const all = woPend.concat(Object.values(pendingNodes))
 		return sortNodes(all)
 	}, [nodes, pendingNodes])
 
+	const nodeAddrs = useMemo(() => {
+		return nodes.map(x => withoutPort(x.address))
+	}, [nodes])
+
+	const resolved = useResolved(nodeAddrs)
+
 	const nodeIpInfos = useIPInfos(nodes, resolved)
 
 	const neighborCounts = useNeighborCounts(nodes, resolved)
 
 	const nodeSanctions = useNodeScanctions(nodes, resolved)
-
-	// should go after /api/neighbors request effect, otherwise request will be sent twice: on this and on next rerender
-	useEffect(() => {
-		for (const node of nodes) {
-			let address = withoutPort(node.address)
-			if (address in resolved.addrs) continue
-
-			if (isIPv4(address)) {
-				updateResolved(address, address)
-				return
-			}
-
-			let promise = resolve(address)
-				.then(ips => updateResolved(address, ips[0]))
-				.catch(err => updateResolved(address, err))
-			updateResolved(address, promise)
-		}
-	}, [nodes, resolved])
 
 	const onIPInfoExpandClick = useCallback(() => {
 		setNodeIpInfoExpanded(x => !x)
@@ -767,17 +713,14 @@ function useNodeScanctions(nodes, resolved) {
 
 		const abortController = new AbortController()
 
-		const promise = apiReqIPsSanctions(finishedResolvedNodeAddrs, abortController)
+		const promise = apiReqIPsSanctions(finishedResolvedNodeAddrs, false, abortController)
 			.then(res => {
-				/** @type {Record<string, NodeIPSanction>} */
-				let sanctionsMap = {}
-				for (let item of res.sanctions) sanctionsMap[item.ip] = item
-
 				let sanctions = /** @type {Record<string, NodeIPSanction|undefined>} */ ({})
 				for (const node of nodes) {
 					let addr = resolved.addrs[withoutPort(node.address)]
-					if (typeof addr === 'string' && addr in sanctionsMap) {
-						sanctions[node.id] = sanctionsMap[addr]
+					if (typeof addr === 'string') {
+						const sanc = res.ips[addr]?.sanction
+						if (sanc) sanctions[node.id] = sanc
 					}
 				}
 				setNodeScanctions(sanctions)

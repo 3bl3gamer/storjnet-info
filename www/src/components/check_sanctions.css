@@ -1,0 +1,12 @@
+.check-sanctions-form input[type='submit'] {
+	vertical-align: top;
+}
+
+.check-sanctions-result-table tr:last-of-type {
+	border: none;
+}
+
+.check-sanctions-result-table td.sanction {
+	max-width: 192px;
+	text-align: center;
+}

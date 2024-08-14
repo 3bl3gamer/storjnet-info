@@ -1,3 +1,4 @@
+import { useCallback, useEffect, useState } from 'preact/hooks'
 import { onError } from 'src/errors'
 
 /**
@@ -113,6 +114,14 @@ function catchToLog(onLogLines) {
 }
 
 /**
+ * @param {string} ipOrName
+ */
+export function resolveMixed(ipOrName) {
+	if (isIPv4(ipOrName)) return Promise.resolve([ipOrName])
+	return resolve(ipOrName)
+}
+
+/**
  * @param {string} name
  * @param {(...lines:string[]) => void} onLogLines
  * @returns {Promise<string|null>}
@@ -139,4 +148,56 @@ export function resolveSubnetOrNull(name, onLogLines) {
 			return subnet
 		})
 		.catch(catchToLog(onLogLines))
+}
+
+/**
+ *
+ * @param {string[]} ipOrAddrs
+ * @param {(addr:string, ip:string|Error) => unknown} [onIP]
+ */
+export function resolveAllMixed(ipOrAddrs, onIP) {
+	return Promise.all(
+		ipOrAddrs.map(ipOrAddr => {
+			return resolveMixed(ipOrAddr)
+				.then(ips => {
+					onIP?.(ipOrAddr, ips[0])
+					return ips[0]
+				})
+				.catch((/**@type {Error}*/ err) => {
+					onIP?.(ipOrAddr, err)
+					return err
+				})
+		}),
+	)
+}
+
+/**
+ * @param {string[]} addresses
+ */
+export function useResolved(addresses) {
+	// special form so we can change outer object (and get reactivity) without copying inner one each time
+	const [resolved, setResolved] = useState({
+		addrs: /**@type {Record<string,string|Promise<unknown>|Error>}*/ ({}),
+	})
+	const updateResolved = useCallback(
+		(/**@type {string}*/ addr, /**@type {string|Promise<unknown>|Error}*/ res) => {
+			const addrs = resolved.addrs
+			addrs[addr] = res
+			setResolved({ addrs })
+		},
+		[resolved],
+	)
+
+	useEffect(() => {
+		for (const address of addresses) {
+			if (address in resolved.addrs) continue
+
+			let promise = resolveMixed(address)
+				.then(ips => updateResolved(address, ips[0]))
+				.catch(err => updateResolved(address, err))
+			updateResolved(address, promise)
+		}
+	}, [addresses, resolved])
+
+	return resolved
 }

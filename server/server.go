@@ -270,6 +270,7 @@ func StartHTTPServer(address string, env utils.Env) error {
 	route("GET", "/", WithOptUser, HandleIndex)
 	route("GET", "/ping_my_node", HandlePingMyNode)
 	route("GET", "/neighbors", HandleNeighbors)
+	route("GET", "/sanctions", HandleSanctions)
 	route("GET", "/~", WithOptUser, HandleUserDashboard)
 
 	route("POST", "/lang", HandleLang)

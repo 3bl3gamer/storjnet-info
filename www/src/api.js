@@ -54,18 +54,31 @@ export async function apiReq(method, path, params) {
 
 /**
  * @typedef {{
- *   sanctions: {
- *     ip: string,
- *     reason: string,
- *     detail: string,
- *   }[],
+ *   ips: Record<string, {
+ *     sanction: null | NodeIPSanction,
+ *     fullInfo?: {
+ *       country: {name:string, geoNameID:number, isoCode:string},
+ *       city: {name:string, geoNameID:number},
+ *       registeredCountry: {name:string, geoNameID:number, isoCode:string},
+ *       subdivisions:{name:string, geoNameID:number, isoCode:string}[],
+ *     },
+ *   }>,
  * }} IPsSanctionsResponse
  */
 
-/** @returns {Promise<IPsSanctionsResponse>} */
-export function apiReqIPsSanctions(ips, abortController) {
+/**
+ * @typedef {{reason: string, detail: string}} NodeIPSanction
+ */
+
+/**
+ * @param {string[]} ips
+ * @param {boolean} fullInfo
+ * @param {AbortController|null} abortController
+ * @returns {Promise<IPsSanctionsResponse>}
+ */
+export function apiReqIPsSanctions(ips, fullInfo, abortController) {
 	return apiReq('POST', '/api/ips_sanctions', {
-		data: { ips, lang },
-		signal: abortController.signal,
+		data: { ips, lang, fullInfo },
+		signal: abortController?.signal,
 	})
 }

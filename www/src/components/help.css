@@ -21,6 +21,7 @@ button.help-line {
 	text-decoration-style: dashed;
 	font: inherit;
 	cursor: pointer;
+	user-select: text;
 }
 
 .popup {

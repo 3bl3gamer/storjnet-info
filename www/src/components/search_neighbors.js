@@ -28,7 +28,6 @@ export class SearchNeighbors extends PureComponent {
 		super()
 		/** @type {SN_State} */
 		this.state = { isLoading: false, logText: '', count: null }
-		this.abortController = null
 		bindHandlers(this)
 	}
 

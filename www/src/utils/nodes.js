@@ -1,6 +1,7 @@
 import { Help } from 'src/components/help'
 import { L, lang } from 'src/i18n'
 import { html } from './htm'
+import { NBHYP } from './elems'
 
 /**
  * @template {{address:string}} T
@@ -74,4 +75,42 @@ export function SubnetNeighborsDescription() {
 				  'If in doubt, better check your subnet manually (e.g. with Nmap).'}
 		</p>
 	`
+}
+
+/** @param {{sanction: {reason: string, detail: string}}} props */
+export function NodeSanctionDescr({ sanction }) {
+	const reason =
+		sanction?.reason === 'REGISTRATION_COUNTRY'
+			? L('IP registration country', 'ru', `Страна регистрации IP${NBHYP}адреса`)
+			: sanction?.reason === 'LOCATION_REGION'
+			? L('IP location', 'ru', `Местоположение IP${NBHYP}адреса`)
+			: (sanction?.reason ?? '').toLowerCase().replace(/_/g, ' ')
+	return html`${reason}: <b>${sanction?.detail}</b>`
+}
+
+export function NodeSanctionGeneralDescrPP() {
+	const threadUrl = 'https://forum.storj.io/t/missing-payouts-because-node-is-in-a-sanctioned-country'
+	const logicUrl =
+		'https://forum.storj.io/t/missing-payouts-because-node-is-in-a-sanctioned-country/27400/51'
+
+	return html`<p>
+			${lang === 'ru'
+				? html`Судя по <a href=${threadUrl}>теме на форуме</a>, ноды с адресами в подсанкционных
+						странах/регионах <b>не получают оплату</b>.`
+				: html`According to <a href=${threadUrl}>the forum thread</a>, nodes with addresses in
+						sanctioned countries/regions <b>do not receive payouts</b>.`}
+			${' '}
+			${lang === 'ru'
+				? html`Хотя полного списка таких адресов нет, в${' '}
+						<a href=${logicUrl}>одном из сообщений</a> описана проверка на санкционность,
+						аналогичная используется и здесь.`
+				: html`Although there is no complete list of such addresses,${' '}
+						<a href=${logicUrl}>one of the posts</a> describes a sanction check, similar one is
+						used here.`}
+		</p>
+		<p>
+			${lang === 'ru'
+				? `Полный и актуальный исходный код проверки неизвестен. Если есть сомнения, можно воспользоваться скриптом из первого сообщения ветки или обатиться в поддержку.`
+				: `Complete and up-to-date source code of the check is unknown. If you have doubts, you can use the script from the thread's first post or contact support.`}
+		</p>`
 }

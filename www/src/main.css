@@ -15,7 +15,8 @@
 .ok {
 	background-color: #cfc;
 }
-.warn {
+.warn,
+.warn-no-pad {
 	background-color: #ff9;
 }
 .ok,
@@ -42,6 +43,7 @@ table.underlined tr {
 	border-bottom: 1px solid lightgray;
 }
 
+table.wide-padded th:not(:first-child),
 table.wide-padded td:not(:first-child) {
 	padding: 1px 0 1px 15px;
 }

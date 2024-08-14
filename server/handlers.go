@@ -113,6 +113,10 @@ func HandleNeighbors(wr http.ResponseWriter, r *http.Request, ps httprouter.Para
 	return map[string]interface{}{"FPath": "neighbors.html"}, nil
 }
 
+func HandleSanctions(wr http.ResponseWriter, r *http.Request, ps httprouter.Params) (httputils.TemplateCtx, error) {
+	return map[string]interface{}{"FPath": "sanctions.html"}, nil
+}
+
 func HandleUserDashboard(wr http.ResponseWriter, r *http.Request, ps httprouter.Params) (httputils.TemplateCtx, error) {
 	db := r.Context().Value(CtxKeyDB).(*pg.DB)
 	user := r.Context().Value(CtxKeyUser).(*core.User)
@@ -376,8 +380,9 @@ func HandleAPIIPsInfo(wr http.ResponseWriter, r *http.Request, ps httprouter.Par
 func HandleAPIIPsSanctions(wr http.ResponseWriter, r *http.Request, ps httprouter.Params) (interface{}, error) {
 	gdb := r.Context().Value(CtxKeyGeoIPDB).(*utils.GeoIPConn)
 	params := &struct {
-		IPs  []string
-		Lang string
+		IPs      []string
+		FullInfo bool
+		Lang     string
 	}{}
 	if jsonErr := unmarshalFromBody(r, params); jsonErr != nil {
 		return *jsonErr, nil
@@ -415,11 +420,31 @@ func HandleAPIIPsSanctions(wr http.ResponseWriter, r *http.Request, ps httproute
 	}
 
 	type IPSanction struct {
-		IP     string `json:"ip"`
 		Reason string `json:"reason"`
 		Detail string `json:"detail"`
 	}
-	ipSanctions := make([]IPSanction, 0)
+
+	type GeoName struct {
+		Name      string `json:"name"`
+		GeoNameID uint   `json:"geoNameID"`
+	}
+	type IsoGeoName struct {
+		GeoName
+		IsoCode string `json:"isoCode"`
+	}
+	type IPFullInfo struct {
+		Country           IsoGeoName   `json:"country"`
+		City              GeoName      `json:"city"`
+		RegisteredCountry IsoGeoName   `json:"registeredCountry"`
+		Subdivisions      []IsoGeoName `json:"subdivisions"`
+	}
+
+	type IPInfo struct {
+		Sanction *IPSanction `json:"sanction"`
+		FullInfo *IPFullInfo `json:"fullInfo,omitempty"`
+	}
+
+	infos := make(map[string]IPInfo)
 	for _, ipStr := range params.IPs {
 		ip := net.ParseIP(ipStr)
 		if ip == nil {
@@ -433,11 +458,37 @@ func HandleAPIIPsSanctions(wr http.ResponseWriter, r *http.Request, ps httproute
 			continue
 		}
 
+		var info IPInfo
 		if reason, detail, isSanc := isSanctioned(city); isSanc {
-			ipSanctions = append(ipSanctions, IPSanction{IP: ipStr, Reason: reason, Detail: detail})
+			info.Sanction = &IPSanction{Reason: reason, Detail: detail}
+		}
+		if params.FullInfo {
+			full := &IPFullInfo{}
+			full.Country.Name = chooseLangVal(city.Country.Names)
+			full.Country.GeoNameID = city.Country.GeoNameID
+			full.Country.IsoCode = city.Country.IsoCode
+
+			full.City.Name = chooseLangVal(city.City.Names)
+			full.City.GeoNameID = city.City.GeoNameID
+
+			full.RegisteredCountry.Name = chooseLangVal(city.RegisteredCountry.Names)
+			full.RegisteredCountry.GeoNameID = city.RegisteredCountry.GeoNameID
+			full.RegisteredCountry.IsoCode = city.RegisteredCountry.IsoCode
+
+			full.Subdivisions = make([]IsoGeoName, len(city.Subdivisions))
+			for i, sub := range city.Subdivisions {
+				full.Subdivisions[i].Name = chooseLangVal(sub.Names)
+				full.Subdivisions[i].GeoNameID = sub.GeoNameID
+				full.Subdivisions[i].IsoCode = sub.IsoCode
+			}
+			info.FullInfo = full
+		}
+
+		if info.Sanction != nil || info.FullInfo != nil {
+			infos[ipStr] = info
 		}
 	}
-	return map[string]interface{}{"sanctions": ipSanctions}, nil
+	return map[string]interface{}{"ips": infos}, nil
 }
 
 func HandleAPIRegister(wr http.ResponseWriter, r *http.Request, ps httprouter.Params) (interface{}, error) {
