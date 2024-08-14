@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/binary"
 	"io"
+	"net"
 	"net/http"
 	"net/netip"
 	"net/url"
@@ -17,6 +18,7 @@ import (
 	"github.com/ansel1/merry"
 	"github.com/go-pg/pg/v9"
 	"github.com/julienschmidt/httprouter"
+	"github.com/oschwald/geoip2-golang"
 	"storj.io/common/storj"
 )
 
@@ -273,7 +275,7 @@ func HandleAPIIPsInfo(wr http.ResponseWriter, r *http.Request, ps httprouter.Par
 		if ip, err := netip.ParseAddr(ipStr); err == nil {
 			parsedIPs[i] = ip
 		} else {
-			return httputils.JsonError{Code: 400, Error: "IP_INVALID", Description: err.Error()}, nil
+			return httputils.JsonError{Code: 400, Error: "WRONG_IP_FORMAT", Description: err.Error()}, nil
 		}
 	}
 
@@ -369,6 +371,73 @@ func HandleAPIIPsInfo(wr http.ResponseWriter, r *http.Request, ps httprouter.Par
 	}
 
 	return map[string]interface{}{"as": asInfos, "companies": compInfos}, nil
+}
+
+func HandleAPIIPsSanctions(wr http.ResponseWriter, r *http.Request, ps httprouter.Params) (interface{}, error) {
+	gdb := r.Context().Value(CtxKeyGeoIPDB).(*utils.GeoIPConn)
+	params := &struct {
+		IPs  []string
+		Lang string
+	}{}
+	if jsonErr := unmarshalFromBody(r, params); jsonErr != nil {
+		return *jsonErr, nil
+	}
+	params.Lang = strings.ToLower(params.Lang)
+
+	chooseLangVal := func(names map[string]string) string {
+		if val, ok := names[params.Lang]; ok {
+			return val
+		}
+		return names["en"]
+	}
+
+	// https://forum.storj.io/t/missing-payouts-because-node-is-in-a-sanctioned-country/27400/51
+	isSanctioned := func(city *geoip2.City) (string, string, bool) {
+		switch city.RegisteredCountry.IsoCode {
+		case "CU", // Cuba
+			"IR", // Iran
+			"KP", // North Korea
+			"SD", // Sudan
+			"SY": // Syria
+			return "REGISTRATION_COUNTRY", chooseLangVal(city.RegisteredCountry.Names), true
+		}
+
+		for _, subdiv := range city.Subdivisions {
+			switch subdiv.GeoNameID {
+			case 703883, // https://www.geonames.org/703883/autonomous-republic-of-crimea.html
+				694422, // https://www.geonames.org/694422/sebastopol-city.html
+				709716, // https://www.geonames.org/709716/donetska-oblast.html
+				702657: // https://www.geonames.org/702657/luhanska-oblast.html
+				return "LOCATION_REGION", chooseLangVal(subdiv.Names), true
+			}
+		}
+		return "", "", false
+	}
+
+	type IPSanction struct {
+		IP     string `json:"ip"`
+		Reason string `json:"reason"`
+		Detail string `json:"detail"`
+	}
+	ipSanctions := make([]IPSanction, 0)
+	for _, ipStr := range params.IPs {
+		ip := net.ParseIP(ipStr)
+		if ip == nil {
+			return httputils.JsonError{Code: 400, Error: "WRONG_IP_FORMAT", Description: ipStr}, nil
+		}
+		city, found, err := gdb.City(ip)
+		if err != nil {
+			return nil, merry.Wrap(err)
+		}
+		if !found {
+			continue
+		}
+
+		if reason, detail, isSanc := isSanctioned(city); isSanc {
+			ipSanctions = append(ipSanctions, IPSanction{IP: ipStr, Reason: reason, Detail: detail})
+		}
+	}
+	return map[string]interface{}{"sanctions": ipSanctions}, nil
 }
 
 func HandleAPIRegister(wr http.ResponseWriter, r *http.Request, ps httprouter.Params) (interface{}, error) {

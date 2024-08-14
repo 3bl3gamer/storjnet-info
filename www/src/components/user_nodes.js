@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'preact/hooks'
 
-import { apiReq } from 'src/api'
+import { apiReq, apiReqIPsSanctions } from 'src/api'
 import { ago, L, lang } from 'src/i18n'
 import { onError } from 'src/errors'
 import {
@@ -67,6 +67,10 @@ import { useStorageState } from 'src/utils/store'
  * }} IPInfo
  */
 
+/**
+ * @typedef {import('src/api').IPsSanctionsResponse['sanctions'][number]} NodeIPSanction
+ */
+
 /** @type {UserNode} */
 const BLANK_NODE = {
 	id: '',
@@ -76,6 +80,72 @@ const BLANK_NODE = {
 	lastPingWasOk: false,
 	lastPing: 0,
 	lastUpAt: new Date(0),
+}
+
+function DimNA() {
+	return html`<span class="dim">${L('N/a', 'ru', 'Н/д')}</span>`
+}
+
+/** @param {{resolvedIP:undefined|Error|Promise<unknown>|string, sanction:NodeIPSanction|Promise<unknown>|undefined}} props */
+function NodeIPCell({ resolvedIP, sanction }) {
+	if (isPromise(sanction)) sanction = undefined
+
+	let content
+	if (!resolvedIP || isPromise(resolvedIP)) {
+		content = '…'
+	} else if (resolvedIP instanceof Error) {
+		content = html`<${NodeIPError} error=${resolvedIP} />`
+	} else {
+		content = html`<${HighlightedSubnet} ip=${resolvedIP} />`
+	}
+
+	const getWarnContent = useCallback(() => {
+		const reason =
+			sanction?.reason === 'REGISTRATION_COUNTRY'
+				? L('IP registration country', 'ru', 'Страна регистрации IP-адреса')
+				: sanction?.reason === 'LOCATION_REGION'
+				? L('IP location', 'ru', 'Местоположение IP-адреса')
+				: (sanction?.reason ?? '').toLowerCase().replace(/_/g, ' ')
+
+		const threadUrl = 'https://forum.storj.io/t/missing-payouts-because-node-is-in-a-sanctioned-country'
+		const logicUrl =
+			'https://forum.storj.io/t/missing-payouts-because-node-is-in-a-sanctioned-country/27400/51'
+
+		return html`<h3>${L('Possible payouts suspension', 'ru', 'Возможна приостановка выплат')}</h3>
+			<p class="warn">${reason}: <b>${sanction?.detail}</b></p>
+			<p>
+				${lang === 'ru'
+					? html`Судя по <a href=${threadUrl}>теме на форуме</a>, ноды с адресами в подсанкционных
+							странах/регионах <b>не получают оплату</b>.`
+					: html`According to <a href=${threadUrl}>the forum thread</a>, nodes with addresses in
+							sanctioned countries/regions <b>do not receive payouts</b>.`}
+				${' '}
+				${lang === 'ru'
+					? html`Хотя полного списка таких адресов нет, в${' '}
+							<a href=${logicUrl}>одном из сообщений</a> описана проверка на санкционность,
+							аналогичная используется и здесь.`
+					: html`Although there is no complete list of such addresses,${' '}
+							<a href=${logicUrl}>one of the posts</a> describes a sanction check, similar one
+							is used here.`}
+			</p>
+			<p>
+				${lang === 'ru'
+					? `Полный и актуальный исходный код проверки неизвестен. Если есть сомнения, можно воспользоваться скриптом из первого сообщения ветки или обатиться в поддержку.`
+					: `Complete and up-to-date source code of the check is unknown. If you have doubts, you can use the script from the thread's first post or contact support.`}
+			</p>
+			<p>
+				${L('Arbitrary address can be checked ', 'ru', 'Произвольный адрес можно проверить ')}
+				<a href="/sanctions">${L('here', 'ru', 'здесь')}</a>.
+			</p>`
+	}, [sanction])
+
+	if (sanction) {
+		content = html`<div class="warn" style="padding:0">
+			<${HelpLine} contentFunc=${getWarnContent}>${content}<//>
+		</div>`
+	}
+
+	return html`<td class="node-ip">${content}</td>`
 }
 
 /** @param {{ip:string}} props */
@@ -96,10 +166,6 @@ function NodeIPError({ error }) {
 			<code class="warn">${error.message}</code>
 		<//>
 	`
-}
-
-function DimNA() {
-	return html`<span class="dim">${L('N/a', 'ru', 'Н/д')}</span>`
 }
 
 /** @param {{counts:NeighborCounts|undefined|Promise<unknown>}} props */
@@ -241,8 +307,9 @@ function NodeIPInfoFull({ ipInfo }) {
  * @prop {(node:UserNode) => void} onRemove
  * @prop {undefined|Error|Promise<unknown>|string} resolvedIP
  * @prop {NeighborCounts|undefined|Promise<unknown>} neighborCounts
- * @prop {IPInfo|undefined|Promise<unknown>} nodeIpInfo
- * @prop {boolean} nodeIpInfoExpanded
+ * @prop {IPInfo|undefined|Promise<unknown>} ipInfo
+ * @prop {boolean} ipInfoExpanded
+ * @prop {NodeIPSanction|undefined|Promise<unknown>} sanction
  * @extends {PureComponent<UNI_Props, {}>}
  */
 class UserNodeItem extends PureComponent {
@@ -290,7 +357,7 @@ class UserNodeItem extends PureComponent {
 	 * @param {UNI_Props} props
 	 * @param {{}} state
 	 */
-	render({ node, nodeUpdateTime, resolvedIP, neighborCounts, nodeIpInfo, nodeIpInfoExpanded }, state) {
+	render({ node, nodeUpdateTime, resolvedIP, neighborCounts, ipInfo, ipInfoExpanded, sanction }, state) {
 		const pingModes = [
 			['ping', 'ping'],
 			['dial', 'dial'],
@@ -340,17 +407,11 @@ class UserNodeItem extends PureComponent {
 						</select>
 					</div>
 				</td>
-				<td class="node-ip">
-					${!resolvedIP || isPromise(resolvedIP)
-						? '…'
-						: resolvedIP instanceof Error //TODO ResolveError
-						? html`<${NodeIPError} error=${resolvedIP} />`
-						: html`<${HighlightedSubnet} ip=${resolvedIP} />`}
-				</td>
+				<${NodeIPCell} resolvedIP=${resolvedIP} sanction=${sanction} />
 				<td class="node-neighbors">
 					<${NodeNeighbors} counts=${neighborCounts} />
 				</td>
-				<${NodeIPInfoCells} ipInfo=${nodeIpInfo} ipInfoExpanded=${nodeIpInfoExpanded} />
+				<${NodeIPInfoCells} ipInfo=${ipInfo} ipInfoExpanded=${ipInfoExpanded} />
 				<td>
 					<button class="node-remove-button" onclick=${this.onRemoveClick}>✕</button>
 				</td>
@@ -467,12 +528,6 @@ export const UserNodesList = memo(function UserNodesList(
 ) {
 	const [nodeError, setNodeError] = useState(/**@type {string|null}*/ (null))
 	const [pendingNodes, setPendingNodes] = useState(/**@type {Record<string, UserNode>}*/ ({}))
-	const [neighborCounts, setNeighborCounts] = useState(
-		/**@type {Promise<unknown>|Record<string, NeighborCounts|undefined>}*/ (Promise.resolve()),
-	)
-	const [nodeIpInfos, setNodeIpInfos] = useState(
-		/**@type {Promise<unknown>|Record<string, IPInfo|undefined>}*/ (Promise.resolve()),
-	)
 	const [nodeIpInfoExpanded, setNodeIpInfoExpanded] = //
 		useStorageState('nodes_list_ipinfo_expanded', raw => !!raw)
 
@@ -488,16 +543,6 @@ export const UserNodesList = memo(function UserNodesList(
 		},
 		[resolved],
 	)
-	const finishedResolvedNodeAddrs = useMemo(() => {
-		for (const node of nodes) {
-			const res = resolved.addrs[withoutPort(node.address)]
-			if (typeof res !== 'string' && !(res instanceof Error)) return null
-		}
-		const ips = nodes //
-			.map(x => resolved.addrs[withoutPort(x.address)])
-			.filter(x => typeof x === 'string') //skipping errors
-		return Array.from(new Set(ips))
-	}, [nodes, resolved])
 
 	const sortedNodes = useMemo(() => {
 		const woPend = nodes.filter(n => !(n.id in pendingNodes))
@@ -505,78 +550,11 @@ export const UserNodesList = memo(function UserNodesList(
 		return sortNodes(all)
 	}, [nodes, pendingNodes])
 
-	useEffect(() => {
-		if (!finishedResolvedNodeAddrs) return
+	const nodeIpInfos = useIPInfos(nodes, resolved)
 
-		const abortController = new AbortController()
+	const neighborCounts = useNeighborCounts(nodes, resolved)
 
-		const promise = apiReq('POST', '/api/ips_info', {
-			data: { ips: finishedResolvedNodeAddrs },
-			signal: abortController.signal,
-		})
-			.then((/**@type {IPsInfoResponse}*/ res) => {
-				const asMap = /**@type {Record<string, IPsInfoResponse['as']>}*/ ({})
-				const compMap = /**@type {Record<string, IPsInfoResponse['companies']>}*/ ({})
-
-				for (const as of res.as)
-					for (const ip of as.ips) //
-						(asMap[ip] = asMap[ip] || []).push(as)
-				for (const comp of res.companies)
-					for (const ip of comp.ips) //
-						(compMap[ip] = compMap[ip] || []).push(comp)
-
-				for (const as of Object.values(asMap))
-					as.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
-				for (const comps of Object.values(compMap))
-					comps.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
-
-				const ipInfos = /**@type {Record<string, IPInfo>}*/ ({})
-				for (const node of nodes) {
-					let addr = resolved.addrs[withoutPort(node.address)]
-					if (typeof addr === 'string') {
-						ipInfos[node.id] = { as: asMap[addr], companies: compMap[addr] }
-					}
-				}
-				setNodeIpInfos(ipInfos)
-			})
-			.catch(onError)
-
-		setNodeIpInfos(promise)
-
-		return () => abortController.abort()
-	}, [nodes, resolved, finishedResolvedNodeAddrs])
-
-	useEffect(() => {
-		if (!finishedResolvedNodeAddrs) return
-
-		const abortController = new AbortController()
-
-		let subnets = finishedResolvedNodeAddrs
-		let myNodeIds = nodes.map(x => x.id)
-
-		const promise = apiReq('POST', '/api/neighbors', {
-			data: { subnets, myNodeIds },
-			signal: abortController.signal,
-		})
-			.then(res => {
-				let countsMap = {}
-				for (let item of res.counts) countsMap[item.subnet] = item
-				let counts = /** @type {Record<string, NeighborCounts|undefined>} */ ({})
-				for (const node of nodes) {
-					let addr = resolved.addrs[withoutPort(node.address)]
-					if (typeof addr === 'string') {
-						let subnet = findMeaningfulOctets(addr) + '.0'
-						counts[node.id] = countsMap[subnet]
-					}
-				}
-				setNeighborCounts(counts)
-			})
-			.catch(onError)
-
-		setNeighborCounts(promise)
-
-		return () => abortController.abort()
-	}, [nodes, resolved, finishedResolvedNodeAddrs])
+	const nodeSanctions = useNodeScanctions(nodes, resolved)
 
 	// should go after /api/neighbors request effect, otherwise request will be sent twice: on this and on next rerender
 	useEffect(() => {
@@ -701,8 +679,11 @@ export const UserNodesList = memo(function UserNodesList(
 										neighborCounts=${isPromise(neighborCounts)
 											? neighborCounts
 											: neighborCounts[n.id]}
-										nodeIpInfo=${isPromise(nodeIpInfos) ? nodeIpInfos : nodeIpInfos[n.id]}
-										nodeIpInfoExpanded=${nodeIpInfoExpanded}
+										ipInfo=${isPromise(nodeIpInfos) ? nodeIpInfos : nodeIpInfos[n.id]}
+										ipInfoExpanded=${nodeIpInfoExpanded}
+										sanction=${isPromise(nodeSanctions)
+											? nodeSanctions
+											: nodeSanctions[n.id]}
 										onChange=${setNodeInner}
 										onRemove=${delNodeInner}
 									/>
@@ -716,3 +697,157 @@ export const UserNodesList = memo(function UserNodesList(
 		${nodeError !== null && html`<p class="warn">${nodeError}</p>`}
 	`
 })
+
+/**
+ * @param {UserNode[]} nodes
+ * @param {{addrs: Record<string,string|Promise<unknown>|Error>}} resolved
+ */
+function useIPInfos(nodes, resolved) {
+	const [nodeIpInfos, setNodeIpInfos] = useState(
+		/**@type {Promise<unknown>|Record<string, IPInfo|undefined>}*/ (Promise.resolve()),
+	)
+
+	useEffect(() => {
+		const finishedResolvedNodeAddrs = getNodeAddrsIfAllResolved(nodes, resolved)
+		if (!finishedResolvedNodeAddrs) return
+
+		const abortController = new AbortController()
+
+		const promise = apiReq('POST', '/api/ips_info', {
+			data: { ips: finishedResolvedNodeAddrs },
+			signal: abortController.signal,
+		})
+			.then((/**@type {IPsInfoResponse}*/ res) => {
+				const asMap = /**@type {Record<string, IPsInfoResponse['as']>}*/ ({})
+				const compMap = /**@type {Record<string, IPsInfoResponse['companies']>}*/ ({})
+
+				for (const as of res.as)
+					for (const ip of as.ips) //
+						(asMap[ip] = asMap[ip] || []).push(as)
+				for (const comp of res.companies)
+					for (const ip of comp.ips) //
+						(compMap[ip] = compMap[ip] || []).push(comp)
+
+				for (const as of Object.values(asMap))
+					as.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+				for (const comps of Object.values(compMap))
+					comps.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+
+				const ipInfos = /**@type {Record<string, IPInfo>}*/ ({})
+				for (const node of nodes) {
+					let addr = resolved.addrs[withoutPort(node.address)]
+					if (typeof addr === 'string') {
+						ipInfos[node.id] = { as: asMap[addr], companies: compMap[addr] }
+					}
+				}
+				setNodeIpInfos(ipInfos)
+			})
+			.catch(onError)
+
+		setNodeIpInfos(promise)
+
+		return () => abortController.abort()
+	}, [nodes, resolved])
+
+	return nodeIpInfos
+}
+
+/**
+ * @param {UserNode[]} nodes
+ * @param {{addrs: Record<string,string|Promise<unknown>|Error>}} resolved
+ */
+function useNodeScanctions(nodes, resolved) {
+	const [nodeScanctions, setNodeScanctions] = useState(
+		/**@type {Promise<unknown>|Record<string, NodeIPSanction|undefined>}*/ (Promise.resolve()),
+	)
+
+	useEffect(() => {
+		const finishedResolvedNodeAddrs = getNodeAddrsIfAllResolved(nodes, resolved)
+		if (!finishedResolvedNodeAddrs) return
+
+		const abortController = new AbortController()
+
+		const promise = apiReqIPsSanctions(finishedResolvedNodeAddrs, abortController)
+			.then(res => {
+				/** @type {Record<string, NodeIPSanction>} */
+				let sanctionsMap = {}
+				for (let item of res.sanctions) sanctionsMap[item.ip] = item
+
+				let sanctions = /** @type {Record<string, NodeIPSanction|undefined>} */ ({})
+				for (const node of nodes) {
+					let addr = resolved.addrs[withoutPort(node.address)]
+					if (typeof addr === 'string' && addr in sanctionsMap) {
+						sanctions[node.id] = sanctionsMap[addr]
+					}
+				}
+				setNodeScanctions(sanctions)
+			})
+			.catch(onError)
+
+		setNodeScanctions(promise)
+
+		return () => abortController.abort()
+	}, [nodes, resolved])
+
+	return nodeScanctions
+}
+
+/**
+ * @param {UserNode[]} nodes
+ * @param {{addrs: Record<string,string|Promise<unknown>|Error>}} resolved
+ */
+function useNeighborCounts(nodes, resolved) {
+	const [neighborCounts, setNeighborCounts] = useState(
+		/**@type {Promise<unknown>|Record<string, NeighborCounts|undefined>}*/ (Promise.resolve()),
+	)
+
+	useEffect(() => {
+		const finishedResolvedNodeAddrs = getNodeAddrsIfAllResolved(nodes, resolved)
+		if (!finishedResolvedNodeAddrs) return
+
+		const abortController = new AbortController()
+
+		let subnets = finishedResolvedNodeAddrs
+		let myNodeIds = nodes.map(x => x.id)
+
+		const promise = apiReq('POST', '/api/neighbors', {
+			data: { subnets, myNodeIds },
+			signal: abortController.signal,
+		})
+			.then(res => {
+				let countsMap = {}
+				for (let item of res.counts) countsMap[item.subnet] = item
+				let counts = /** @type {Record<string, NeighborCounts|undefined>} */ ({})
+				for (const node of nodes) {
+					let addr = resolved.addrs[withoutPort(node.address)]
+					if (typeof addr === 'string') {
+						let subnet = findMeaningfulOctets(addr) + '.0'
+						counts[node.id] = countsMap[subnet]
+					}
+				}
+				setNeighborCounts(counts)
+			})
+			.catch(onError)
+
+		setNeighborCounts(promise)
+
+		return () => abortController.abort()
+	}, [nodes, resolved])
+
+	return neighborCounts
+}
+
+/**
+ * @param {UserNode[]} nodes
+ * @param {{addrs: Record<string,string|Promise<unknown>|Error>}} resolved
+ */
+function getNodeAddrsIfAllResolved(nodes, resolved) {
+	for (const node of nodes) {
+		const res = resolved.addrs[withoutPort(node.address)]
+		if (typeof res !== 'string' && !(res instanceof Error)) return null
+	}
+	const ips = nodes //
+		.map(x => resolved.addrs[withoutPort(x.address)])
+		.filter(x => typeof x === 'string') //skipping errors
+	return Array.from(new Set(ips))
+}

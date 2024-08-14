@@ -141,6 +141,10 @@ func (c *GeoIPConn) CityStr(ipStr string) (*geoip2.City, bool, error) {
 	if ipAddress == nil {
 		return nil, false, merry.New("invalid IP: " + ipStr)
 	}
+	return c.City(ipAddress)
+}
+
+func (c *GeoIPConn) City(ipAddress net.IP) (*geoip2.City, bool, error) {
 	conn := c.value.Load().(*geoip2.Reader)
 	city, err := conn.City(ipAddress)
 	if err != nil {

@@ -1,3 +1,5 @@
+import { lang } from './i18n'
+
 function encodeKeyValue(key, value) {
 	return encodeURIComponent(key) + '=' + encodeURIComponent(value)
 }
@@ -13,7 +15,6 @@ class APIError extends Error {
 }
 
 /**
- *
  * @param {'GET'|'POST'|'DELETE'} method
  * @param {string} path
  * @param {(Parameters<typeof fetch>[1] & {data?:Record<string,unknown>})?} [params]
@@ -49,4 +50,22 @@ export async function apiReq(method, path, params) {
 		return data.result
 	}
 	return res
+}
+
+/**
+ * @typedef {{
+ *   sanctions: {
+ *     ip: string,
+ *     reason: string,
+ *     detail: string,
+ *   }[],
+ * }} IPsSanctionsResponse
+ */
+
+/** @returns {Promise<IPsSanctionsResponse>} */
+export function apiReqIPsSanctions(ips, abortController) {
+	return apiReq('POST', '/api/ips_sanctions', {
+		data: { ips, lang },
+		signal: abortController.signal,
+	})
 }

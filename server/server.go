@@ -24,6 +24,7 @@ type ctxKey string
 const CtxKeySatellites = ctxKey("satellites")
 const CtxKeyEnv = ctxKey("env")
 const CtxKeyDB = ctxKey("db")
+const CtxKeyGeoIPDB = ctxKey("geoip-db")
 const CtxKeyUser = ctxKey("user")
 
 func unmarshalFromBody(r *http.Request, obj interface{}) *httputils.JsonError {
@@ -215,6 +216,11 @@ func StartHTTPServer(address string, env utils.Env) error {
 
 	db := utils.MakePGConnection()
 
+	gdb, err := utils.OpenGeoIPConn("GeoLite2-City.mmdb")
+	if err != nil {
+		return merry.Wrap(err)
+	}
+
 	sats, err := utils.SatellitesSetUpFromEnv()
 	if err != nil {
 		return merry.Wrap(err)
@@ -229,6 +235,7 @@ func StartHTTPServer(address string, env utils.Env) error {
 				r = r.WithContext(context.WithValue(r.Context(), CtxKeySatellites, sats))
 				r = r.WithContext(context.WithValue(r.Context(), CtxKeyEnv, env))
 				r = r.WithContext(context.WithValue(r.Context(), CtxKeyDB, db))
+				r = r.WithContext(context.WithValue(r.Context(), CtxKeyGeoIPDB, gdb))
 				return merry.Wrap(handle(wr, r, params))
 			}
 		},
@@ -272,6 +279,7 @@ func StartHTTPServer(address string, env utils.Env) error {
 	route("GET", "/api/neighbors/:subnet", HandleAPINeighbors)
 	route("POST", "/api/neighbors", HandleAPINeighborsExt)
 	route("POST", "/api/ips_info", HandleAPIIPsInfo)
+	route("POST", "/api/ips_sanctions", HandleAPIIPsSanctions)
 	route("POST", "/api/user_nodes", WithUser, HandleAPISetUserNode)
 	route("DELETE", "/api/user_nodes", WithUser, HandleAPIDelUserNode)
 	route("GET", "/api/sat_nodes", HandleAPIGetSatNodes)
