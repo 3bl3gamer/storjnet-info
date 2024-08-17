@@ -1,6 +1,7 @@
 import { h, render } from 'preact'
 import { useLayoutEffect } from 'preact/hooks'
 
+export const NBSP = '\xA0'
 export const NBHYP = '\u2011' //NON-BREAKING HYPHEN
 
 export function renderIfExists(Comp, selector) {

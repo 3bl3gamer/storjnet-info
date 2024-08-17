@@ -1,10 +1,10 @@
-import { apiReq } from 'src/api'
+import { apiReq, apiReqIPsSanctions } from 'src/api'
 import { onError } from 'src/errors'
 import { L, lang, pluralize } from 'src/i18n'
-import { findMeaningfulOctets, resolveSubnetOrNull } from 'src/utils/dns'
-import { bindHandlers } from 'src/utils/elems'
+import { findMeaningfulOctets, isIPv4, resolveSubnetOrNull } from 'src/utils/dns'
+import { bindHandlers, NBSP } from 'src/utils/elems'
 import { html } from 'src/utils/htm'
-import { SubnetNeighborsDescription } from 'src/utils/nodes'
+import { NodeSanctionDescr, SubnetNeighborsDescription } from 'src/utils/nodes'
 import { PureComponent } from 'src/utils/preact_compat'
 
 function logLine(msg) {
@@ -21,13 +21,14 @@ function unexpectedErrText(err) {
  * @prop {boolean} isLoading
  * @prop {string} logText
  * @prop {number|null} count
+ * @prop {import('src/api').NodeIPSanction|null} sanction
  * @extends {PureComponent<{}, SN_State>}
  */
 export class SearchNeighbors extends PureComponent {
 	constructor() {
 		super()
 		/** @type {SN_State} */
-		this.state = { isLoading: false, logText: '', count: null }
+		this.state = { isLoading: false, logText: '', count: null, sanction: null }
 		bindHandlers(this)
 	}
 
@@ -44,7 +45,7 @@ export class SearchNeighbors extends PureComponent {
 		const address = (new FormData(e.target).get('address') + '').trim()
 		if (address === '') return
 
-		this.setState({ isLoading: true, logText: '', count: null })
+		this.setState({ isLoading: true, logText: '', count: null, sanction: null })
 		await Promise.resolve() //костыль, чтоб в this.state попал пустой logText
 
 		let subnet = findMeaningfulOctets(address)
@@ -62,22 +63,37 @@ export class SearchNeighbors extends PureComponent {
 			return
 		}
 
-		try {
-			const resp = await apiReq('GET', `/api/neighbors/${subnet}.0`)
-			this.setState({ count: resp.count })
-		} catch (err) {
-			if (err.error === 'WRONG_SUBNET_FORMAT') {
-				this.addLogLines(L('wrong format', 'ru', 'неправильный формат'))
-			} else {
-				onError(err)
-				this.addLogLines(unexpectedErrText(err))
-			}
-		} finally {
+		const neiPromise = apiReq('GET', `/api/neighbors/${subnet}.0`)
+			.then(resp => {
+				this.setState({ count: resp.count })
+			})
+			.catch(err => {
+				if (err.error === 'WRONG_SUBNET_FORMAT') {
+					this.addLogLines(L('wrong format', 'ru', 'неправильный формат'))
+				} else {
+					onError(err)
+					this.addLogLines(unexpectedErrText(err))
+				}
+			})
+
+		const sancIP = isIPv4(address) ? address : subnet ? `${subnet}.0` : null
+		const sancPromise =
+			!!sancIP &&
+			apiReqIPsSanctions([sancIP], false, null)
+				.then(resp => {
+					this.setState({ sanction: resp.ips[sancIP]?.sanction ?? null })
+				})
+				.catch(err => {
+					onError(err)
+					this.addLogLines(unexpectedErrText(err))
+				})
+
+		await Promise.allSettled([neiPromise, sancPromise]).finally(() => {
 			this.setState({ isLoading: false })
-		}
+		})
 	}
 
-	render({}, { isLoading, logText, count }) {
+	render({}, /**@type {SN_State}*/ { isLoading, logText, count, sanction }) {
 		return html`
 			<div class="p-like">
 				<form class="search-neighbors-form" onSubmit=${this.onSubmit}>
@@ -92,10 +108,8 @@ export class SearchNeighbors extends PureComponent {
 				</form>
 			</div>
 			<p>
-				${isLoading
-					? L('Loading…', 'ru', 'Загрузка…')
-					: count === null
-					? '\xA0' //nbsp
+				${count === null
+					? NBSP
 					: lang === 'ru'
 					? html`В подсети ${pluralize(count, 'нашлась', 'нашлось', 'нашлось')}${' '}
 							<b>${L.n(count, 'нода', 'ноды', 'нод')}</b>${' '}
@@ -105,6 +119,14 @@ export class SearchNeighbors extends PureComponent {
 					: html`<b>${L.n(count, 'node', 'nodes')}</b> ${pluralize(count, 'was', 'were')} found in
 							the subnet${' '} <span class="dim"> reachable within the last 24 hours </span>`}
 			</p>
+			<p>
+				${sanction
+					? html`<span class="warn"><${NodeSanctionDescr} sanction=${sanction} /></span>,${' '}
+							${L('possible payout problems', 'ru', 'возможны проблемы с выплатами')},${' '}
+							<a href="/sanctions">${L('more info', 'ru', 'подробнее')}</a>`
+					: null}
+			</p>
+			<p>${isLoading ? L('Loading…', 'ru', 'Загрузка…') : null}</p>
 			${logText && html`<pre>${logText}</pre>`}
 			<br />
 			<${SubnetNeighborsDescription} classes="dim" />

@@ -74,9 +74,11 @@ p,
 button.a-like {
 	background: none;
 	border: none;
+	padding: 0;
 	text-decoration: underline dotted;
 	font: inherit;
 	cursor: pointer;
+	user-select: text;
 }
 
 /* =================== */
