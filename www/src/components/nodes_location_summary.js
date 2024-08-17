@@ -100,7 +100,7 @@ const NodesSummary = memo(function NodesSummary() {
 		const abortController = new AbortController()
 
 		apiReq('GET', `/api/nodes/location_summary`, {
-			data: { end_date: toISODateString(endDate) },
+			data: { end_date: toISODateString(endDate), lang },
 			signal: abortController.signal,
 		})
 			.then(stats => {

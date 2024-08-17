@@ -712,6 +712,7 @@ func HandleAPINodesLocationSummary(wr http.ResponseWriter, r *http.Request, ps h
 	db := r.Context().Value(CtxKeyDB).(*pg.DB)
 
 	endDate := extractEndDateFromQuery(r.URL.Query())
+	lang := strings.ToLower(r.URL.Query().Get("lang"))
 
 	type TopItem struct {
 		Country string `json:"country"`
@@ -733,7 +734,7 @@ func HandleAPINodesLocationSummary(wr http.ResponseWriter, r *http.Request, ps h
 				SELECT jsonb_agg(jsonb_build_object('country', (nc).key, 'nodes', (nc).value, 'subnets', (sc).value))
 				FROM (
 					SELECT nc, sc FROM jsonb_each(countries) AS nc FULL OUTER JOIN jsonb_each(subnet_countries) AS sc ON (nc).key = (sc).key
-					ORDER BY (nc).value::int DESC
+					ORDER BY (nc).value::int, (nc).key DESC
 				) AS t
 			) AS countries_top
 		FROM node_stats
@@ -745,6 +746,14 @@ func HandleAPINodesLocationSummary(wr http.ResponseWriter, r *http.Request, ps h
 	}
 	if stats.CountriesTop == nil {
 		stats.CountriesTop = []TopItem{}
+	}
+	// "rus" -> "Russia"
+	for i, item := range stats.CountriesTop {
+		if name, ok := utils.CountryA3ToName(item.Country, lang); ok {
+			stats.CountriesTop[i].Country = name
+		} else if item.Country == "<unknown>" && lang == "ru" {
+			stats.CountriesTop[i].Country = "<неизвестно>"
+		}
 	}
 	return stats, nil
 }

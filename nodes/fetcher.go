@@ -131,7 +131,7 @@ func saveLimits(db *pg.DB, gdb, asndb *utils.GeoIPConn, satelliteAddress string,
 				}
 				if cityFound {
 					loc = &NodeLocation{
-						Country:   city.Country.Names["en"],
+						Country:   utils.CountryA2ToA3IfExists(city.Country.IsoCode),
 						City:      city.City.Names["en"],
 						Longitude: float32(city.Location.Longitude),
 						Latitude:  float32(city.Location.Latitude),
