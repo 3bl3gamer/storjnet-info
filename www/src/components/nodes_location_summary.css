@@ -5,6 +5,10 @@
 	background-color: #eee;
 }
 
+.node-countries-table thead td:first-of-type {
+	text-align: right;
+}
+
 .node-countries-table thead td:nth-child(3),
 .node-countries-table thead td:nth-child(5),
 .node-countries-table thead td:nth-child(7) {
