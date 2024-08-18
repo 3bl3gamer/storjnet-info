@@ -22,26 +22,32 @@ func saveNodeStats(db *pg.DB, errors *[]error) {
 		all_sat_offers_count_hours,
 		per_sat_offers_count_hours,
 		countries,
+		countries_isp,
 		subnet_countries,
+		subnet_countries_isp,
 		subnets_count,
 		subnets_top,
 		subnet_sizes,
 		ip_types,
 		ports
 	) VALUES ((
+		-- count_total
 		SELECT count(*) FROM nodes
 	), (
+		-- active_count_hours
 		SELECT jsonb_object_agg(
 			hours, (SELECT count(*) FROM nodes WHERE updated_at > NOW() - hours::float * INTERVAL '1 hour')
 			ORDER BY hours
 		)
 		FROM (SELECT generate_series(1, 24) AS hours UNION SELECT unnest(ARRAY[48, 72, 0.5])) t
 	), (
+		-- active_count_proto
 		SELECT jsonb_build_object(
 			'tcp', (SELECT count(*) FROM nodes WHERE tcp_updated_at > NOW() - INTERVAL '1 day'),
 			'quic', (SELECT count(*) FROM nodes WHERE quic_updated_at > NOW() - INTERVAL '1 day')
 		)
 	), (
+		-- all_sat_offers_count_hours
 		SELECT jsonb_object_agg(
 			hours, (
 				SELECT count(DISTINCT node_id) FROM nodes_sat_offers
@@ -51,6 +57,7 @@ func saveNodeStats(db *pg.DB, errors *[]error) {
 		)
 		FROM unnest(ARRAY[1, 3, 6, 12, 24, 48, 72]) AS hours
 	), (
+		-- per_sat_offers_count_hours
 		SELECT jsonb_object_agg(
 			cur_sat_name, (
 				SELECT jsonb_object_agg(
@@ -71,6 +78,7 @@ func saveNodeStats(db *pg.DB, errors *[]error) {
 			WHERE stamps[array_upper(stamps, 1)] > NOW() - INTERVAL '1 day'
 		) AS t
 	), (
+		-- countries
 		SELECT jsonb_object_agg(country, cnt) FROM (
 			SELECT COALESCE(location->>'country', '<unknown>') AS country, count(*) AS cnt
 			FROM nodes
@@ -78,6 +86,17 @@ func saveNodeStats(db *pg.DB, errors *[]error) {
 			GROUP BY country
 		) AS t
 	), (
+		-- countries_isp
+		SELECT jsonb_object_agg(country, cnt) FROM (
+			SELECT COALESCE(location->>'country', '<unknown>') AS country, count(*) AS cnt
+			FROM nodes
+			JOIN autonomous_systems ON nodes.asn = autonomous_systems.number
+			WHERE nodes.updated_at > NOW() - INTERVAL '1 day'
+			  AND COALESCE(NULLIF(ipinfo->>'type', ''), NULLIF(incolumitas->>'type', '')) = 'isp'
+			GROUP BY country
+		) AS t
+	), (
+		-- subnet_countries
 		SELECT jsonb_object_agg(country, cnt) FROM (
 			SELECT country, count(*) as cnt
 			FROM (
@@ -91,10 +110,28 @@ func saveNodeStats(db *pg.DB, errors *[]error) {
 			GROUP BY country
 		) AS t
 	), (
+		-- subnet_countries_isp
+		SELECT jsonb_object_agg(country, cnt) FROM (
+			SELECT country, count(*) as cnt
+			FROM (
+				SELECT
+					COALESCE(location->>'country', '<unknown>') AS country,
+					host(set_masklen(ip_addr, 24)::cidr) AS net
+				FROM nodes
+				JOIN autonomous_systems ON nodes.asn = autonomous_systems.number
+				WHERE updated_at > NOW() - INTERVAL '1 day'
+				  AND COALESCE(NULLIF(ipinfo->>'type', ''), NULLIF(incolumitas->>'type', '')) = 'isp'
+				GROUP BY country, net
+			) AS t
+			GROUP BY country
+		) AS t
+	), (
+		-- subnets_count
 		SELECT COUNT(DISTINCT host(set_masklen(ip_addr, 24)::cidr))
 		FROM nodes
 		WHERE updated_at > NOW() - INTERVAL '1 day'
 	), (
+		-- subnets_top
 		SELECT jsonb_object_agg(net, size) FROM (
 			SELECT net, count(*) as size FROM (
 				SELECT host(set_masklen(ip_addr, 24)::cidr) AS net
@@ -104,6 +141,7 @@ func saveNodeStats(db *pg.DB, errors *[]error) {
 			GROUP BY net HAVING count(*) >= 10
 		) AS t
 	), (
+		-- subnet_sizes
 		SELECT jsonb_object_agg(size, cnt) FROM (
 			SELECT size, count(*) as cnt FROM (
 				SELECT net, count(*) as size FROM (
@@ -116,6 +154,7 @@ func saveNodeStats(db *pg.DB, errors *[]error) {
 			GROUP BY size
 		) AS t
 	), (
+		-- ip_types
 		SELECT jsonb_object_agg(ip_type, cnt) FROM (
 			SELECT
 				COALESCE((SELECT COALESCE(NULLIF(ipinfo->>'type', ''), NULLIF(incolumitas->>'type', ''))
@@ -126,6 +165,7 @@ func saveNodeStats(db *pg.DB, errors *[]error) {
 			GROUP BY ip_type
 		) AS t
 	), (
+		-- ports
 		SELECT jsonb_object_agg(port, cnt) FROM (
 			SELECT port, count(*) AS cnt
 			FROM nodes
