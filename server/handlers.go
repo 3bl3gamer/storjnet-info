@@ -829,8 +829,8 @@ func HandleAPINodesSubnetSummary(wr http.ResponseWriter, r *http.Request, ps htt
 }
 
 type CountriesStatItem struct {
-	name  string
-	count int64
+	a3Code string
+	count  int64
 }
 type CountriesStatItemList []CountriesStatItem
 type CountriesStat struct {
@@ -876,7 +876,7 @@ func (list CountriesStatItemList) MoveLeftNLargest(n int) {
 func (list CountriesStatItemList) findCountLeft(name string, fromIndex int) (int64, int) {
 	for i := fromIndex; i >= 0; i-- {
 		item := list[i]
-		if item.name == name {
+		if item.a3Code == name {
 			return item.count, i
 		}
 	}
@@ -884,7 +884,7 @@ func (list CountriesStatItemList) findCountLeft(name string, fromIndex int) (int
 }
 func (list CountriesStatItemList) findCountRight(name string, fromIndex int) (int64, int) {
 	for i, item := range list[fromIndex:] {
-		if item.name == name {
+		if item.a3Code == name {
 			return item.count, i + fromIndex
 		}
 	}
@@ -893,24 +893,24 @@ func (list CountriesStatItemList) findCountRight(name string, fromIndex int) (in
 
 // Assumes Postgres JSONB keys are sorted by (len(key), key):
 //
-//	{"Chile": 9, "China": 86, "India": 100, "Italy": 107, ... "Bosnia and Herzegovina": 1, "Saint Pierre and Miquelon": 1}
+//	{"alb": 2, "are": 23, "arg": 16, ... "zaf": 19, "<unknown>": 104}
 //
 // so each time country index is same or near prev index.
-func (list CountriesStatItemList) FindCountFor(name string, prevIndex int) (int64, int) {
+func (list CountriesStatItemList) FindCountFor(a3Code string, prevIndex int) (int64, int) {
 	if prevIndex != -1 && prevIndex < len(list) {
-		indexName := list[prevIndex].name
-		if indexName == name {
+		indexA3Code := list[prevIndex].a3Code
+		if indexA3Code == a3Code {
 			return list[prevIndex].count, prevIndex
 		}
-		if len(name) < len(indexName) || (len(name) == len(indexName) && name < indexName) {
-			return list.findCountLeft(name, prevIndex-1)
+		if len(a3Code) < len(indexA3Code) || (len(a3Code) == len(indexA3Code) && a3Code < indexA3Code) {
+			return list.findCountLeft(a3Code, prevIndex-1)
 		}
-		return list.findCountRight(name, prevIndex+1)
+		return list.findCountRight(a3Code, prevIndex+1)
 	}
-	return list.findCountRight(name, 0)
+	return list.findCountRight(a3Code, 0)
 }
 
-// Expects {"Chile": 9, "China": 86, ...}
+// Expects {"alb": 2, "are": 23, "arg": 16, ... "zaf": 19, "<unknown>": 104}
 func (cs *CountriesStat) Scan(src interface{}) error {
 	buf, ok := src.([]byte)
 	if !ok {
@@ -949,7 +949,7 @@ func (cs *CountriesStat) Scan(src interface{}) error {
 			if cs.items == nil {
 				cs.items = make(CountriesStatItemList, 0, 128) //usually there are 90-100 countries
 			}
-			cs.items = append(cs.items, CountriesStatItem{name: curString, count: curValue})
+			cs.items = append(cs.items, CountriesStatItem{a3Code: curString, count: curValue})
 			readingValue = false
 		}
 	}
@@ -962,6 +962,7 @@ func HandleAPINodesCountries(wr http.ResponseWriter, r *http.Request, ps httprou
 	query := r.URL.Query()
 	startDate, endDate := extractStartEndDatesFromQuery(query, false)
 	needAllCountries := query.Get("all") == "1"
+	lang := strings.ToLower(r.URL.Query().Get("lang"))
 
 	var items []struct {
 		Stamp     int64
@@ -978,13 +979,13 @@ func HandleAPINodesCountries(wr http.ResponseWriter, r *http.Request, ps httprou
 		return nil, merry.Wrap(err)
 	}
 
-	var filterNames []string
+	var filterA3Codes []string
 	if needAllCountries {
 		if len(items) > 0 {
 			countries := items[0].Countries.items
-			filterNames = make([]string, len(countries))
+			filterA3Codes = make([]string, len(countries))
 			for i, country := range countries {
-				filterNames[i] = country.name
+				filterA3Codes[i] = country.a3Code
 			}
 		}
 	} else {
@@ -1000,21 +1001,23 @@ func HandleAPINodesCountries(wr http.ResponseWriter, r *http.Request, ps httprou
 			copy(countries, item.Countries.items)
 			countries.MoveLeftNLargest(countryFilterN)
 			for _, c := range countries[:countryFilterN] {
-				countryFilter[c.name] = struct{}{}
+				countryFilter[c.a3Code] = struct{}{}
 			}
 		}
-		filterNames = make([]string, 0, len(countryFilter))
+		filterA3Codes = make([]string, 0, len(countryFilter))
 		for name := range countryFilter {
-			filterNames = append(filterNames, name)
+			filterA3Codes = append(filterA3Codes, name)
 		}
 	}
 
 	maxNameLen := 0
-	for _, name := range filterNames {
-		if len(name) > maxNameLen {
-			maxNameLen = len(name)
+	for _, a3Code := range filterA3Codes {
+		nameOrCode, _ := utils.CountryA3ToName(a3Code, lang)
+		if len(nameOrCode) > maxNameLen {
+			maxNameLen = len(nameOrCode)
 		}
 	}
+	maxNameLen += 3 + 1 //A3 name prefix + separator
 
 	startStamp := startDate.Unix()
 	maxStamp := startStamp
@@ -1035,13 +1038,15 @@ func HandleAPINodesCountries(wr http.ResponseWriter, r *http.Request, ps httprou
 	}
 
 	buf = make([]byte, 1+(maxNameLen+1)+2*countsArrLen)
-	for _, name := range filterNames {
+	for _, a3Code := range filterA3Codes {
 		// zeroing
 		for i := range buf {
 			buf[i] = 0
 		}
 
 		// country name
+		name, _ := utils.CountryA3ToName(a3Code, lang)
+		name = a3Code + "|" + name
 		buf[0] = byte(len(name))
 		copy(buf[1:], []byte(name))
 
@@ -1054,7 +1059,7 @@ func HandleAPINodesCountries(wr http.ResponseWriter, r *http.Request, ps httprou
 		for _, item := range items {
 			i := int((item.Stamp - startStamp) / 3600)
 			var count int64
-			count, prevIndex = item.Countries.items.FindCountFor(name, prevIndex)
+			count, prevIndex = item.Countries.items.FindCountFor(a3Code, prevIndex)
 			buf[valOffset+2*i+0] = byte(count)
 			buf[valOffset+2*i+1] = byte(count >> 8)
 		}
