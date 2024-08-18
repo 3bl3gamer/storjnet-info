@@ -715,9 +715,11 @@ func HandleAPINodesLocationSummary(wr http.ResponseWriter, r *http.Request, ps h
 	lang := strings.ToLower(r.URL.Query().Get("lang"))
 
 	type TopItem struct {
-		Country string `json:"country"`
-		Nodes   int64  `json:"nodes"`
-		Subnets int64  `json:"subnets"`
+		Country    string `json:"country"`
+		Nodes      int64  `json:"nodes"`
+		ISPNodes   int64  `json:"ispNodes"`
+		Subnets    int64  `json:"subnets"`
+		ISPSubnets int64  `json:"ispSubnets"`
 	}
 	var stats struct {
 		CountriesCount int64     `json:"countriesCount"`
@@ -731,9 +733,18 @@ func HandleAPINodesLocationSummary(wr http.ResponseWriter, r *http.Request, ps h
 				FROM jsonb_object_keys(countries) AS key
 			) AS countries_count,
 			(
-				SELECT jsonb_agg(jsonb_build_object('country', (nc).key, 'nodes', (nc).value, 'subnets', (sc).value))
+				SELECT jsonb_agg(jsonb_build_object(
+					'country', (nc).key,
+					'nodes', (nc).value,
+					'ispNodes', (inc).value,
+					'subnets', (sc).value,
+					'ispSubnets', (isc).value
+				))
 				FROM (
-					SELECT nc, sc FROM jsonb_each(countries) AS nc FULL OUTER JOIN jsonb_each(subnet_countries) AS sc ON (nc).key = (sc).key
+					SELECT nc, inc, sc, isc FROM jsonb_each(countries) AS nc
+					FULL OUTER JOIN jsonb_each(countries_isp) AS inc ON (nc).key = (inc).key
+					FULL OUTER JOIN jsonb_each(subnet_countries) AS sc ON (nc).key = (sc).key
+					FULL OUTER JOIN jsonb_each(subnet_countries_isp) AS isc ON (nc).key = (isc).key
 					ORDER BY (nc).value::int, (nc).key DESC
 				) AS t
 			) AS countries_top

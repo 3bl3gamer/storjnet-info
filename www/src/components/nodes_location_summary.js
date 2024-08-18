@@ -22,6 +22,7 @@ import { NodeCountriesChart } from './node_countries_chart'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks'
 
 import './nodes_location_summary.css'
+import { Help } from './help'
 
 const NodesLocationMap = memo(function NodesLocationMap() {
 	const mapPointsLayer = useRef(new PointsLayer()).current
@@ -88,12 +89,14 @@ const NodesSummary = memo(function NodesSummary() {
 		/**
 		 * @type {{
 		 *   countriesCount: number,
-		 *   countriesTop: {country:string, nodes:number, subnets:number}[]
+		 *   countriesTop: {country:string, nodes:number, ispNodes:number, subnets:number, ispSubnets:number}[]
 		 * } | null}
 		 */ (null),
 	)
 	const [isExpanded, setIsExpanded] = useState(false)
-	const [sortCol, setSortCol] = useState(/**@type {'nodes'|'subnets'|'nodesPerSub'}*/ ('nodes'))
+	const [sortCol, setSortCol] = useState(
+		/**@type {'nodes'|'ispNodes'|'subnets'|'ispSubnets'|'nodesPerSub'}*/ ('nodes'),
+	)
 	const [, endDate] = useHashInterval()
 
 	useEffect(() => {
@@ -120,21 +123,51 @@ const NodesSummary = memo(function NodesSummary() {
 		return stats.countriesTop.sort(
 			sortCol === 'nodesPerSub'
 				? (a, b) => b.nodes / b.subnets - a.nodes / a.subnets
+				: sortCol === 'ispNodes'
+				? (a, b) => b.ispNodes / b.nodes - a.ispNodes / a.nodes
+				: sortCol === 'ispSubnets'
+				? (a, b) => b.ispSubnets / b.subnets - a.ispSubnets / a.subnets
 				: (a, b) => b[sortCol] - a[sortCol],
 		)
 	}, [stats, sortCol])
 
+	const getTableHelpContent = useCallback(() => {
+		return html`<p>
+				<b>${L('Nodes', 'ru', 'Ноды')}, %ISP</b> —${' '}
+				${lang === 'ru'
+					? 'количетсво нод в стране и доля этих нод, работающих из сетей интернет-провайдеров'
+					: 'number of nodes in the country and the fraction of these nodes operated from Internet providers networks'}.
+			</p>
+			<p>
+				<b>${L('Subnets', 'ru', 'Подсети')}, %ISP</b> —${' '}
+				${lang === 'ru'
+					? 'количетсво /24-подсетей и доля этих подсетей, относящихся к сетям интернет-провайдеров'
+					: 'number of /24-subnets and the fraction of these subnets belonging to Internet providers networks'}.
+			</p>
+			<p>
+				<b>${L('Average', 'ru', 'Среднее')}</b> —${' '}
+				${lang === 'ru'
+					? 'среднее количество нод в подсети (ноды / подсети)'
+					: 'average number of nodes per subnet (nodes / subnets)'}.
+			</p>`
+	}, [])
+
 	const countriesCount = stats && stats.countriesCount
 	return html`
-		<div class="p-like">
+		<div class="p-like" style="max-width:100%; overflow-x:auto">
 			<table class="node-countries-table underlined wide-padded">
 				<thead>
 					<tr>
 						<td>${L('#', 'ru', '№')}</td>
-						<td>${L('Country', 'ru', 'Страна')}</td>
+						<td class="name">${L('Country', 'ru', 'Страна')}</td>
 						<td>
 							<button class="a-like" onclick=${() => setSortCol('nodes')}>
 								${L('Nodes', 'ru', 'Ноды')}${sortCol === 'nodes' ? '▼' : ''}
+							</button>
+						</td>
+						<td class="isp">
+							<button class="a-like" onclick=${() => setSortCol('ispNodes')}>
+								<span class="small">%</span>ISP${sortCol === 'ispNodes' ? '▼' : ''}
 							</button>
 						</td>
 						<td>
@@ -142,10 +175,16 @@ const NodesSummary = memo(function NodesSummary() {
 								${L('Subnets', 'ru', 'Подсети')}${sortCol === 'subnets' ? '▼' : ''}
 							</button>
 						</td>
-						<td>
+						<td class="isp">
+							<button class="a-like" onclick=${() => setSortCol('ispSubnets')}>
+								<span class="small">%</span>ISP${sortCol === 'ispSubnets' ? '▼' : ''}
+							</button>
+						</td>
+						<td class="avg">
 							<button class="a-like" onclick=${() => setSortCol('nodesPerSub')}>
 								${L('Avg', 'ru', 'Сред.')}${sortCol === 'nodesPerSub' ? '▼' : ''}
 							</button>
+							${' '}<${Help} contentFunc=${getTableHelpContent} />
 						</td>
 					</tr>
 				</thead>
@@ -158,18 +197,26 @@ const NodesSummary = memo(function NodesSummary() {
 									<td class="dim">...</td>
 									<td class="dim">...</td>
 									<td class="dim">...</td>
+									<td class="dim">...</td>
+									<td class="dim">...</td>
 								</tr>`,
 						  )
 						: (isExpanded ? countriesTopSorted : countriesTopSorted.slice(0, 10)).map(
 								(item, i) =>
 									html`<tr>
 										<td>${i + 1}</td>
-										<td>${item.country}</td>
-										<td class=${sortCol === 'nodes' ? '' : 'dim'}>
+										<td class="name">${item.country}</td>
+										<td class=${['nodes', 'ispNodes'].includes(sortCol) ? '' : 'dim'}>
 											${blankIfZero(item.nodes)}
 										</td>
-										<td class=${sortCol === 'subnets' ? '' : 'dim'}>
+										<td class=${['nodes', 'ispNodes'].includes(sortCol) ? '' : 'dim'}>
+											${blankIfZeroPerc(item.ispNodes, item.nodes)}
+										</td>
+										<td class=${['subnets', 'ispSubnets'].includes(sortCol) ? '' : 'dim'}>
 											${blankIfZero(item.subnets)}
+										</td>
+										<td class=${['subnets', 'ispSubnets'].includes(sortCol) ? '' : 'dim'}>
+											${blankIfZeroPerc(item.ispSubnets, item.subnets)}
 										</td>
 										<td class=${sortCol === 'nodesPerSub' ? '' : 'dim'}>
 											${item.subnets === 0
@@ -181,7 +228,7 @@ const NodesSummary = memo(function NodesSummary() {
 					<tr>
 						${!isExpanded &&
 						html`
-							<td colspan="4">
+							<td colspan="6">
 								<button class="a-like" onclick=${onExpand}>
 									${L('Expand', 'ru', 'Развернуть')}
 								</button>
@@ -235,4 +282,10 @@ export class NodesLocationSummary extends PureComponent {
 /** @param {number} num */
 function blankIfZero(num) {
 	return num === 0 ? '' : num + ''
+}
+
+/** @param {number} num */
+function blankIfZeroPerc(num, denom) {
+	if (denom === 0) return ''
+	return ((num * 100) / denom).toFixed(0)
 }

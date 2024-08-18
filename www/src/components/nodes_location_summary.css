@@ -5,10 +5,19 @@
 	background-color: #eee;
 }
 
-.node-countries-table td:first-child,
-.node-countries-table tbody td:nth-child(3),
-.node-countries-table tbody td:nth-child(4),
-.node-countries-table tbody td:nth-child(5) {
+.node-countries-table thead td:nth-child(3),
+.node-countries-table thead td:nth-child(5),
+.node-countries-table thead td:nth-child(7) {
+	padding-left: 48px;
+}
+.node-countries-table thead td.isp {
+	padding-left: 10px;
+}
+.node-countries-table thead td.avg .help {
+	margin-right: -20px;
+}
+
+.node-countries-table tbody td:not(.name) {
 	text-align: right;
 }
 
