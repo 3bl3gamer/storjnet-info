@@ -29,6 +29,7 @@ func saveNodeStats(db *pg.DB, errors *[]error) {
 		subnets_top,
 		subnet_sizes,
 		ip_types,
+		ip_types_asn_tops,
 		ports
 	) VALUES ((
 		-- count_total
@@ -162,6 +163,24 @@ func saveNodeStats(db *pg.DB, errors *[]error) {
 				count(*) AS cnt
 			FROM nodes
 			WHERE updated_at > NOW() - INTERVAL '1 day'
+			GROUP BY ip_type
+		) AS t
+	), (
+		-- ip_types_asn_tops
+		SELECT jsonb_object_agg(ip_type, tops) FROM (
+			SELECT ip_type, json_object_agg(COALESCE(asn::text, '<unknown>'), count) AS tops
+			FROM (
+				SELECT asn, ip_type, count(*), row_number() OVER (PARTITION BY ip_type ORDER BY count(*) DESC)
+				FROM (
+					SELECT asn,
+						COALESCE((SELECT COALESCE(NULLIF(ipinfo->>'type', ''), NULLIF(incolumitas->>'type', ''), '<unknown>')
+							FROM autonomous_systems WHERE number = nodes.asn), '<unknown>') AS ip_type
+					FROM nodes
+					WHERE updated_at > NOW() - INTERVAL '1 day'
+				) AS t
+				GROUP BY asn, ip_type
+			) AS t
+			WHERE row_number <= 10
 			GROUP BY ip_type
 		) AS t
 	), (
