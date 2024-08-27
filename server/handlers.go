@@ -782,9 +782,14 @@ func HandleAPINodesSubnetSummary(wr http.ResponseWriter, r *http.Request, ps htt
 		Size  int64 `json:"size"`
 		Count int64 `json:"count"`
 	}
-	type IPTypeItem struct {
-		Type  string `json:"type"`
+	type ASNTopItem struct {
+		Name  string `json:"name"`
 		Count int64  `json:"count"`
+	}
+	type IPTypeItem struct {
+		Type   string       `json:"type"`
+		Count  int64        `json:"count"`
+		ASNTop []ASNTopItem `json:"asnTop"`
 	}
 	var stats struct {
 		SubnetsCount int64        `json:"subnetsCount"`
@@ -811,10 +816,31 @@ func HandleAPINodesSubnetSummary(wr http.ResponseWriter, r *http.Request, ps htt
 				) AS t
 			) AS subnet_sizes,
 			(
-				SELECT jsonb_agg(jsonb_build_object('type', (t).key, 'count', (t).value))
+				SELECT jsonb_agg(jsonb_build_object(
+					'type', COALESCE((types).key, (tops).key), --in case ip_types and ip_types_asn_tops have differend keys (IP types), this should not happen
+					'count', (types).value,
+					'asnTop', (tops).value)
+				)
 				FROM (
-					SELECT t FROM jsonb_each(ip_types) AS t
-					ORDER BY (t).value::int DESC
+					SELECT types, tops
+					FROM jsonb_each(ip_types) AS types
+					FULL OUTER JOIN (
+						-- {"isp":{"10":123}} -> "isp",[{"name":"Vodafone", "count":123}]
+						SELECT (tops).key AS key, (
+							-- {"10":123,...} -> [{"name":"Vodafone", "count":123},...]
+							SELECT jsonb_agg(jsonb_build_object(
+								'name', CASE WHEN (as_top_item).key = '<unknown>' THEN '<unknown>' ELSE COALESCE((
+									SELECT COALESCE(ipinfo->>'name', incolumitas->>'name', 'AS'||number)
+									FROM autonomous_systems WHERE (as_top_item).key != '<unknown>' AND number = (as_top_item).key::int
+								), 'AS'||(as_top_item).key) END,
+								'count', (as_top_item).value
+							) ORDER BY (as_top_item).value DESC)
+							FROM jsonb_each((tops).value) AS as_top_item
+						) AS value
+						FROM jsonb_each(ip_types_asn_tops) AS tops
+					) AS tops
+					ON (types).key = (tops).key
+					ORDER BY (types).value::int DESC
 				) AS t
 			) AS ip_types
 		FROM node_stats
@@ -835,6 +861,11 @@ func HandleAPINodesSubnetSummary(wr http.ResponseWriter, r *http.Request, ps htt
 	}
 	if stats.IPTypes == nil {
 		stats.IPTypes = []IPTypeItem{}
+	}
+	for i, item := range stats.IPTypes {
+		if item.ASNTop == nil {
+			stats.IPTypes[i].ASNTop = []ASNTopItem{}
+		}
 	}
 	return stats, nil
 }

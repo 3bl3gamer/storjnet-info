@@ -8,21 +8,21 @@ import { onError } from 'src/errors'
 import { zeroes } from 'src/utils/arrays'
 
 import './nodes_subnet_summary.css'
+import { THINSP } from 'src/utils/elems'
 
 const SIZES_STATS_COUNTS = [1, 2, 3, 10, 100]
 
+/**
+ * @typedef {{
+ *   subnetsCount: number,
+ *   subnetsTop: {subnet:string, size:number}[],
+ *   subnetSizes: {size:number, count:number}[],
+ *   ipTypes: {type:string, count:number, asnTop:{name:string, count:number}[]}[],
+ * }} NodesSubnetsSummaryResponse
+ */
+
 const NodesSummary = memo(function NodesSummary() {
-	const [stats, setStats] = useState(
-		/**
-		 * @type {{
-		 *   subnetsCount: number,
-		 *   subnetsTop: {subnet:string, size:number}[],
-		 *   subnetSizes: {size:number, count:number}[],
-		 *   ipTypes: {type:string, count:number}[],
-		 * } | null}
-		 */ (null),
-	)
-	const [isExpanded, setIsExpanded] = useState(false)
+	const [stats, setStats] = useState(/** @type {NodesSubnetsSummaryResponse | null} */ (null))
 	const [, endDate] = useHashInterval()
 
 	useEffect(() => {
@@ -40,15 +40,74 @@ const NodesSummary = memo(function NodesSummary() {
 		return () => abortController.abort()
 	}, [endDate])
 
+	const subnetsCount = stats ? stats.subnetsCount : 0
+
+	return html`
+		<div class="node-subnets-summary-wrap p-like">
+			<${NodesSubnetsSummaryTable} subnetsTop=${stats?.subnetsTop} />
+			<${NodesSubnetsSizesTable} subnetSizes=${stats?.subnetSizes} />
+			<${NodesIPTypesTable} ipTypes=${stats?.ipTypes} />
+		</div>
+		<p>
+			${lang === 'ru'
+				? `Ноды запущены как минимум в ${L.n(subnetsCount, 'подсети', 'подсетях', 'подсетях')} /24.`
+				: `Nodes are running in at least ${L.n(subnetsCount, 'subnet', 'subnets')} /24.`}
+		</p>
+	`
+})
+
+/** @param {{subnetsTop: undefined | NodesSubnetsSummaryResponse['subnetsTop']}} props */
+function NodesSubnetsSummaryTable({ subnetsTop }) {
+	return html`<table class="node-subnets-table underlined wide-padded">
+		<thead>
+			<tr>
+				<td>${L('#', 'ru', '№')}</td>
+				<td>${L('Subnet', 'ru', 'Подсеть')}</td>
+				<td>
+					${L('Nodes', 'ru', 'Нод')}
+					<div class="small dim">${L('in subnet', 'ru', 'в подсети')}</div>
+				</td>
+			</tr>
+		</thead>
+		<tbody>
+			${!subnetsTop
+				? zeroes(5).map(
+						(_, i) => html`<tr>
+							<td class="dim">${i + 1}</td>
+							<td class="dim">${L('loading…', 'ru', 'загрузка…')}</td>
+							<td class="dim">…</td>
+						</tr>`,
+				  )
+				: subnetsTop.map(
+						(item, i) =>
+							html`<tr>
+								<td>${i + 1}</td>
+								<td><${Subnet} subnet=${item.subnet} /></td>
+								<td>${item.size}</td>
+							</tr>`,
+				  )}
+			<tr>
+				<td></td>
+				<td>…</td>
+				<td></td>
+			</tr>
+		</tbody>
+	</table>`
+}
+
+/** @param {{subnetSizes: undefined | NodesSubnetsSummaryResponse['subnetSizes']}} props */
+function NodesSubnetsSizesTable({ subnetSizes }) {
+	const [isExpanded, setIsExpanded] = useState(false)
+
 	const onExpand = useCallback(() => {
 		setIsExpanded(true)
 	}, [])
 
 	const sizesStats = useMemo(() => {
-		if (stats === null) return null
+		if (!subnetSizes) return null
 
 		if (isExpanded) {
-			return stats.subnetSizes.map(x => ({ label: x.size + '', count: x.count }))
+			return subnetSizes.map(x => ({ label: x.size + '', count: x.count }))
 		} else {
 			return SIZES_STATS_COUNTS.map((count, i, counts) => {
 				const nextCount = counts[i + 1] || Infinity
@@ -59,135 +118,129 @@ const NodesSummary = memo(function NodesSummary() {
 							: nextCount === Infinity
 							? count + '+'
 							: html`${count}<span class="dim">–${nextCount - 1}</span>`,
-					count: stats.subnetSizes
+					count: subnetSizes
 						.filter(x => x.size >= count && x.size < nextCount)
 						.map(x => x.count)
 						.reduce((a, b) => a + b, 0),
 				}
 			}).filter(x => x.count > 0)
 		}
-	}, [stats, isExpanded])
+	}, [subnetSizes, isExpanded])
 
-	const subnetsCount = stats ? stats.subnetsCount : 0
+	return html`<table class="node-subnet-sizes-table underlined wide-padded">
+		<thead>
+			<tr>
+				<td>
+					${L('Nodes', 'ru', 'Нод')}
+					<div class="small dim">${L('in subnet', 'ru', 'в подсети')}</div>
+				</td>
+				<td>
+					${L('Count', 'ru', 'Кол-во')}
+					<div class="small dim">${L('of subnets', 'ru', 'подсетей')}</div>
+				</td>
+			</tr>
+		</thead>
+		<tbody>
+			${sizesStats === null
+				? zeroes(SIZES_STATS_COUNTS.length).map(
+						x =>
+							html`<tr>
+								<td class="dim" colspan="2">${L('loading…', 'ru', 'загрузка…')}</td>
+							</tr>`,
+				  )
+				: sizesStats.map(
+						(item, i) =>
+							html`<tr>
+								<td>${item.label}</td>
+								<td>${item.count}</td>
+							</tr>`,
+				  )}
+			<tr>
+				${!isExpanded &&
+				sizesStats &&
+				sizesStats.length > 0 &&
+				html`
+					<td colspan="3">
+						<button class="a-like" onclick=${onExpand}>${L('Expand', 'ru', 'Развернуть')}</button>
+					</td>
+				`}
+			</tr>
+		</tbody>
+	</table>`
+}
 
-	return html`
-		<div class="node-subnets-summary-wrap p-like">
-			<table class="node-subnets-table underlined wide-padded">
-				<thead>
-					<tr>
-						<td>${L('#', 'ru', '№')}</td>
-						<td>${L('Subnet', 'ru', 'Подсеть')}</td>
-						<td>
-							${L('Nodes', 'ru', 'Нод')}
-							<div class="small dim">${L('in subnet', 'ru', 'в подсети')}</div>
-						</td>
-					</tr>
-				</thead>
-				<tbody>
-					${stats === null
-						? zeroes(5).map(
-								(_, i) => html`<tr>
-									<td class="dim">${i + 1}</td>
-									<td class="dim">${L('loading...', 'ru', 'загрузка...')}</td>
-									<td class="dim">...</td>
-								</tr>`,
-						  )
-						: stats.subnetsTop.map(
-								(item, i) =>
-									html`<tr>
-										<td>${i + 1}</td>
-										<td><${Subnet} subnet=${item.subnet} /></td>
-										<td>${item.size}</td>
-									</tr>`,
-						  )}
-					<tr>
-						<td></td>
-						<td>...</td>
-						<td></td>
-					</tr>
-				</tbody>
-			</table>
-			<table class="node-subnet-sizes-table underlined wide-padded">
-				<thead>
-					<tr>
-						<td>
-							${L('Nodes', 'ru', 'Нод')}
-							<div class="small dim">${L('in subnet', 'ru', 'в подсети')}</div>
-						</td>
-						<td>
-							${L('Count', 'ru', 'Кол-во')}
-							<div class="small dim">${L('of subnets', 'ru', 'подсетей')}</div>
-						</td>
-					</tr>
-				</thead>
-				<tbody>
-					${sizesStats === null
-						? zeroes(SIZES_STATS_COUNTS.length).map(
+/** @param {{ipTypes: undefined | NodesSubnetsSummaryResponse['ipTypes']}} props */
+function NodesIPTypesTable({ ipTypes }) {
+	const [expanded, setExpanded] = useState(/**@type {Record<string, true>}*/ ({}))
+
+	const toggle = useCallback((/**@type {string}*/ type) => {
+		setExpanded(expanded => {
+			expanded = { ...expanded }
+			if (expanded[type]) {
+				delete expanded[type]
+			} else {
+				expanded[type] = true
+			}
+			return expanded
+		})
+	}, [])
+
+	return html`<table class="node-ip-types-table underlined wide-padded">
+		<thead>
+			<tr>
+				<td>
+					${Object.keys(expanded).length > 0 &&
+					html`${L('Name', 'ru', 'Название')}
+						<div class="small dim">${L('of AS', 'ru', "AS'ки")}</div>`}
+				</td>
+				<td>
+					${L('Type', 'ru', 'Тип')}
+					<div class="small dim">${L('of IP-addr', 'ru', 'IP-адреса')}</div>
+				</td>
+				<td>
+					${L('Nodes', 'ru', 'Кол-во')}
+					<div class="small dim">${L('count', 'ru', 'нод')}</div>
+				</td>
+			</tr>
+		</thead>
+		<tbody>
+			${!ipTypes
+				? zeroes(4).map(
+						(_, i) => html`<tr>
+							<td colspan="3" class="dim">${L('loading…', 'ru', 'загрузка…')}</td>
+						</tr>`,
+				  )
+				: ipTypes.map(item => {
+						const isExpanded = !!expanded[item.type]
+						const isTruncated = item.count > item.asnTop.reduce((a, b) => a + b.count, 0)
+						return html`<tr class="${isExpanded ? 'expanded' : ''}">
+								<td></td>
+								<td class="type">
+									<button class="a-like" onclick=${() => toggle(item.type)}>
+										${isExpanded ? '⏷' : '⏵'}${THINSP}${item.type}
+									</button>
+								</td>
+								<td class="count">${item.count}</td>
+							</tr>
+							${isExpanded &&
+							item.asnTop.map(
 								x =>
 									html`<tr>
-										<td class="dim" colspan="2">
-											${L('loading...', 'ru', 'загрузка...')}
-										</td>
+										<td class="name" colspan="2">${x.name}</td>
+										<td class="count">${x.count}</td>
 									</tr>`,
-						  )
-						: sizesStats.map(
-								(item, i) =>
-									html`<tr>
-										<td>${item.label}</td>
-										<td>${item.count}</td>
-									</tr>`,
-						  )}
-					<tr>
-						${!isExpanded &&
-						sizesStats &&
-						sizesStats.length > 0 &&
-						html`
-							<td colspan="3">
-								<button class="a-like" onclick=${onExpand}>
-									${L('Expand', 'ru', 'Развернуть')}
-								</button>
-							</td>
-						`}
-					</tr>
-				</tbody>
-			</table>
-			<table class="node-ip-types-table underlined wide-padded">
-				<thead>
-					<tr>
-						<td>
-							${L('Type', 'ru', 'Тип')}
-							<div class="small dim">${L('of IP-addr', 'ru', 'IP-адреса')}</div>
-						</td>
-						<td>
-							${L('Nodes', 'ru', 'Кол-во')}
-							<div class="small dim">${L('count', 'ru', 'нод')}</div>
-						</td>
-					</tr>
-				</thead>
-				<tbody>
-					${stats === null
-						? zeroes(4).map(
-								(_, i) => html`<tr>
-									<td colspan="2" class="dim">${L('loading...', 'ru', 'загрузка...')}</td>
-								</tr>`,
-						  )
-						: stats.ipTypes.map(
-								item =>
-									html`<tr>
-										<td>${item.type}</td>
-										<td>${item.count}</td>
-									</tr>`,
-						  )}
-				</tbody>
-			</table>
-		</div>
-		<p>
-			${lang === 'ru'
-				? `Ноды запущены как минимум в ${L.n(subnetsCount, 'подсети', 'подсетях', 'подсетях')} /24.`
-				: `Nodes are running in at least ${L.n(subnetsCount, 'subnet', 'subnets')} /24.`}
-		</p>
-	`
-})
+							)}
+							${isExpanded &&
+							isTruncated &&
+							html`<tr>
+								<td></td>
+								<td class="type dim">…</td>
+								<td></td>
+							</tr>`}`
+				  })}
+		</tbody>
+	</table>`
+}
 
 /** @param {{subnet:string}} props */
 function Subnet({ subnet }) {

@@ -23,6 +23,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks'
 
 import './nodes_location_summary.css'
 import { Help } from './help'
+import { THINSP } from 'src/utils/elems'
 
 const NodesLocationMap = memo(function NodesLocationMap() {
 	const mapPointsLayer = useRef(new PointsLayer()).current
@@ -162,27 +163,27 @@ const NodesSummary = memo(function NodesSummary() {
 						<td class="name">${L('Country', 'ru', 'Страна')}</td>
 						<td>
 							<button class="a-like" onclick=${() => setSortCol('nodes')}>
-								${L('Nodes', 'ru', 'Ноды')}${sortCol === 'nodes' ? '▼' : ''}
+								${L('Nodes', 'ru', 'Ноды')}${sortCol === 'nodes' ? THINSP + '⏷' : ''}
 							</button>
 						</td>
 						<td class="isp">
 							<button class="a-like" onclick=${() => setSortCol('ispNodes')}>
-								<span class="small">%</span>ISP${sortCol === 'ispNodes' ? '▼' : ''}
+								<span class="small">%</span>ISP${sortCol === 'ispNodes' ? THINSP + '⏷' : ''}
 							</button>
 						</td>
 						<td>
 							<button class="a-like" onclick=${() => setSortCol('subnets')}>
-								${L('Subnets', 'ru', 'Подсети')}${sortCol === 'subnets' ? '▼' : ''}
+								${L('Subnets', 'ru', 'Подсети')}${sortCol === 'subnets' ? THINSP + '⏷' : ''}
 							</button>
 						</td>
 						<td class="isp">
 							<button class="a-like" onclick=${() => setSortCol('ispSubnets')}>
-								<span class="small">%</span>ISP${sortCol === 'ispSubnets' ? '▼' : ''}
+								<span class="small">%</span>ISP${sortCol === 'ispSubnets' ? THINSP + '⏷' : ''}
 							</button>
 						</td>
 						<td class="avg">
 							<button class="a-like" onclick=${() => setSortCol('nodesPerSub')}>
-								${L('Avg', 'ru', 'Сред.')}${sortCol === 'nodesPerSub' ? '▼' : ''}
+								${L('Avg', 'ru', 'Сред.')}${sortCol === 'nodesPerSub' ? THINSP + '⏷' : ''}
 							</button>
 							${' '}<${Help} contentFunc=${getTableHelpContent} />
 						</td>

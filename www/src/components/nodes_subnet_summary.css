@@ -27,11 +27,17 @@
 	border-bottom: none;
 }
 
-.node-ip-types-table tbody td:first-child {
+.node-ip-types-table tbody td.name {
+	max-width: 320px;
+}
+.node-ip-types-table tbody td.type {
 	text-align: center;
 }
-.node-ip-types-table tbody td:last-child {
+.node-ip-types-table tbody td.count {
 	text-align: right;
+}
+.node-ip-types-table tbody tr.expanded {
+	font-weight: bold;
 }
 .node-ip-types-table tbody tr:last-child {
 	border-bottom: none;
