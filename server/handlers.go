@@ -830,7 +830,7 @@ func HandleAPINodesSubnetSummary(wr http.ResponseWriter, r *http.Request, ps htt
 							-- {"10":123,...} -> [{"name":"Vodafone", "count":123},...]
 							SELECT jsonb_agg(jsonb_build_object(
 								'name', CASE WHEN (as_top_item).key = '<unknown>' THEN '<unknown>' ELSE COALESCE((
-									SELECT COALESCE(ipinfo->>'name', incolumitas->>'name', 'AS'||number)
+									SELECT COALESCE(ipinfo->>'name', incolumitas->>'org', 'AS'||number)
 									FROM autonomous_systems WHERE (as_top_item).key != '<unknown>' AND number = (as_top_item).key::int
 								), 'AS'||(as_top_item).key) END,
 								'count', (as_top_item).value
