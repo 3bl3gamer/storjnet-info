@@ -29,6 +29,10 @@ func OptimizeDB() error {
 		}
 	}
 
+	if err := removeOldCompaniesUnknownIPs(db); err != nil {
+		return merry.Wrap(err)
+	}
+
 	log.Info().Msg("done.")
 	return nil
 }
@@ -263,5 +267,14 @@ func vacuumIfHaveEnoughSpace(db *pg.DB, tableName string) error {
 	if err != nil {
 		return merry.Wrap(err)
 	}
+	return nil
+}
+
+func removeOldCompaniesUnknownIPs(db *pg.DB) error {
+	res, err := db.Exec(`DELETE FROM network_company_unknown_ips WHERE update_at < NOW() - INTERVAL '30 days'`)
+	if err != nil {
+		return merry.Wrap(err)
+	}
+	log.Info().Int("count", res.RowsAffected()).Msg("removed old companies unknown IPs")
 	return nil
 }

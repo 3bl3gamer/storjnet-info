@@ -254,12 +254,14 @@ func CMDFillASIPInfoData(cmd *cobra.Command, args []string) error {
 func CMDFillIPCompanies(cmd *cobra.Command, args []string) error {
 	db := utils.MakePGConnection()
 
-	// if _, err := core.UpdateASInfoIfNeed(db, 1); err != nil {
+	// if _, err := core.UpdateIPCompanyIfNeed(db, "51.81.109.29"); err != nil {
 	// 	return merry.Wrap(err)
 	// }
 	// return nil
 
-	// if _, err := core.UpdateIPCompanyIfNeed(db, "109.194.141.74"); err != nil {
+	// =====
+
+	// if _, err := core.UpdateASInfoIfNeed(db, 1); err != nil {
 	// 	return merry.Wrap(err)
 	// }
 	// return nil

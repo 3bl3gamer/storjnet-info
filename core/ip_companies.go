@@ -29,13 +29,39 @@ func UpdateIPCompanyIfNeed(db *pg.DB, ipAddr string) (bool, error) {
 	if err != nil {
 		return false, merry.Wrap(err)
 	}
+	_, err = db.Query(&t, `
+		SELECT 1 FROM network_company_unknown_ips
+		WHERE ip_addr = ?
+		  AND updated_at > NOW() - INTERVAL '3 days'`,
+		ipAddr, ipAddr)
+	if t == 1 {
+		return false, nil
+	}
+	if err != nil {
+		return false, merry.Wrap(err)
+	}
 
 	company, found, err := fetchIPCompanyInfo(ipAddr)
 	if err != nil {
 		return false, merry.Wrap(err)
 	}
 	if !found {
-		log.Warn().Str("ip", ipAddr).Msg("company not found")
+		log.Warn().Str("ip", ipAddr).Msg("company not found, removing existing (if any)")
+		res, err := db.Exec(`
+			DELETE FROM network_companies WHERE ip_from <= ? AND ip_to >= ?`,
+			ipAddr, ipAddr)
+		if err != nil {
+			return false, merry.Wrap(err)
+		}
+		log.Debug().Str("ip", ipAddr).Int("count", res.RowsAffected()).Msg("removed companies")
+
+		_, err = db.Exec(`
+			INSERT INTO network_company_unknown_ips (ip_addr) VALUES (?)
+			ON CONFLICT (ip_addr) DO UPDATE SET updated_at = NOW()`,
+			ipAddr)
+		if err != nil {
+			return false, merry.Wrap(err)
+		}
 		return false, nil
 	}
 
@@ -87,15 +113,6 @@ func UpdateIPCompanyIfNeed(db *pg.DB, ipAddr string) (bool, error) {
 				if err != nil {
 					return false, merry.Wrap(err)
 				}
-				continue
-			}
-		}
-
-		// isec.range fully includes -> skipping
-		if isec.Network.IPFrom.LE(company.Network.IPFrom) && company.Network.IPTo.LE(isec.Network.IPTo) {
-			if isec.Incolumitas.Equals(company.ipCompanyInfoToSave) {
-				log.Debug().Any("net", company.Network).Any("old", isec.Network).Str("name", company.Name).Msg("skipping new inner")
-				isAlreadySaved = true
 				continue
 			}
 		}
