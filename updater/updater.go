@@ -1,7 +1,6 @@
 package updater
 
 import (
-	"context"
 	"encoding/hex"
 	"storjnet/core"
 	"storjnet/utils"
@@ -25,24 +24,13 @@ type UserNodeWithErr struct {
 func doPing(sats utils.Satellites, node *core.Node) (time.Duration, error) {
 	var lastErr error
 	for _, sat := range sats {
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-
-		stt := time.Now()
-		conn, err := sat.Dial(ctx, node.Address, node.ID, utils.SatModeTCP)
+		dialOnly := node.PingMode != "ping"
+		res, err := sat.PingAndClose(node.Address, node.ID, utils.SatModeTCP, dialOnly, 5*time.Second)
 		if err != nil {
 			lastErr = ErrDialFail.WithCause(err)
 			continue
 		}
-		defer conn.Close()
-
-		if node.PingMode == "ping" {
-			if err := sat.Ping(ctx, conn, utils.SatModeTCP); err != nil && !utils.IsUntrustedSatPingError(err) {
-				lastErr = ErrPingFail.WithCause(err)
-				continue
-			}
-		}
-		return time.Since(stt), nil
+		return time.Duration((res.DialDuration + res.PingDuration) * float64(time.Second)), nil
 	}
 	return 0, merry.Wrap(lastErr)
 }

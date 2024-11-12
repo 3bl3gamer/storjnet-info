@@ -1,7 +1,6 @@
 package server
 
 import (
-	"context"
 	"database/sql"
 	"encoding/binary"
 	"io"
@@ -99,11 +98,10 @@ func HandlePingMyNode(wr http.ResponseWriter, r *http.Request, ps httprouter.Par
 	type SatInfo struct {
 		Num   int64  `json:"num"`
 		Label string `json:"label"`
-		Quic  bool   `json:"quic"`
 	}
 	var satsInfo []SatInfo
 	for i, sat := range sats {
-		satsInfo = append(satsInfo, SatInfo{Num: int64(i), Label: sat.Label, Quic: sat.QUICDialer != nil})
+		satsInfo = append(satsInfo, SatInfo{Num: int64(i), Label: sat.Label()})
 	}
 
 	return map[string]interface{}{"FPath": "ping_my_node.html", "UsableSats": satsInfo}, nil
@@ -189,26 +187,16 @@ func HandleAPIPingMyNode(wr http.ResponseWriter, r *http.Request, ps httprouter.
 		sat = sats[params.SatelliteNum]
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	stt := time.Now()
-	conn, err := sat.Dial(ctx, params.Address, id, satMode)
+	durs, err := sat.PingAndClose(params.Address, id, satMode, params.DialOnly, 5*time.Second)
 	if err != nil {
-		return httputils.JsonError{Code: 400, Error: "NODE_DIAL_ERROR", Description: err.Error()}, nil
-	}
-	dialDuration := time.Since(stt).Seconds()
-	defer conn.Close()
-
-	var pingDuration float64
-	if !params.DialOnly {
-		stt := time.Now()
-		if err := sat.Ping(ctx, conn, satMode); err != nil && !utils.IsUntrustedSatPingError(err) {
-			return httputils.JsonError{Code: 400, Error: "NODE_PING_ERROR", Description: err.Error()}, nil
+		errName := "NODE_DIAL_ERROR"
+		if durs.PingDuration > 0 {
+			errName = "NODE_PING_ERROR"
 		}
-		pingDuration = time.Since(stt).Seconds()
+		return httputils.JsonError{Code: 400, Error: errName, Description: err.Error()}, nil
 	}
-	return map[string]interface{}{"pingDuration": pingDuration, "dialDuration": dialDuration}, nil
+
+	return map[string]interface{}{"dialDuration": durs.DialDuration, "pingDuration": durs.PingDuration}, nil
 }
 
 func HandleAPINeighbors(wr http.ResponseWriter, r *http.Request, ps httprouter.Params) (interface{}, error) {

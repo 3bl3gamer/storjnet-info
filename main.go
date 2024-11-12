@@ -5,6 +5,7 @@ import (
 	"storjnet/core"
 	"storjnet/nodes"
 	"storjnet/optimizer"
+	"storjnet/proxy"
 	"storjnet/server"
 	"storjnet/tgbot"
 	"storjnet/transactions"
@@ -23,6 +24,10 @@ var env = utils.Env{Val: "dev"}
 
 var httpCmdFlags = struct {
 	serverAddr string
+}{}
+var pingProxyCmdFlags = struct {
+	serverAddr      string
+	identityDirPath string
 }{}
 var tgBotCmdFlags = struct {
 	botToken          string
@@ -51,6 +56,11 @@ var (
 		Use:   "http",
 		Short: "start HTTP-server",
 		RunE:  CMDHttp,
+	}
+	pingProxyCmd = &cobra.Command{
+		Use:   "ping-proxy",
+		Short: "start proxy for node dialing and pings",
+		RunE:  CMDPingProxy,
 	}
 	updateCmd = &cobra.Command{
 		Use:   "update",
@@ -106,6 +116,10 @@ var (
 
 func CMDHttp(cmd *cobra.Command, args []string) error {
 	return merry.Wrap(server.StartHTTPServer(httpCmdFlags.serverAddr, env))
+}
+
+func CMDPingProxy(cmd *cobra.Command, args []string) error {
+	return merry.Wrap(proxy.StartPingProxy(pingProxyCmdFlags.serverAddr, pingProxyCmdFlags.identityDirPath))
 }
 
 func CMDUpdate(cmd *cobra.Command, args []string) error {
@@ -166,6 +180,7 @@ func CMDOptimizeDB(cmd *cobra.Command, args []string) error {
 
 func init() {
 	rootCmd.AddCommand(httpCmd)
+	rootCmd.AddCommand(pingProxyCmd)
 	rootCmd.AddCommand(updateCmd)
 	rootCmd.AddCommand(tgBotCmd)
 	rootCmd.AddCommand(checkVersionsCmd)
@@ -180,6 +195,10 @@ func init() {
 	flags := httpCmd.Flags()
 	flags.Var(&env, "env", "evironment, dev or prod")
 	flags.StringVar(&httpCmdFlags.serverAddr, "addr", "127.0.0.1:9003", "HTTP server address:port")
+
+	flags = pingProxyCmd.Flags()
+	flags.StringVar(&pingProxyCmdFlags.serverAddr, "addr", "127.0.0.1:9005", "ping proxy server address:port")
+	flags.StringVar(&pingProxyCmdFlags.identityDirPath, "identity-dir", "identity", "path to dir with satellite identity")
 
 	flags = tgBotCmd.Flags()
 	flags.StringVar(&tgBotCmdFlags.botToken, "tg-bot-token", "", "TG bot API token")

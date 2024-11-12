@@ -111,12 +111,12 @@ export class PingMyNode extends PureComponent {
 
 		try {
 			for (const sat of usableSatellites) {
-				this.addLogLine('via: ' + sat.label + (sat.quic ? '' : ' (proxy, no QUIC)'))
+				this.addLogLine('from: ' + sat.label)
 
 				/** @type {Promise<{aborted:boolean}>[]} */
 				let promises = []
 				promises.push(this.pingMode(dialOnly, 'tcp', sat.num, abortController))
-				if (sat.quic) promises.push(this.pingMode(dialOnly, 'quic', sat.num, abortController))
+				promises.push(this.pingMode(dialOnly, 'quic', sat.num, abortController))
 				await Promise.all(promises)
 
 				this.addLogLine('')

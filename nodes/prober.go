@@ -46,11 +46,11 @@ func errIsKnown(err error) bool {
 		strings.HasPrefix(msg, "rpc: tls peer certificate verification error: tlsopts: peer ID did not match requested ID")
 }
 
-func probeWithTimeout(sats utils.Satellites, nodeID storj.NodeID, address string, mode utils.SatMode) (*utils.Satellite, error) {
+func probeWithTimeout(sats utils.Satellites, nodeID storj.NodeID, address string, mode utils.SatMode) (utils.Satellite, error) {
 	sat, err := sats.DialAndClose(address, nodeID, mode, 5*time.Second)
 	return sat, merry.Wrap(err)
 }
-func probe(sats utils.Satellites, node *ProbeNode) (tcpSat *utils.Satellite, tcpErr error, quicErr error) {
+func probe(sats utils.Satellites, node *ProbeNode) (tcpSat, quicSat utils.Satellite, tcpErr error, quicErr error) {
 	address := node.IPAddr + ":" + strconv.Itoa(int(node.Port))
 	wg := sync.WaitGroup{}
 
@@ -60,7 +60,7 @@ func probe(sats utils.Satellites, node *ProbeNode) (tcpSat *utils.Satellite, tcp
 		wg.Done()
 	}()
 	go func() {
-		_, quicErr = probeWithTimeout(sats, node.ID, address, utils.SatModeQUIC)
+		quicSat, quicErr = probeWithTimeout(sats, node.ID, address, utils.SatModeQUIC)
 		wg.Done()
 	}()
 
@@ -132,13 +132,14 @@ func startNodesProber(nodesInChan chan *ProbeNode, nodesOutChan chan *ProbeNodeE
 	stamp := time.Now().Unix()
 	countTotal := int64(0)
 	countOk := int64(0)
-	countProxyOk := int64(0)
+	countTCPProxyOk := int64(0)
+	countQUICProxyOk := int64(0)
 	countErr := int64(0)
 	for i := 0; i < routinesCount; i++ {
 		go func() {
 			defer worker.Done()
 			for node := range nodesInChan {
-				tcpSat, tcpErr, quicErr := probe(sats, node)
+				tcpSat, quicSat, tcpErr, quicErr := probe(sats, node)
 				if tcpErr != nil && quicErr != nil {
 					atomic.AddInt64(&countErr, 1)
 					if !errIsKnown(tcpErr) {
@@ -146,7 +147,10 @@ func startNodesProber(nodesInChan chan *ProbeNode, nodesOutChan chan *ProbeNodeE
 					}
 				} else {
 					if tcpSat != nil && tcpSat.UsesProxy() {
-						atomic.AddInt64(&countProxyOk, 1)
+						atomic.AddInt64(&countTCPProxyOk, 1)
+					}
+					if quicSat != nil && quicSat.UsesProxy() {
+						atomic.AddInt64(&countQUICProxyOk, 1)
 					}
 					atomic.AddInt64(&countOk, 1)
 					nodesOutChan <- &ProbeNodeErr{Node: node, TCPErr: tcpErr, QUICErr: quicErr}
@@ -155,7 +159,8 @@ func startNodesProber(nodesInChan chan *ProbeNode, nodesOutChan chan *ProbeNodeE
 				if atomic.AddInt64(&countTotal, 1)%100 == 0 {
 					log.Info().
 						Int64("total", countTotal).
-						Int64("ok", countOk).Int64("proxyOk", countProxyOk).Int64("err", countErr).
+						Int64("ok", countOk).Int64("tcpProxyOk", countTCPProxyOk).Int64("quicProxyOk", countQUICProxyOk).
+						Int64("err", countErr).
 						Float64("rpm", float64(countTotal)/float64(time.Now().Unix()-stamp)*60).
 						Msg("PROBE:GET")
 				}
