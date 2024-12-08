@@ -1,0 +1,13 @@
+[Unit]
+Description=Storjnet Pings Proxy
+After=network.target
+
+[Service]
+User=storj
+WorkingDirectory=/home/storj/storjnet
+Environment="PROXY_ENDPOINT_PATH=/proxy/endpoint/path"
+ExecStart=/home/storj/storjnet/storjnet ping-proxy --addr=0.0.0.0:9005
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

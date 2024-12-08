@@ -5,6 +5,7 @@ After=network.target postgresql.service
 [Service]
 User=storj
 WorkingDirectory=/home/storj/storjnet
+Environment="SATELLITES=Local:identity|Proxy:/proxy/endpoint/path:9005:1.2.3.4"
 ExecStart=/home/storj/storjnet/storjnet update
 Restart=on-failure
 
