@@ -84,6 +84,7 @@ type NodeLocation struct {
 	City      string  `json:"city"`
 	Longitude float32 `json:"longitude"`
 	Latitude  float32 `json:"latitude"`
+	Accuracy  int32   `json:"accuracy"`
 }
 
 func saveLimits(db *pg.DB, gdb, asndb *utils.GeoIPConn, satelliteAddress string, limits []*pb.AddressedOrderLimit) error {
@@ -135,6 +136,18 @@ func saveLimits(db *pg.DB, gdb, asndb *utils.GeoIPConn, satelliteAddress string,
 						City:      city.City.Names["en"],
 						Longitude: float32(city.Location.Longitude),
 						Latitude:  float32(city.Location.Latitude),
+						Accuracy:  int32(city.Location.AccuracyRadius),
+					}
+					if city.Location.AccuracyRadius >= 1000 {
+						_, err := db.QueryOne(&loc, `
+							SELECT location FROM geoip_overrides
+							WHERE network >>= ?::inet AND (location->'accuracy')::int < ?
+							ORDER BY masklen(network) DESC
+							LIMIT 1`,
+							ipAddr, loc.Accuracy)
+						if err != nil && err != pg.ErrNoRows {
+							return merry.Wrap(err)
+						}
 					}
 				}
 			}
