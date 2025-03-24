@@ -235,20 +235,21 @@ func (sat *SatelliteUDPProxy) PingAndClose(address string, id storj.NodeID, mode
 
 	conn, err := net.Dial("udp", sat.address)
 	if err != nil {
-		return PingDurations{}, merry.Wrap(err)
+		return PingDurations{}, merry.New("UDP proxy dial error") //should not reveal full error message with proxy address
 	}
 	defer conn.Close()
+	conn.SetDeadline(time.Now().Add(timeout + 2*time.Second))
 
 	for i := 0; i < PingUDPProxyPacketRepeat; i++ {
 		if _, err := conn.Write(outBuf); err != nil {
-			return PingDurations{}, merry.Wrap(err)
+			return PingDurations{}, merry.New("UDP proxy write error") //should not reveal full error message with proxy address
 		}
 	}
 
 	inBuf := make([]byte, 256)
 	n, err := conn.Read(inBuf)
 	if err != nil {
-		return PingDurations{}, merry.Wrap(err)
+		return PingDurations{}, merry.New("UDP proxy read error") //should not reveal full error message with proxy address
 	}
 	payload, endpointMatches := DecodePingUDPProxyMaskedBuf(inBuf[:n], sat.path)
 	if !endpointMatches {
@@ -256,8 +257,10 @@ func (sat *SatelliteUDPProxy) PingAndClose(address string, id storj.NodeID, mode
 	}
 	var pingRes PingUDPProxyResponse
 	if err := json.Unmarshal(payload, &pingRes); err != nil {
-		println(string(payload))
 		return PingDurations{}, merry.New("UDP proxy response error")
+	}
+	if pingRes.RequestID != req.RequestID {
+		return PingDurations{}, merry.New("UDP proxy request ID mismatch")
 	}
 
 	err = nil

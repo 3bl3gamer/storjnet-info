@@ -10,6 +10,7 @@ import (
 	"os"
 	"slices"
 	"strconv"
+	"sync/atomic"
 	"time"
 
 	"github.com/ansel1/merry"
@@ -124,6 +125,9 @@ func StartPingUDPProxy(address, endpointPath string, sat *SatelliteLocal) error 
 		return merry.Wrap(err)
 	}
 
+	startTime := time.Now()
+	requestsCount := atomic.Uint64{}
+
 	log.Info().Msg("UDP: starting server on " + address)
 	lastRequestIDs := make([]uint32, 64)
 	for {
@@ -153,6 +157,14 @@ func StartPingUDPProxy(address, endpointPath string, sat *SatelliteLocal) error 
 			lastRequestIDs[i-1] = lastRequestIDs[i]
 		}
 		lastRequestIDs[len(lastRequestIDs)-1] = data.RequestID
+
+		curCount := requestsCount.Add(1)
+		if curCount%100 == 0 {
+			log.Info().
+				Uint64("count", curCount).
+				Float64("rpm", float64(curCount)/float64(time.Since(startTime)/time.Second)*60).
+				Msg("requests")
+		}
 
 		go func() {
 			nodeID, err := storj.NodeIDFromString(data.ID)
