@@ -123,7 +123,7 @@ func fetchTransactions(db *pg.DB) (sum txFetchSummary, err error) {
 	}
 
 	var curBlockNum int64
-	_, err = db.QueryOne(&curBlockNum,
+	_, err = db.QueryOne(pg.Scan(&curBlockNum),
 		`SELECT max(block_number) FROM storj_token_transactions`)
 	if err != nil && err != pg.ErrNoRows {
 		return sum, merry.Wrap(err)
@@ -316,7 +316,7 @@ func FetchAndProcess(startDate time.Time) error {
 	}
 
 	if startDate.IsZero() {
-		_, err := db.QueryOne(&startDate, `
+		_, err := db.QueryOne(pg.Scan(&startDate), `
 		SELECT COALESCE(
 			(SELECT max(date) FROM storj_token_tx_summaries),
 			(SELECT (min(created_at) AT TIME ZONE 'UTC')::date FROM storj_token_transactions)

@@ -127,7 +127,7 @@ func HandleUserDashboard(wr http.ResponseWriter, r *http.Request, ps httprouter.
 		return nil, merry.Wrap(err)
 	}
 	var userText string
-	_, err = db.QueryOne(&userText, `SELECT text FROM user_texts WHERE user_id = ? ORDER BY updated_at DESC LIMIT 1`, user.ID)
+	_, err = db.QueryOne(pg.Scan(&userText), `SELECT text FROM user_texts WHERE user_id = ? ORDER BY updated_at DESC LIMIT 1`, user.ID)
 	if err != nil && err != pg.ErrNoRows {
 		return nil, merry.Wrap(err)
 	}
@@ -205,7 +205,7 @@ func HandleAPINeighbors(wr http.ResponseWriter, r *http.Request, ps httprouter.P
 	subnet := ps.ByName("subnet")
 
 	var count int64
-	_, err := db.QueryOne(&count, `
+	_, err := db.QueryOne(pg.Scan(&count), `
 		SELECT count(*) FROM nodes
 		WHERE node_ip_subnet(ip_addr) = node_ip_subnet(?::inet)
 		  AND updated_at > NOW() - INTERVAL '1 day'`, subnet)

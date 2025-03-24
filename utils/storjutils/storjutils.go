@@ -298,18 +298,18 @@ func SatellitesSetUpFromEnv() (Satellites, error) {
 			}
 			sats = append(sats, sat)
 		} else if len(parts) == 4 && parts[1] == "http" {
-			// label:http://port:ip/path
+			// label:http://ip:port/path
 			sat := &SatelliteHTTPProxy{}
 			sat.SetUp(parts[0], parts[1]+":"+parts[2]+":"+parts[3])
 			sats = append(sats, sat)
 		} else if len(parts) == 5 && parts[1] == "udp" {
-			// label:udp:port:ip:path
+			// label:udp:ip:port:path
 			sat := &SatelliteUDPProxy{}
 			sat.SetUp(parts[0], parts[2]+":"+parts[3], parts[4])
 			sats = append(sats, sat)
 		} else {
 			return nil, merry.Errorf(
-				"wrong satellite description '%s', expected label:path/to/identity, label:/path:port:ip or label:udp:port:ip:path", item)
+				"wrong satellite description '%s', expected label:path/to/identity, label:http://ip:port/path or label:udp:ip:port:path", item)
 		}
 	}
 	return sats, nil

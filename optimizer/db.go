@@ -98,7 +98,7 @@ func updateDatePartitions(db *pg.DB, parentTableName string, partitionDurationMo
 	log.Info().Str("date", archiveEndDate.String()).Str("name", parentTableName).Msg("going to archive records before")
 
 	var minCurDate time.Time
-	_, err = db.QueryOne(&minCurDate, `SELECT min(date) FROM `+currentTableName)
+	_, err = db.QueryOne(pg.Scan(&minCurDate), `SELECT min(date) FROM `+currentTableName)
 	if err != nil {
 		return merry.Wrap(err)
 	}
@@ -147,7 +147,7 @@ func updateDatePartitions(db *pg.DB, parentTableName string, partitionDurationMo
 
 			log.Info().Str("name", currentTableName).Msg("counting rows to move")
 			var rowsCount int64
-			_, err := tx.QueryOne(&rowsCount,
+			_, err := tx.QueryOne(pg.Scan(&rowsCount),
 				`SELECT count(*) FROM storjnet.`+currentTableName+` WHERE date >= ? AND date < ?`,
 				lastArchiveTable.StartDate, newEndDate)
 			if err != nil {
@@ -254,7 +254,7 @@ func vacuumIfHaveEnoughSpace(db *pg.DB, tableName string) error {
 	free := int64(stat.Bavail) * stat.Bsize
 
 	var tableSize int64
-	_, err := db.QueryOne(&tableSize, `SELECT pg_total_relation_size(quote_ident(?))`, tableName)
+	_, err := db.QueryOne(pg.Scan(&tableSize), `SELECT pg_total_relation_size(quote_ident(?))`, tableName)
 	if err != nil {
 		return merry.Wrap(err)
 	}

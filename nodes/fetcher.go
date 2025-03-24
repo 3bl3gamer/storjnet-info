@@ -165,7 +165,7 @@ func saveLimits(db *pg.DB, gdb, asndb *utils.GeoIPConn, satelliteAddress string,
 			ipsToUpdate = append(ipsToUpdate, ipAddr)
 
 			var xmax string
-			_, err = tx.QueryOne(&xmax, `
+			_, err = tx.QueryOne(pg.Scan(&xmax), `
 				INSERT INTO nodes
 					(id, ip_addr, port, location, asn, last_received_from_sat_at) VALUES (?,?,?,?,?,NOW())
 				ON CONFLICT (id) DO UPDATE SET
