@@ -3,6 +3,7 @@ package nodes
 import (
 	"context"
 	"storjnet/utils"
+	"storjnet/utils/storjutils"
 	"strconv"
 	"strings"
 	"sync"
@@ -47,21 +48,21 @@ func errIsKnown(err error) bool {
 		strings.HasPrefix(msg, "rpc: tls peer certificate verification error: tlsopts: peer ID did not match requested ID")
 }
 
-func probeWithTimeout(sats utils.Satellites, nodeID storj.NodeID, address string, mode utils.SatMode) (utils.Satellite, error) {
+func probeWithTimeout(sats storjutils.Satellites, nodeID storj.NodeID, address string, mode storjutils.SatMode) (storjutils.Satellite, error) {
 	sat, err := sats.DialAndClose(address, nodeID, mode, 5*time.Second)
 	return sat, merry.Wrap(err)
 }
-func probe(sats utils.Satellites, node *ProbeNode) (tcpSat, quicSat utils.Satellite, tcpErr error, quicErr error) {
+func probe(sats storjutils.Satellites, node *ProbeNode) (tcpSat, quicSat storjutils.Satellite, tcpErr error, quicErr error) {
 	address := node.IPAddr + ":" + strconv.Itoa(int(node.Port))
 	wg := sync.WaitGroup{}
 
 	wg.Add(2)
 	go func() {
-		tcpSat, tcpErr = probeWithTimeout(sats, node.ID, address, utils.SatModeTCP)
+		tcpSat, tcpErr = probeWithTimeout(sats, node.ID, address, storjutils.SatModeTCP)
 		wg.Done()
 	}()
 	go func() {
-		quicSat, quicErr = probeWithTimeout(sats, node.ID, address, utils.SatModeQUIC)
+		quicSat, quicErr = probeWithTimeout(sats, node.ID, address, storjutils.SatModeQUIC)
 		wg.Done()
 	}()
 
@@ -124,7 +125,7 @@ func startOldNodesLoader(db *pg.DB, nodesChan chan *ProbeNode, chunkSize int) ut
 func startNodesProber(nodesInChan chan *ProbeNode, nodesOutChan chan *ProbeNodeErr, routinesCount int) utils.Worker {
 	worker := utils.NewSimpleWorker(routinesCount)
 
-	sats, err := utils.SatellitesSetUpFromEnv()
+	sats, err := storjutils.SatellitesSetUpFromEnv()
 	if err != nil {
 		worker.AddError(err)
 		return worker

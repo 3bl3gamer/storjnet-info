@@ -212,7 +212,7 @@ func updateDaySummary(db *pg.DB, date time.Time) error {
 			payoutAddrsMap[addr] = struct{}{}
 		}
 
-		// everythin except withdrawals
+		// everything except withdrawals
 
 		_, err = tx.Exec(`
 			INSERT INTO storj_token_tx_summaries
@@ -258,7 +258,10 @@ func updateDaySummary(db *pg.DB, date time.Time) error {
 			)
 			SELECT created_at, addr_from, addr_to, value FROM storj_token_transactions
 			WHERE created_at < ?0::timestamptz + INTERVAL '1 day'
-			  AND (addr_to IN (SELECT * FROM receipt_addrs) OR addr_from IN (SELECT * FROM receipt_addrs))
+			  AND (
+				(addr_to IN (SELECT * FROM receipt_addrs) AND addr_from IN (?1)) OR
+				(addr_from IN (SELECT * FROM receipt_addrs))
+			  )
 			  AND addr_to NOT IN (?1)
 			ORDER BY created_at`,
 			date, pg.In(payoutAddrs))
@@ -267,7 +270,7 @@ func updateDaySummary(db *pg.DB, date time.Time) error {
 		}
 
 		limits := make(map[[20]byte]float64) // total_received_payout - total_withdrawals
-		hourWSums := make([]float64, 24)     // withdrawal sums per hours, will be save to "withdrawals" column
+		hourWSums := make([]float64, 24)     // withdrawal sums per hours, will be saved to "withdrawals" column
 
 		for _, tx := range transactions {
 			_, isFromPayout := payoutAddrsMap[tx.AddrFrom]

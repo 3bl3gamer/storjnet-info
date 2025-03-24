@@ -5,12 +5,12 @@ import (
 	"storjnet/core"
 	"storjnet/nodes"
 	"storjnet/optimizer"
-	"storjnet/proxy"
 	"storjnet/server"
 	"storjnet/tgbot"
 	"storjnet/transactions"
 	"storjnet/updater"
 	"storjnet/utils"
+	"storjnet/utils/storjutils"
 	"storjnet/versions"
 	"time"
 
@@ -28,6 +28,7 @@ var httpCmdFlags = struct {
 var pingProxyCmdFlags = struct {
 	serverAddr      string
 	identityDirPath string
+	mode            string
 }{}
 var tgBotCmdFlags = struct {
 	botToken          string
@@ -119,7 +120,8 @@ func CMDHttp(cmd *cobra.Command, args []string) error {
 }
 
 func CMDPingProxy(cmd *cobra.Command, args []string) error {
-	return merry.Wrap(proxy.StartPingProxy(pingProxyCmdFlags.serverAddr, pingProxyCmdFlags.identityDirPath))
+	return merry.Wrap(storjutils.StartPingProxy(
+		pingProxyCmdFlags.serverAddr, pingProxyCmdFlags.identityDirPath, pingProxyCmdFlags.mode))
 }
 
 func CMDUpdate(cmd *cobra.Command, args []string) error {
@@ -199,6 +201,7 @@ func init() {
 	flags = pingProxyCmd.Flags()
 	flags.StringVar(&pingProxyCmdFlags.serverAddr, "addr", "127.0.0.1:9005", "ping proxy server address:port")
 	flags.StringVar(&pingProxyCmdFlags.identityDirPath, "identity-dir", "identity", "path to dir with satellite identity")
+	flags.StringVar(&pingProxyCmdFlags.mode, "mode", "http", "proxy server mode: http or udp")
 
 	flags = tgBotCmd.Flags()
 	flags.StringVar(&tgBotCmdFlags.botToken, "tg-bot-token", "", "TG bot API token")

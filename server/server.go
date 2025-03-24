@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"storjnet/core"
 	"storjnet/utils"
+	"storjnet/utils/storjutils"
 	"strings"
 	"time"
 
@@ -221,7 +222,7 @@ func StartHTTPServer(address string, env utils.Env) error {
 		return merry.Wrap(err)
 	}
 
-	sats, err := utils.SatellitesSetUpFromEnv()
+	sats, err := storjutils.SatellitesSetUpFromEnv()
 	if err != nil {
 		return merry.Wrap(err)
 	}

@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"storjnet/core"
 	"storjnet/utils"
+	"storjnet/utils/storjutils"
 	"strconv"
 	"sync/atomic"
 	"time"
@@ -22,11 +23,11 @@ type UserNodeWithErr struct {
 	Err error
 }
 
-func doPing(sats utils.Satellites, node *core.Node) (time.Duration, error) {
+func doPing(sats storjutils.Satellites, node *core.Node) (time.Duration, error) {
 	var lastErr error
 	for _, sat := range sats {
 		dialOnly := node.PingMode != "ping"
-		res, err := sat.PingAndClose(node.Address, node.ID, utils.SatModeTCP, dialOnly, 5*time.Second)
+		res, err := sat.PingAndClose(node.Address, node.ID, storjutils.SatModeTCP, dialOnly, 5*time.Second)
 		if err != nil {
 			lastErr = ErrDialFail.WithCause(err)
 			continue
@@ -103,7 +104,7 @@ func startOldPingNodesLoader(db *pg.DB, userNodesChan chan *core.UserNode, chunk
 func startNodesPinger(userNodesInChan chan *core.UserNode, userNodesOutChan chan *UserNodeWithErr, routinesCount int) utils.Worker {
 	worker := utils.NewSimpleWorker(routinesCount)
 
-	sats, err := utils.SatellitesSetUpFromEnv()
+	sats, err := storjutils.SatellitesSetUpFromEnv()
 	if err != nil {
 		worker.AddError(err)
 		return worker

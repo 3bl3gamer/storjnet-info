@@ -1,14 +1,16 @@
-package utils
+package storjutils
 
 import (
 	"context"
 	"encoding/json"
 	"errors"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/ansel1/merry"
@@ -37,10 +39,6 @@ func IsUntrustedSatPingError(err error) bool {
 type PingDurations struct {
 	DialDuration float64 `json:"dial_duration"`
 	PingDuration float64 `json:"ping_duration"`
-}
-type PingResult struct {
-	PingDurations
-	Error string `json:"error"`
 }
 
 type Satellite interface {
@@ -137,30 +135,28 @@ func (sat *SatelliteLocal) PingAndClose(address string, id storj.NodeID, mode Sa
 	return PingDurations{DialDuration: dialDuration, PingDuration: pingDuration}, nil
 }
 
-type SatelliteProxy struct {
-	label   string
-	address string
-	path    string
-	client  *http.Client
+type SatelliteHTTPProxy struct {
+	label  string
+	url    string
+	client *http.Client
 }
 
-func (sat *SatelliteProxy) SetUp(label, address, path string) error {
+func (sat *SatelliteHTTPProxy) SetUp(label, url string) error {
 	sat.label = label
-	sat.address = address
-	sat.path = path
+	sat.url = url
 	sat.client = &http.Client{}
 	return nil
 }
 
-func (sat *SatelliteProxy) Label() string {
+func (sat *SatelliteHTTPProxy) Label() string {
 	return sat.label
 }
 
-func (sat *SatelliteProxy) UsesProxy() bool {
+func (sat *SatelliteHTTPProxy) UsesProxy() bool {
 	return true
 }
 
-func (sat *SatelliteProxy) PingAndClose(address string, id storj.NodeID, mode SatMode, dialOnly bool, timeout time.Duration) (PingDurations, error) {
+func (sat *SatelliteHTTPProxy) PingAndClose(address string, id storj.NodeID, mode SatMode, dialOnly bool, timeout time.Duration) (PingDurations, error) {
 	modeStr := "tcp"
 	if mode == SatModeQUIC {
 		modeStr = "quic"
@@ -175,7 +171,7 @@ func (sat *SatelliteProxy) PingAndClose(address string, id storj.NodeID, mode Sa
 		query.Set("dialOnly", "1")
 	}
 
-	resp, err := sat.client.Post("http://"+sat.address+sat.path+"?"+query.Encode(), "text/plain", nil)
+	resp, err := sat.client.Post(sat.url+"?"+query.Encode(), "text/plain", nil)
 	if err != nil {
 		return PingDurations{}, merry.New("proxy request error") //should not reveal full error message with full path
 	}
@@ -191,6 +187,84 @@ func (sat *SatelliteProxy) PingAndClose(address string, id storj.NodeID, mode Sa
 		err = errors.New(pingRes.Error)
 	}
 	return pingRes.PingDurations, err
+}
+
+type SatelliteUDPProxy struct {
+	label         string
+	address       string
+	path          string
+	client        *http.Client
+	lastRequestID atomic.Uint32
+}
+
+func (sat *SatelliteUDPProxy) SetUp(label, address, path string) error {
+	sat.label = label
+	sat.address = address
+	sat.path = path
+	sat.client = &http.Client{}
+	return nil
+}
+
+func (sat *SatelliteUDPProxy) Label() string {
+	return sat.label
+}
+
+func (sat *SatelliteUDPProxy) UsesProxy() bool {
+	return true
+}
+
+func (sat *SatelliteUDPProxy) PingAndClose(address string, id storj.NodeID, mode SatMode, dialOnly bool, timeout time.Duration) (PingDurations, error) {
+	modeStr := "tcp"
+	if mode == SatModeQUIC {
+		modeStr = "quic"
+	}
+
+	req := PingUDPProxyRequest{
+		RequestID: sat.lastRequestID.Add(1),
+		ID:        id.String(),
+		Addr:      address,
+		Mode:      modeStr,
+		Timeout:   int64(timeout / time.Millisecond),
+		DialOnly:  dialOnly,
+	}
+	reqBuf, err := json.Marshal(req)
+	if err != nil {
+		return PingDurations{}, merry.Wrap(err)
+	}
+	outBuf := EncodePingUDPProxyMaskedBuf(reqBuf, sat.path)
+
+	conn, err := net.Dial("udp", sat.address)
+	if err != nil {
+		return PingDurations{}, merry.Wrap(err)
+	}
+	defer conn.Close()
+
+	for i := 0; i < PingUDPProxyPacketRepeat; i++ {
+		if _, err := conn.Write(outBuf); err != nil {
+			return PingDurations{}, merry.Wrap(err)
+		}
+	}
+
+	inBuf := make([]byte, 256)
+	n, err := conn.Read(inBuf)
+	if err != nil {
+		return PingDurations{}, merry.Wrap(err)
+	}
+	payload, endpointMatches := DecodePingUDPProxyMaskedBuf(inBuf[:n], sat.path)
+	if !endpointMatches {
+		return PingDurations{}, merry.New("invalid UDP proxt response")
+	}
+	var pingRes PingUDPProxyResponse
+	if err := json.Unmarshal(payload, &pingRes); err != nil {
+		println(string(payload))
+		return PingDurations{}, merry.New("UDP proxy response error")
+	}
+
+	err = nil
+	if pingRes.PingResult.Error != "" {
+		err = errors.New(pingRes.PingResult.Error)
+	}
+	return pingRes.PingResult.PingDurations, err
 }
 
 type Satellites []Satellite
@@ -211,7 +285,7 @@ func SatellitesSetUpFromEnv() (Satellites, error) {
 	var sats Satellites
 	items := strings.Split(value, "|")
 	for _, item := range items {
-		parts := strings.SplitN(item, ":", 4)
+		parts := strings.Split(item, ":")
 
 		if len(parts) == 2 {
 			// label:path/to/identity
@@ -220,13 +294,19 @@ func SatellitesSetUpFromEnv() (Satellites, error) {
 				return nil, merry.Wrap(err)
 			}
 			sats = append(sats, sat)
-		} else if len(parts) == 4 {
-			// label:/path:port:ip
-			sat := &SatelliteProxy{}
-			sat.SetUp(parts[0], parts[3]+":"+parts[2], parts[1])
+		} else if len(parts) == 4 && parts[1] == "http" {
+			// label:http://port:ip/path
+			sat := &SatelliteHTTPProxy{}
+			sat.SetUp(parts[0], parts[1]+":"+parts[2]+":"+parts[3])
+			sats = append(sats, sat)
+		} else if len(parts) == 5 && parts[1] == "udp" {
+			// label:udp:port:ip:path
+			sat := &SatelliteUDPProxy{}
+			sat.SetUp(parts[0], parts[2]+":"+parts[3], parts[4])
 			sats = append(sats, sat)
 		} else {
-			return nil, merry.Errorf("wrong satellite description '%s', expected label:path/to/identity or label:/path:port:ip", item)
+			return nil, merry.Errorf(
+				"wrong satellite description '%s', expected label:path/to/identity, label:/path:port:ip or label:udp:port:ip:path", item)
 		}
 	}
 	return sats, nil

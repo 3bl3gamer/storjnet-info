@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"storjnet/core"
 	"storjnet/utils"
+	"storjnet/utils/storjutils"
 	"strings"
 	"time"
 
@@ -93,7 +94,7 @@ func HandleIndex(wr http.ResponseWriter, r *http.Request, ps httprouter.Params) 
 }
 
 func HandlePingMyNode(wr http.ResponseWriter, r *http.Request, ps httprouter.Params) (httputils.TemplateCtx, error) {
-	sats := r.Context().Value(CtxKeySatellites).(utils.Satellites)
+	sats := r.Context().Value(CtxKeySatellites).(storjutils.Satellites)
 
 	type SatInfo struct {
 		Num   int64  `json:"num"`
@@ -161,7 +162,7 @@ func HandleLang(wr http.ResponseWriter, r *http.Request, ps httprouter.Params) e
 }
 
 func HandleAPIPingMyNode(wr http.ResponseWriter, r *http.Request, ps httprouter.Params) (interface{}, error) {
-	sats := r.Context().Value(CtxKeySatellites).(utils.Satellites)
+	sats := r.Context().Value(CtxKeySatellites).(storjutils.Satellites)
 	params := &struct {
 		ID, Address  string
 		DialOnly     bool
@@ -177,9 +178,9 @@ func HandleAPIPingMyNode(wr http.ResponseWriter, r *http.Request, ps httprouter.
 		return httputils.JsonError{Code: 400, Error: "NODE_ID_DECODE_ERROR", Description: err.Error()}, nil
 	}
 
-	satMode := utils.SatModeTCP
+	satMode := storjutils.SatModeTCP
 	if params.Mode == "quic" {
-		satMode = utils.SatModeQUIC
+		satMode = storjutils.SatModeQUIC
 	}
 
 	sat := sats[0]
