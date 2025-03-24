@@ -2,8 +2,8 @@ package core
 
 import (
 	"github.com/ansel1/merry"
-	"github.com/go-pg/pg/v9"
-	"github.com/go-pg/pg/v9/orm"
+	"github.com/go-pg/pg/v10"
+	"github.com/go-pg/pg/v10/orm"
 )
 
 type DBTx interface {

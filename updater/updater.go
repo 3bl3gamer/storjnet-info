@@ -1,6 +1,7 @@
 package updater
 
 import (
+	"context"
 	"encoding/hex"
 	"storjnet/core"
 	"storjnet/utils"
@@ -9,7 +10,7 @@ import (
 	"time"
 
 	"github.com/ansel1/merry"
-	"github.com/go-pg/pg/v9"
+	"github.com/go-pg/pg/v10"
 	"github.com/rs/zerolog/log"
 )
 
@@ -61,7 +62,7 @@ func startOldPingNodesLoader(db *pg.DB, userNodesChan chan *core.UserNode, chunk
 		defer worker.Done()
 		for {
 			userNodes := make([]*core.UserNode, chunkSize)
-			err := db.RunInTransaction(func(tx *pg.Tx) error {
+			err := db.RunInTransaction(context.Background(), func(tx *pg.Tx) error {
 				_, err := tx.Query(&userNodes, `
 					SELECT user_id, node_id AS raw_id, address, ping_mode FROM user_nodes
 					WHERE ping_mode != 'off'

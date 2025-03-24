@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/ansel1/merry"
-	"github.com/go-pg/pg/v9"
+	"github.com/go-pg/pg/v10"
 	"github.com/rs/zerolog/log"
 	"golang.org/x/net/proxy"
 	"storj.io/common/identity"
@@ -96,7 +96,7 @@ func saveLimits(db *pg.DB, gdb, asndb *utils.GeoIPConn, satelliteAddress string,
 	newCount := 0
 	locCount := 0
 	ipTypeCount := 0
-	err := db.RunInTransaction(func(tx *pg.Tx) error {
+	err := db.RunInTransaction(context.Background(), func(tx *pg.Tx) error {
 		ids := make([]storj.NodeID, len(limits))
 		for i, l := range limits {
 			ids[i] = l.Limit.StorageNodeId

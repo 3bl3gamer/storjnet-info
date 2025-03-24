@@ -1,6 +1,7 @@
 package tgbot
 
 import (
+	"context"
 	"net/http"
 	"net/url"
 	"storjnet/core"
@@ -9,7 +10,7 @@ import (
 	"strings"
 
 	"github.com/ansel1/merry"
-	"github.com/go-pg/pg/v9"
+	"github.com/go-pg/pg/v10"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 	"github.com/rs/zerolog/log"
 	"golang.org/x/net/proxy"
@@ -88,7 +89,7 @@ func sendAction(bot *tgbotapi.BotAPI, chatID int64, action string) error {
 
 func subscripbe(db *pg.DB, id int64) error {
 	log.Debug().Int64("id", id).Msg("subscribing")
-	err := db.RunInTransaction(func(tx *pg.Tx) error {
+	err := db.RunInTransaction(context.Background(), func(tx *pg.Tx) error {
 		ids, err := core.AppConfigInt64Slice(tx, "tgbot:version_notif_ids", true)
 		if err != nil {
 			return merry.Wrap(err)
@@ -105,7 +106,7 @@ func subscripbe(db *pg.DB, id int64) error {
 
 func unsubscripbe(db *pg.DB, id int64) error {
 	log.Debug().Int64("id", id).Msg("unsubscribing")
-	err := db.RunInTransaction(func(tx *pg.Tx) error {
+	err := db.RunInTransaction(context.Background(), func(tx *pg.Tx) error {
 		ids, err := core.AppConfigInt64Slice(tx, "tgbot:version_notif_ids", true)
 		if err != nil {
 			return merry.Wrap(err)

@@ -1,6 +1,7 @@
 package nodes
 
 import (
+	"context"
 	"storjnet/utils"
 	"strconv"
 	"strings"
@@ -9,7 +10,7 @@ import (
 	"time"
 
 	"github.com/ansel1/merry"
-	"github.com/go-pg/pg/v9"
+	"github.com/go-pg/pg/v10"
 	"github.com/rs/zerolog/log"
 	"storj.io/common/storj"
 )
@@ -75,7 +76,7 @@ func startOldNodesLoader(db *pg.DB, nodesChan chan *ProbeNode, chunkSize int) ut
 		defer worker.Done()
 		for {
 			nodes := make([]*ProbeNode, chunkSize)
-			err := db.RunInTransaction(func(tx *pg.Tx) error {
+			err := db.RunInTransaction(context.Background(), func(tx *pg.Tx) error {
 				_, err := tx.Query(&nodes, `
 					SELECT id AS raw_id, ip_addr, port FROM nodes
 					WHERE checked_at IS NULL

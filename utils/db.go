@@ -11,8 +11,8 @@ import (
 	"time"
 
 	"github.com/ansel1/merry"
-	"github.com/go-pg/pg/v9"
-	"github.com/go-pg/pg/v9/types"
+	"github.com/go-pg/pg/v10"
+	"github.com/go-pg/pg/v10/types"
 	"github.com/lib/pq"
 	"github.com/oschwald/geoip2-golang"
 	"github.com/rs/zerolog/log"
@@ -57,7 +57,7 @@ func (d dbLogger) AfterQuery(ctx context.Context, event *pg.QueryEvent) error {
 	if err != nil {
 		return err
 	}
-	log.Printf("\033[36m%s\n\033[34m%s\033[39m", time.Since(event.StartTime), align(query))
+	log.Printf("\033[36m%s\n\033[34m%s\033[39m", time.Since(event.StartTime), align(string(query)))
 	return nil
 }
 
@@ -248,7 +248,7 @@ func SaveChunked(db *pg.DB, chunkSize int, channel chan interface{}, handler fun
 	for item := range channel {
 		items = append(items, item)
 		if len(items) >= chunkSize {
-			err = db.RunInTransaction(func(tx *pg.Tx) error {
+			err = db.RunInTransaction(context.Background(), func(tx *pg.Tx) error {
 				return merry.Wrap(handler(tx, items))
 			})
 			if err != nil {
@@ -258,7 +258,7 @@ func SaveChunked(db *pg.DB, chunkSize int, channel chan interface{}, handler fun
 		}
 	}
 	if len(items) > 0 {
-		err = db.RunInTransaction(func(tx *pg.Tx) error {
+		err = db.RunInTransaction(context.Background(), func(tx *pg.Tx) error {
 			return merry.Wrap(handler(tx, items))
 		})
 	}

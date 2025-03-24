@@ -11,7 +11,7 @@ import (
 
 	httputils "github.com/3bl3gamer/go-http-utils"
 	"github.com/ansel1/merry"
-	"github.com/go-pg/pg/v9"
+	"github.com/go-pg/pg/v10"
 	"github.com/julienschmidt/httprouter"
 )
 

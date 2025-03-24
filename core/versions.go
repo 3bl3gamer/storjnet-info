@@ -8,7 +8,7 @@ import (
 
 	"github.com/ansel1/merry"
 	"github.com/blang/semver"
-	"github.com/go-pg/pg/v9"
+	"github.com/go-pg/pg/v10"
 	"github.com/rs/zerolog/log"
 )
 

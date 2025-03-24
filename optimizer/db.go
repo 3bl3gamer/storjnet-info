@@ -1,13 +1,14 @@
 package optimizer
 
 import (
+	"context"
 	"regexp"
 	"storjnet/utils"
 	"strings"
 	"time"
 
 	"github.com/ansel1/merry"
-	"github.com/go-pg/pg/v9"
+	"github.com/go-pg/pg/v10"
 	"github.com/rs/zerolog/log"
 	"golang.org/x/sys/unix"
 )
@@ -108,7 +109,7 @@ func updateDatePartitions(db *pg.DB, parentTableName string, partitionDurationMo
 			Msg("current partition has old enough records, going to transfer them to previous partition")
 
 		// lastArchivePartitionJustCreated := false
-		err := db.RunInTransaction(func(tx *pg.Tx) error {
+		err := db.RunInTransaction(context.Background(), func(tx *pg.Tx) error {
 			var lastArchiveTableIsAttached bool
 			if lastArchiveTable == nil || lastArchiveTable.IsFullFor(partitionDurationMonths) {
 				var startDate time.Time

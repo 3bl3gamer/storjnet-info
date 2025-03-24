@@ -1,6 +1,7 @@
 package transactions
 
 import (
+	"context"
 	"encoding/hex"
 	"encoding/json"
 	"log"
@@ -13,7 +14,7 @@ import (
 	"time"
 
 	"github.com/ansel1/merry"
-	"github.com/go-pg/pg/v9"
+	"github.com/go-pg/pg/v10"
 )
 
 type StorjTokenTransaction struct {
@@ -157,7 +158,7 @@ func fetchTransactions(db *pg.DB) (sum txFetchSummary, err error) {
 	}
 	var lastBlockNum int32
 
-	err = db.RunInTransaction(func(tx *pg.Tx) error {
+	err = db.RunInTransaction(context.Background(), func(tx *pg.Tx) error {
 		for _, rawTx := range transactions {
 			if rawTx.TokenSymbol != "STORJ" {
 				continue
@@ -199,7 +200,7 @@ func updateDaySummary(db *pg.DB, date time.Time) error {
 	}
 	log.Print("updating TX summary on " + date.Format("2006-01-02"))
 
-	err := db.RunInTransaction(func(tx *pg.Tx) error {
+	err := db.RunInTransaction(context.Background(), func(tx *pg.Tx) error {
 		var payoutAddrs [][20]byte
 		_, err := tx.Query(&payoutAddrs,
 			`SELECT addr FROM storj_token_known_addresses WHERE kind = 'payout'`)
