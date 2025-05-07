@@ -14,7 +14,7 @@ require (
 	github.com/oschwald/geoip2-golang v1.11.0
 	github.com/rs/zerolog v1.34.0
 	github.com/spf13/cobra v1.9.1
-	golang.org/x/net v0.37.0
+	golang.org/x/net v0.38.0
 	golang.org/x/sys v0.31.0
 	storj.io/common v0.0.0-20250318112615-b9952c61d22f
 	storj.io/storj v1.125.2
