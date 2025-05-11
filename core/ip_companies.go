@@ -16,7 +16,7 @@ import (
 
 func UpdateIPCompanyIfNeed(db *pg.DB, ipAddr string) (bool, error) {
 	var t int64
-	_, err := db.Query(&t, `
+	_, err := db.Query(pg.Scan(&t), `
 		SELECT 1 FROM network_companies
 		WHERE ip_from <= ? AND ? <= ip_to
 		  AND incolumitas IS NOT NULL
@@ -29,7 +29,7 @@ func UpdateIPCompanyIfNeed(db *pg.DB, ipAddr string) (bool, error) {
 	if err != nil {
 		return false, merry.Wrap(err)
 	}
-	_, err = db.Query(&t, `
+	_, err = db.Query(pg.Scan(&t), `
 		SELECT 1 FROM network_company_unknown_ips
 		WHERE ip_addr = ?
 		  AND updated_at > NOW() - INTERVAL '3 days'`,

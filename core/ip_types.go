@@ -16,7 +16,7 @@ import (
 
 func UpdateASInfoIfNeed(db *pg.DB, asn int64) (bool, error) {
 	var t int64
-	_, err := db.Query(&t, `
+	_, err := db.Query(pg.Scan(&t), `
 		SELECT 1 FROM autonomous_systems
 		WHERE number = ? AND incolumitas IS NOT NULL AND incolumitas_updated_at > NOW() - INTERVAL '7 days'`,
 		asn)

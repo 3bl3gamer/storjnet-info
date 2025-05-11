@@ -157,7 +157,7 @@ func (c *GitHubVersionChecker) Key() string {
 }
 
 func (c *GitHubVersionChecker) FetchPrevVersion() error {
-	_, err := c.db.QueryOne(&c.prevVersion,
+	_, err := c.db.QueryOne(pg.Scan(&c.prevVersion),
 		`SELECT version FROM versions WHERE kind = ? ORDER BY created_at DESC LIMIT 1`, c.Key())
 	if err != nil && err != pg.ErrNoRows {
 		return merry.Wrap(err)

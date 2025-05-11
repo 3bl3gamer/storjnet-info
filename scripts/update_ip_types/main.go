@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -52,7 +53,7 @@ func CMDFillNodeASNs(cmd *cobra.Command, args []string) error {
 	fromTime := time.Time{}
 	for {
 		shouldStop := false
-		err = db.RunInTransaction(func(tx *pg.Tx) error {
+		err = db.RunInTransaction(context.Background(), func(tx *pg.Tx) error {
 			nodes := make([]Node, 1000)
 			_, err := tx.Query(&nodes, `
 				SELECT id as raw_id, ip_addr, asn, last_received_from_sat_at AS time
@@ -170,7 +171,7 @@ func CMDFillASIPInfoData(cmd *cobra.Command, args []string) error {
 			}
 
 			var t int64
-			_, err = db.Query(&t, `
+			_, err = db.Query(pg.Scan(&t), `
 				SELECT 1 FROM autonomous_systems
 				WHERE number = ? AND ipinfo IS NOT NULL AND ipinfo_updated_at > NOW() - INTERVAL '1 day'`,
 				geoipAsn)

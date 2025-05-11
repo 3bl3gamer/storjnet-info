@@ -139,7 +139,7 @@ func saveLimits(db *pg.DB, gdb, asndb *utils.GeoIPConn, satelliteAddress string,
 						Accuracy:  int32(city.Location.AccuracyRadius),
 					}
 					if city.Location.AccuracyRadius >= 1000 {
-						_, err := db.QueryOne(&loc, `
+						_, err := db.QueryOne(pg.Scan(loc), `
 							SELECT location FROM geoip_overrides
 							WHERE network >>= ?::inet AND (location->'accuracy')::int < ?
 							ORDER BY masklen(network) DESC

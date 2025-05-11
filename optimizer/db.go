@@ -272,7 +272,7 @@ func vacuumIfHaveEnoughSpace(db *pg.DB, tableName string) error {
 }
 
 func removeOldCompaniesUnknownIPs(db *pg.DB) error {
-	res, err := db.Exec(`DELETE FROM network_company_unknown_ips WHERE update_at < NOW() - INTERVAL '30 days'`)
+	res, err := db.Exec(`DELETE FROM network_company_unknown_ips WHERE updated_at < NOW() - INTERVAL '30 days'`)
 	if err != nil {
 		return merry.Wrap(err)
 	}
