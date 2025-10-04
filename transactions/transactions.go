@@ -133,13 +133,14 @@ func fetchTransactions(db *pg.DB) (sum txFetchSummary, err error) {
 	query.Set("module", "account")
 	query.Set("action", "tokentx")
 	query.Set("apikey", apiKey)
+	query.Set("chainid", "1")
 	query.Set("contractaddress", "0xb64ef51c888972c908cfacf59b47c1afbc0ab8ac")
 	query.Set("startblock", strconv.FormatInt(int64(curBlockNum-1), 10))
 	query.Set("endblock", "99999999")
 	// query.Set("page", "1")
 	// query.Set("offset", "0")
 	query.Set("sort", "asc")
-	resp, err := http.Get("https://api.etherscan.io/api?" + query.Encode())
+	resp, err := http.Get("https://api.etherscan.io/v2/api?" + query.Encode())
 	if err != nil {
 		return sum, merry.Wrap(err)
 	}
