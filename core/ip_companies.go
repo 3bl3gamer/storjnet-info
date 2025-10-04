@@ -200,7 +200,7 @@ type ipCompanyInfo struct {
 	ipCompanyInfoToSave
 	Network ipNetwork `json:"network"` // "205.207.214.0 - 205.207.215.255",
 	// AbuserScore string // "0 (Very Low)",
-	// Whois       string // "https://api.incolumitas.com/?whois=205.207.214.0"
+	// Whois       string // "https://api.ipapi.is/?whois=205.207.214.0"
 }
 
 type ipInfoResponse struct {
@@ -214,7 +214,8 @@ func fetchIPCompanyInfo(ipAddr string) (ipCompanyInfo, bool, error) {
 		return ipCompanyInfo{}, false, nil
 	}
 
-	req, err := http.NewRequest("GET", "https://api.incolumitas.com/?q="+ipAddr, nil)
+	// previously was api.incolumitas.com
+	req, err := http.NewRequest("GET", "https://api.ipapi.is/?q="+ipAddr, nil)
 	if err != nil {
 		return ipCompanyInfo{}, false, merry.Wrap(err)
 	}
@@ -251,7 +252,7 @@ func fetchIPCompanyInfo(ipAddr string) (ipCompanyInfo, bool, error) {
 	if info.Company != nil {
 		name = info.Company.Name
 	}
-	log.Debug().Str("IP", ipAddr).Str("comp", name).Msg("fetched IP company from incolumitas.com")
+	log.Debug().Str("IP", ipAddr).Str("comp", name).Msg("fetched IP company from ipapi (ex incolumitas.com)")
 
 	if info.Company == nil {
 		return ipCompanyInfo{}, false, nil

@@ -115,7 +115,8 @@ type asInfoResponse struct {
 var ErrIncolumitasTooManyRequests = merry.New("incolumitas: too many requests")
 
 func fetchASInfo(asn int64) (asInfoResponse, error) {
-	req, err := http.NewRequest("GET", "https://api.incolumitas.com/?q=AS"+strconv.FormatInt(asn, 10), nil)
+	// previously was api.incolumitas.com
+	req, err := http.NewRequest("GET", "https://api.ipapi.is/?q=AS"+strconv.FormatInt(asn, 10), nil)
 	if err != nil {
 		return asInfoResponse{}, merry.Wrap(err)
 	}
@@ -142,6 +143,6 @@ func fetchASInfo(asn int64) (asInfoResponse, error) {
 		return asInfoResponse{}, err.Here().WithMessagef("ASN %d: %s: %s", asn, info.Error, info.Message)
 	}
 
-	log.Debug().Int64("ASN", asn).Str("org", info.Org).Str("type", info.Type).Msg("fetched AS type from incolumitas.com")
+	log.Debug().Int64("ASN", asn).Str("org", info.Org).Str("type", info.Type).Msg("fetched AS type from ipapi (ex incolumitas.com)")
 	return info, nil
 }
