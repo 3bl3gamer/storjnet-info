@@ -147,7 +147,7 @@ var Countries = []*Country{
 	{A2: `mx`, A3: `mex`, EN: `Mexico`, RU: `Мексика`},
 	{A2: `fm`, A3: `fsm`, EN: `Micronesia`, RU: `Микронезия`},
 	{A2: `ma`, A3: `mar`, EN: `Morocco`, RU: `Марокко`},
-	{A2: `md`, A3: `mda`, EN: `Moldova`, RU: `Молдавия`},
+	{A2: `md`, A3: `mda`, EN: `Moldova`, RU: `Молдова`},
 	{A2: `mc`, A3: `mco`, EN: `Monaco`, RU: `Монако`},
 	{A2: `mn`, A3: `mng`, EN: `Mongolia`, RU: `Монголия`},
 	{A2: `me`, A3: `mne`, EN: `Montenegro`, RU: `Черногория`},
