@@ -43,7 +43,7 @@ export default async function (commandOptions) {
 					],
 				}),
 			isProd &&
-				(await import('rollup-plugin-terser').then(({ terser }) =>
+				(await import('@rollup/plugin-terser').then(({ default: terser }) =>
 					terser({
 						format: { semicolons: false },
 						compress: { keep_fargs: false, ecma: 2020, passes: 2 },
