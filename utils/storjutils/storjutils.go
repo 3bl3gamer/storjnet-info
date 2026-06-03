@@ -288,29 +288,41 @@ func SatellitesSetUpFromEnv() (Satellites, error) {
 	var sats Satellites
 	items := strings.Split(value, "|")
 	for _, item := range items {
-		parts := strings.Split(item, ":")
+		parts := strings.SplitN(item, ":", 3)
 
+		// label:path/to/identity
 		if len(parts) == 2 {
-			// label:path/to/identity
 			sat := &SatelliteLocal{}
 			if err := sat.SetUp(parts[0], parts[1]); err != nil {
 				return nil, merry.Wrap(err)
 			}
 			sats = append(sats, sat)
-		} else if len(parts) == 4 && parts[1] == "http" {
-			// label:http://ip:port/path
-			sat := &SatelliteHTTPProxy{}
-			sat.SetUp(parts[0], parts[1]+":"+parts[2]+":"+parts[3])
-			sats = append(sats, sat)
-		} else if len(parts) == 5 && parts[1] == "udp" {
-			// label:udp:ip:port:path
-			sat := &SatelliteUDPProxy{}
-			sat.SetUp(parts[0], parts[2]+":"+parts[3], parts[4])
-			sats = append(sats, sat)
-		} else {
-			return nil, merry.Errorf(
-				"wrong satellite description '%s', expected label:path/to/identity, label:http://ip:port/path or label:udp:ip:port:path", item)
+			continue
 		}
+
+		// label:http://ip:port/path
+		if len(parts) == 3 && parts[1] == "http" {
+			sat := &SatelliteHTTPProxy{}
+			sat.SetUp(parts[0], parts[1]+":"+parts[2])
+			sats = append(sats, sat)
+			continue
+		}
+
+		// label:udp:ip:port:path
+		if len(parts) == 3 && parts[1] == "udp" {
+			sepIndexBeforePath := strings.LastIndex(parts[2], ":")
+			if sepIndexBeforePath != -1 {
+				ipPort := parts[2][:sepIndexBeforePath]
+				path := parts[2][sepIndexBeforePath+1:]
+				sat := &SatelliteUDPProxy{}
+				sat.SetUp(parts[0], ipPort, path)
+				sats = append(sats, sat)
+				continue
+			}
+		}
+
+		return nil, merry.Errorf(
+			"wrong satellite description '%s', expected label:path/to/identity, label:http://ip:port/path or label:udp:ip:port:path", item)
 	}
 	return sats, nil
 }
