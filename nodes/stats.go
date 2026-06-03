@@ -1,8 +1,11 @@
 package nodes
 
 import (
+	"crypto/tls"
 	"encoding/json"
+	"fmt"
 	"net/http"
+	"os"
 	"storjnet/utils"
 	"strings"
 	"sync"
@@ -307,10 +310,28 @@ func getJSON(url string, obj interface{}) error {
 	var err error
 	var resp *http.Response
 	for i := 0; i < maxRetries; i++ {
-		resp, err = http.Get(url)
-		if err == nil {
-			break
+		// resp, err = http.Get(url)
+		// if err == nil {
+		// 	break
+		// }
+
+		transport := &http.Transport{
+			// Forcing HTTP/1 (an empty, non-nil map disables HTTP/2 automatic upgrades).
+			// They are breaking the Internet. HTTP/2 responses get stuck after ~14K bytes received.
+			// For some reason, HTTP/1 still works.
+			// TODO: RKS
+			TLSNextProto: make(map[string]func(string, *tls.Conn) http.RoundTripper),
 		}
+		client := &http.Client{
+			Transport: transport,
+			Timeout:   5 * time.Second,
+		}
+		resp, err = client.Get(url)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "WARN: failed to fetch %s: %s, retrying...\n", url, err)
+			continue
+		}
+
 		if i < maxRetries-1 {
 			time.Sleep(time.Second)
 		}
