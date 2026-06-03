@@ -270,20 +270,20 @@ func (d *OffSatelliteDetails) SetSatDetails(id storj.NodeID, host string) {
 
 type OffDataStat struct {
 	OffSatelliteDetails
-	BandwidthBytesDownloaded         int64 `pg:",use_zero" json:"bandwidth_bytes_downloaded"`           //number of bytes downloaded (egress) from the network for the last 30 days
-	BandwidthBytesUploaded           int64 `pg:",use_zero" json:"bandwidth_bytes_uploaded"`             //number of bytes uploaded (ingress) to the network for the last 30 days
-	StorageInlineBytes               int64 `pg:",use_zero" json:"storage_inline_bytes"`                 //number of bytes stored in inline segments on the satellite
-	StorageInlineSegments            int64 `pg:",use_zero" json:"storage_inline_segments"`              //number of segments stored inline on the satellite
-	StorageMedianHealthyPiecesCount  int64 `pg:",use_zero" json:"storage_median_healthy_pieces_count"`  //median number of healthy pieces per segment stored on storage nodes
-	StorageMinHealthyPiecesCount     int64 `pg:",use_zero" json:"storage_min_healthy_pieces_count"`     //inimum number of healthy pieces per segment stored on storage nodes
-	StorageRemoteBytes               int64 `pg:",use_zero" json:"storage_remote_bytes"`                 //number of bytes stored on storage nodes (does not take into account the expansion factor of erasure encoding)
-	StorageRemoteSegments            int64 `pg:",use_zero" json:"storage_remote_segments"`              //number of segments stored on storage nodes
-	StorageRemoteSegments_lost       int64 `pg:",use_zero" json:"storage_remote_segments_lost"`         //number of irreparable segments lost from storage nodes
-	StorageTotalBytes                int64 `pg:",use_zero" json:"storage_total_bytes"`                  //total number of bytes (both inline and remote) stored on the network
-	StorageTotalObjects              int64 `pg:",use_zero" json:"storage_total_objects"`                //total number of objects stored on the network
-	StorageTotalPieces               int64 `pg:",use_zero" json:"storage_total_pieces"`                 //total number of pieces stored on storage nodes
-	StorageTotalSegments             int64 `pg:",use_zero" json:"storage_total_segments"`               //total number of segments stored on storage nodes
-	StorageFreeCapacityEstimateBytes int64 `pg:",use_zero" json:"storage_free_capacity_estimate_bytes"` //statistical estimate of free storage node capacity, with suspicious values removed
+	BandwidthBytesDownloaded         int64   `pg:",use_zero" json:"bandwidth_bytes_downloaded"`           //number of bytes downloaded (egress) from the network for the last 30 days
+	BandwidthBytesUploaded           int64   `pg:",use_zero" json:"bandwidth_bytes_uploaded"`             //number of bytes uploaded (ingress) to the network for the last 30 days
+	StorageInlineBytes               int64   `pg:",use_zero" json:"storage_inline_bytes"`                 //number of bytes stored in inline segments on the satellite
+	StorageInlineSegments            int64   `pg:",use_zero" json:"storage_inline_segments"`              //number of segments stored inline on the satellite
+	StorageMedianHealthyPiecesCount  float64 `pg:",use_zero" json:"storage_median_healthy_pieces_count"`  //median number of healthy pieces per segment stored on storage nodes
+	StorageMinHealthyPiecesCount     int64   `pg:",use_zero" json:"storage_min_healthy_pieces_count"`     //inimum number of healthy pieces per segment stored on storage nodes
+	StorageRemoteBytes               int64   `pg:",use_zero" json:"storage_remote_bytes"`                 //number of bytes stored on storage nodes (does not take into account the expansion factor of erasure encoding)
+	StorageRemoteSegments            int64   `pg:",use_zero" json:"storage_remote_segments"`              //number of segments stored on storage nodes
+	StorageRemoteSegments_lost       int64   `pg:",use_zero" json:"storage_remote_segments_lost"`         //number of irreparable segments lost from storage nodes
+	StorageTotalBytes                int64   `pg:",use_zero" json:"storage_total_bytes"`                  //total number of bytes (both inline and remote) stored on the network
+	StorageTotalObjects              int64   `pg:",use_zero" json:"storage_total_objects"`                //total number of objects stored on the network
+	StorageTotalPieces               int64   `pg:",use_zero" json:"storage_total_pieces"`                 //total number of pieces stored on storage nodes
+	StorageTotalSegments             int64   `pg:",use_zero" json:"storage_total_segments"`               //total number of segments stored on storage nodes
+	StorageFreeCapacityEstimateBytes int64   `pg:",use_zero" json:"storage_free_capacity_estimate_bytes"` //statistical estimate of free storage node capacity, with suspicious values removed
 }
 type OffNodeStat struct {
 	OffSatelliteDetails
