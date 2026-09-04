@@ -3,7 +3,6 @@ package core
 import (
 	"encoding/json"
 	"net"
-	"net/http"
 	"net/netip"
 	"storjnet/utils"
 	"strings"
@@ -205,47 +204,18 @@ type ipCompanyInfo struct {
 
 type ipInfoResponse struct {
 	Company *ipCompanyInfo `json:"company"`
-	Error   string         `json:"error"`
-	Message string         `json:"message"`
 }
 
+// The company object (and so name, domain, type and network) requires an API key, see fetchIPAPI.
 func fetchIPCompanyInfo(ipAddr string) (ipCompanyInfo, bool, error) {
 	if net.ParseIP(ipAddr).IsPrivate() {
 		return ipCompanyInfo{}, false, nil
 	}
 
-	// previously was api.incolumitas.com
-	req, err := http.NewRequest("GET", "https://api.ipapi.is/?q="+ipAddr, nil)
-	if err != nil {
-		return ipCompanyInfo{}, false, merry.Wrap(err)
-	}
-	httpClient := http.Client{
-		Timeout: 4 * time.Second, //got some timeouts after 3 seconds
-	}
-	// dialer, err := proxy.SOCKS5("tcp", "127.0.0.1:9051", nil, proxy.Direct)
-	// if err != nil {
-	// 	return ipCompanyInfo{}, false, merry.Wrap(err)
-	// }
-	// httpClient.Transport = &http.Transport{DialContext: dialer.(proxy.ContextDialer).DialContext}
-
-	resp, err := httpClient.Do(req)
-	if err != nil {
-		return ipCompanyInfo{}, false, merry.Wrap(err)
-	}
-	defer resp.Body.Close()
-
 	info := ipInfoResponse{}
-	if err := json.NewDecoder(resp.Body).Decode(&info); err != nil {
+	//got some timeouts after 3 seconds
+	if err := fetchIPAPI(ipAddr, 4*time.Second, &info); err != nil {
 		return ipCompanyInfo{}, false, merry.Wrap(err)
-	}
-	if info.Error != "" {
-		var err merry.Error
-		if strings.Contains(info.Message, "Too many API requests") {
-			err = ErrIncolumitasTooManyRequests
-		} else {
-			err = merry.New("")
-		}
-		return ipCompanyInfo{}, false, err.Here().WithMessagef("IP %s: %s: %s", ipAddr, info.Error, info.Message)
 	}
 
 	name := "n/a"

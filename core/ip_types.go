@@ -3,10 +3,8 @@ package core
 import (
 	"encoding/json"
 	"fmt"
-	"net/http"
 	"net/netip"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/ansel1/merry"
@@ -108,39 +106,14 @@ type asInfoResponse struct {
 	asInfoToSave
 	Prefixes []asInfoPrefix `json:"prefixes"`
 	// Asn int64 `json:"asn,omitempty"`
-	Error   string `json:"error"`
-	Message string `json:"message"`
+	// PrefixesIPv6 []asInfoPrefix `json:"prefixesIPv6"`
 }
 
-var ErrIncolumitasTooManyRequests = merry.New("incolumitas: too many requests")
-
+// ASN queries require an API key, see fetchIPAPI.
 func fetchASInfo(asn int64) (asInfoResponse, error) {
-	// previously was api.incolumitas.com
-	req, err := http.NewRequest("GET", "https://api.ipapi.is/?q=AS"+strconv.FormatInt(asn, 10), nil)
-	if err != nil {
-		return asInfoResponse{}, merry.Wrap(err)
-	}
-	httpClient := http.Client{
-		Timeout: 2 * time.Second,
-	}
-	resp, err := httpClient.Do(req)
-	if err != nil {
-		return asInfoResponse{}, merry.Wrap(err)
-	}
-	defer resp.Body.Close()
-
 	info := asInfoResponse{}
-	if err := json.NewDecoder(resp.Body).Decode(&info); err != nil {
+	if err := fetchIPAPI("AS"+strconv.FormatInt(asn, 10), 2*time.Second, &info); err != nil {
 		return asInfoResponse{}, merry.Wrap(err)
-	}
-	if info.Error != "" {
-		var err merry.Error
-		if strings.Contains(info.Message, "Too many API requests") {
-			err = ErrIncolumitasTooManyRequests
-		} else {
-			err = merry.New("")
-		}
-		return asInfoResponse{}, err.Here().WithMessagef("ASN %d: %s: %s", asn, info.Error, info.Message)
 	}
 
 	log.Debug().Int64("ASN", asn).Str("org", info.Org).Str("type", info.Type).Msg("fetched AS type from ipapi (ex incolumitas.com)")
