@@ -21,6 +21,20 @@ import (
 	"storj.io/uplink/private/metaclient"
 )
 
+const (
+	// How many node selections to ask for per run. Nodes are selected one per /24 subnet, so a
+	// node sharing a subnet with k others is offered about k times less often than a lone one
+	// and needs that many more draws to be seen. Raise it if the "new" counter of saved nodes
+	// stays high, lower it if it drops to noise.
+	// https://github.com/storj/storj/blob/v1.163.0-rc/satellite/nodeselection/selector.go#L112
+	drawsPerRun = 3
+
+	// Encrypted size of one full 64 MiB segment with the default encryption parameters. The
+	// satellite only derives the byte allowance of the order limits from it, and those limits
+	// are never used for an actual upload, so the exact value does not matter here.
+	maxEncryptedSegmentSize = int64(67254016)
+)
+
 func FetchAndProcess(satelliteAddress string, socksProxy string) error {
 	apiKey, err := utils.RequireEnv("STORJ_API_KEY")
 	if err != nil {
@@ -55,28 +69,79 @@ func FetchAndProcess(satelliteAddress string, socksProxy string) error {
 		return merry.Wrap(err)
 	}
 
-	beginObjectReq := &metaclient.BeginObjectParams{
+	// BeginObject has to be immediately followed by a BeginSegment in the same batch: that is
+	// how the satellite decides the object is not a multipart upload. Non-multipart is what
+	// makes every BeginSegment on this stream both honour LiteRequest and skip the pending
+	// object lookup in the metabase, so the extra draws cost the satellite no DB queries.
+	// https://github.com/storj/storj/blob/v1.163.0-rc/satellite/metainfo/batch.go#L637
+	// https://github.com/storj/storj/blob/v1.163.0-rc/satellite/metainfo/endpoint_segment.go#L81
+	items := make([]metaclient.BatchItem, 0, 1+drawsPerRun)
+	items = append(items, &metaclient.BeginObjectParams{
 		Bucket:             []byte("test-bucket"),
 		EncryptedObjectKey: []byte("f1"),
 		ExpiresAt:          time.Now().Add(time.Minute),
+	})
+	for i := 0; i < drawsPerRun; i++ {
+		items = append(items, &beginSegmentLite{Index: int32(i)})
 	}
-	maxEncryptedSegmentSize := int64(67254016)
-	currentSegment := 0
-	beginSegment := metaclient.BeginSegmentParams{
-		MaxOrderLimit: maxEncryptedSegmentSize,
-		Position: metaclient.SegmentPosition{
-			Index: int32(currentSegment),
+
+	responses, err := metainfoClient.Batch(ctx, items...)
+	if err != nil {
+		return merry.Wrap(err)
+	}
+
+	var limits []*pb.AddressedOrderLimit
+	for i := 1; i < len(responses); i++ {
+		segResponse, err := responses[i].BeginSegment()
+		if err != nil {
+			return merry.Wrap(err)
+		}
+		limits = append(limits, segResponse.Limits...)
+	}
+
+	uniqueLimits := dedupLimits(limits)
+	log.Info().Int("draws", drawsPerRun).Int("total", len(limits)).Int("unique", len(uniqueLimits)).
+		Msg("nodes fetched")
+	return merry.Wrap(saveLimits(db, gdb, asndb, satelliteAddress, uniqueLimits))
+}
+
+// metaclient.BeginSegmentParams does not expose the LiteRequest flag, so the batch item is
+// built by hand. LiteRequest makes the satellite skip the per-node piece ID derivation and its
+// own signature on each of the 110 order limits; the node ID and address, the only fields read
+// here, are still filled in. Such limits cannot be used for an actual upload, which is fine.
+// https://github.com/storj/storj/blob/v1.163.0-rc/satellite/orders/signer.go#L217
+type beginSegmentLite struct {
+	Index int32
+}
+
+func (p *beginSegmentLite) BatchItem() *pb.BatchRequestItem {
+	return &pb.BatchRequestItem{
+		Request: &pb.BatchRequestItem_SegmentBegin{
+			SegmentBegin: &pb.BeginSegmentRequest{
+				Position:      &pb.SegmentPosition{Index: p.Index},
+				MaxOrderLimit: maxEncryptedSegmentSize,
+				LiteRequest:   true,
+				// The StreamId is left empty: within a batch the satellite fills it in from the BeginObject response.
+				// https://github.com/storj/storj/blob/v1.163.0-rc/satellite/metainfo/batch.go#L423
+			},
 		},
 	}
-	responses, err := metainfoClient.Batch(ctx, beginObjectReq, &beginSegment)
-	if err != nil {
-		return merry.Wrap(err)
+}
+
+func (p *beginSegmentLite) IsRetriable() bool { return false }
+
+// dedupLimits keeps the first limit of each node (SegmentBegin responses may overlap).
+func dedupLimits(limits []*pb.AddressedOrderLimit) []*pb.AddressedOrderLimit {
+	seen := make(map[storj.NodeID]struct{}, len(limits))
+	unique := make([]*pb.AddressedOrderLimit, 0, len(limits))
+	for _, l := range limits {
+		if _, ok := seen[l.Limit.StorageNodeId]; ok {
+			continue
+		}
+		seen[l.Limit.StorageNodeId] = struct{}{}
+		unique = append(unique, l)
 	}
-	segResponse, err := responses[1].BeginSegment()
-	if err != nil {
-		return merry.Wrap(err)
-	}
-	return merry.Wrap(saveLimits(db, gdb, asndb, satelliteAddress, segResponse.Limits))
+	return unique
 }
 
 type NodeLocation struct {
