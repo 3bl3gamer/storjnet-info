@@ -15,11 +15,11 @@ import (
 
 	"github.com/ansel1/merry"
 	"github.com/rs/zerolog/log"
+	"storj.io/common/identity"
 	"storj.io/common/pb"
 	"storj.io/common/peertls/tlsopts"
 	"storj.io/common/rpc"
 	"storj.io/common/storj"
-	"storj.io/storj/satellite"
 )
 
 type SatMode int
@@ -48,23 +48,24 @@ type Satellite interface {
 }
 
 type SatelliteLocal struct {
-	label      string
-	config     satellite.Config
-	tcpDialer  rpc.Dialer
-	quicDialer rpc.Dialer
+	label       string
+	identityCfg identity.Config
+	tlsCfg      tlsopts.Config
+	tcpDialer   rpc.Dialer
+	quicDialer  rpc.Dialer
 }
 
 func (sat *SatelliteLocal) SetUp(label string, identityDir string) error {
 	sat.label = label
 
-	sat.config.Identity.CertPath = identityDir + "/identity.cert"
-	sat.config.Identity.KeyPath = identityDir + "/identity.key"
-	sat.config.Server.Config.PeerIDVersions = "*"
-	identity, err := sat.config.Identity.Load()
+	sat.identityCfg.CertPath = identityDir + "/identity.cert"
+	sat.identityCfg.KeyPath = identityDir + "/identity.key"
+	sat.tlsCfg.PeerIDVersions = "*"
+	ident, err := sat.identityCfg.Load()
 	if err != nil {
 		return merry.Wrap(err)
 	}
-	tlsOptions, err := tlsopts.NewOptions(identity, sat.config.Server.Config, nil) //revocationDB
+	tlsOptions, err := tlsopts.NewOptions(ident, sat.tlsCfg, nil) //revocationDB
 	if err != nil {
 		return merry.Wrap(err)
 	}
