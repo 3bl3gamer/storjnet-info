@@ -738,9 +738,9 @@ func HandleAPINodesLocationSummary(wr http.ResponseWriter, r *http.Request, ps h
 				) AS t
 			) AS countries_top
 		FROM node_stats
-		WHERE created_at <= ?
+		WHERE created_at <= ? AND sat_group = ?
 		ORDER BY id DESC LIMIT 1
-		`, endDate.AddDate(0, 0, 1))
+		`, endDate.AddDate(0, 0, 1), core.SatGroupAll)
 	if err != nil {
 		return nil, merry.Wrap(err)
 	}
@@ -833,9 +833,9 @@ func HandleAPINodesSubnetSummary(wr http.ResponseWriter, r *http.Request, ps htt
 				) AS t
 			) AS ip_types
 		FROM node_stats
-		WHERE created_at <= ?
+		WHERE created_at <= ? AND sat_group = ?
 		ORDER BY id DESC LIMIT 1
-		`, endDate.AddDate(0, 0, 1))
+		`, endDate.AddDate(0, 0, 1), core.SatGroupAll)
 	if err != nil {
 		return nil, merry.Wrap(err)
 	}
@@ -1003,9 +1003,9 @@ func HandleAPINodesCountries(wr http.ResponseWriter, r *http.Request, ps httprou
 		SELECT
 			countries,
 			extract(epoch from created_at)::bigint AS stamp
-		FROM node_stats WHERE created_at >= ? AND created_at < ?
+		FROM node_stats WHERE created_at >= ? AND created_at < ? AND sat_group = ?
 		ORDER BY created_at
-		`, startDate, endDate.AddDate(0, 0, 1))
+		`, startDate, endDate.AddDate(0, 0, 1), core.SatGroupAll)
 	if err != nil {
 		return nil, merry.Wrap(err)
 	}
@@ -1113,15 +1113,18 @@ func HandleAPINodesCounts(wr http.ResponseWriter, r *http.Request, ps httprouter
 			(active_count_hours->'8')::int AS h8,
 			(active_count_hours->'24')::int AS h24,
 			extract(epoch from created_at)::bigint AS stamp
-		FROM node_stats WHERE created_at >= ? AND created_at < ?`,
-		startDate, endDate.AddDate(0, 0, 1))
+		FROM node_stats WHERE created_at >= ? AND created_at < ? AND sat_group = ?`,
+		startDate, endDate.AddDate(0, 0, 1), core.SatGroupAll)
 	if err != nil {
 		return nil, merry.Wrap(err)
 	}
 
-	var offCounts []struct{ Active, Stamp int64 }
+	var offCounts []struct {
+		Active, Stamp int64
+		SatelliteHost string
+	}
 	_, err = db.Query(&offCounts, `
-		SELECT active_nodes AS active, extract(epoch from created_at)::bigint AS stamp
+		SELECT active_nodes AS active, extract(epoch from created_at)::bigint AS stamp, satellite_host
 		FROM off_node_stats WHERE created_at >= ? AND created_at < ?`,
 		startDate, endDate.AddDate(0, 0, 1))
 	if err != nil {
@@ -1186,6 +1189,10 @@ func HandleAPINodesCounts(wr http.ResponseWriter, r *http.Request, ps httprouter
 		binary.LittleEndian.PutUint16(buf[i*COUNTS_ITEM_SIZE+4:], uint16(count.H24))
 	}
 	for _, count := range offCounts {
+		// off_node_stats also has third-party satellites, this is the official count
+		if core.SatelliteGroup(count.SatelliteHost) != core.SatGroupOfficial {
+			continue
+		}
 		i := (count.Stamp - startStamp) / 3600
 		s := buf[i*COUNTS_ITEM_SIZE+6:]
 		// finding max hour count among all satellites
