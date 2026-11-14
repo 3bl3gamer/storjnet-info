@@ -13,6 +13,7 @@ import (
 )
 
 func UpdateASInfoIfNeed(db *pg.DB, asn int64) (bool, error) {
+	// if ASN info is old enough to be updated
 	var t int64
 	_, err := db.Query(pg.Scan(&t), `
 		SELECT 1 FROM autonomous_systems
@@ -25,7 +26,13 @@ func UpdateASInfoIfNeed(db *pg.DB, asn int64) (bool, error) {
 		return false, merry.Wrap(err)
 	}
 
+	if err := checkIPAPIFreeDailyLimit(db); err != nil {
+		return false, merry.Wrap(err)
+	}
 	info, err := fetchASInfo(asn)
+	if cErr := countIPAPIRequestIfSent(db, err); cErr != nil {
+		return false, merry.Wrap(cErr)
+	}
 	if err != nil {
 		return false, merry.Wrap(err)
 	}
@@ -112,7 +119,7 @@ type asInfoResponse struct {
 // ASN queries require an API key, see fetchIPAPI.
 func fetchASInfo(asn int64) (asInfoResponse, error) {
 	info := asInfoResponse{}
-	if err := fetchIPAPI("AS"+strconv.FormatInt(asn, 10), 2*time.Second, &info); err != nil {
+	if err := fetchIPAPI("AS"+strconv.FormatInt(asn, 10), 5*time.Second, &info); err != nil {
 		return asInfoResponse{}, merry.Wrap(err)
 	}
 

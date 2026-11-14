@@ -14,6 +14,11 @@ import (
 )
 
 func UpdateIPCompanyIfNeed(db *pg.DB, ipAddr string) (bool, error) {
+	if net.ParseIP(ipAddr).IsPrivate() {
+		return false, nil
+	}
+
+	// if IP is not already covered by some network range
 	var t int64
 	_, err := db.Query(pg.Scan(&t), `
 		SELECT 1 FROM network_companies
@@ -28,6 +33,7 @@ func UpdateIPCompanyIfNeed(db *pg.DB, ipAddr string) (bool, error) {
 	if err != nil {
 		return false, merry.Wrap(err)
 	}
+	// if not already searched this IP recently
 	_, err = db.Query(pg.Scan(&t), `
 		SELECT 1 FROM network_company_unknown_ips
 		WHERE ip_addr = ?
@@ -40,7 +46,13 @@ func UpdateIPCompanyIfNeed(db *pg.DB, ipAddr string) (bool, error) {
 		return false, merry.Wrap(err)
 	}
 
+	if err := checkIPAPIFreeDailyLimit(db); err != nil {
+		return false, merry.Wrap(err)
+	}
 	company, found, err := fetchIPCompanyInfo(ipAddr)
+	if cErr := countIPAPIRequestIfSent(db, err); cErr != nil {
+		return false, merry.Wrap(cErr)
+	}
 	if err != nil {
 		return false, merry.Wrap(err)
 	}
@@ -208,13 +220,9 @@ type ipInfoResponse struct {
 
 // The company object (and so name, domain, type and network) requires an API key, see fetchIPAPI.
 func fetchIPCompanyInfo(ipAddr string) (ipCompanyInfo, bool, error) {
-	if net.ParseIP(ipAddr).IsPrivate() {
-		return ipCompanyInfo{}, false, nil
-	}
-
 	info := ipInfoResponse{}
-	//got some timeouts after 3 seconds
-	if err := fetchIPAPI(ipAddr, 4*time.Second, &info); err != nil {
+	//got some timeouts after 4 seconds
+	if err := fetchIPAPI(ipAddr, 5*time.Second, &info); err != nil {
 		return ipCompanyInfo{}, false, merry.Wrap(err)
 	}
 

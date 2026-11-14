@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/ansel1/merry"
+	"github.com/go-pg/pg/v10"
 )
 
 // previously was api.incolumitas.com
@@ -20,10 +21,15 @@ const ipapiURL = "https://api.ipapi.is/"
 // the company object (name, domain, type, network). A free key allows 1000 requests per day.
 const ipapiKeyEnvName = "IPAPI_KEY"
 
+// First 1000 requests/day are free (resets at midnight UTC), trying to fit into that.
+const ipapiFreeDailyLimit = 1000
+const ipapiCounterKey = "ipapi:daily_requests"
+
 var (
 	ErrIncolumitasTooManyRequests = merry.New("ipapi: too many requests")
 	ErrIncolumitasKeyNotSet       = merry.New("ipapi: " + ipapiKeyEnvName + " env variable is not set")
 	ErrIncolumitasNoData          = merry.New("ipapi: no data")
+	ErrIPAPIDailyLimit            = merry.New("ipapi: daily requests limit reached")
 )
 
 // https://ipapi.is/developers.html#error-handling
@@ -91,6 +97,48 @@ func fetchIPAPI(query string, timeout time.Duration, result interface{}) error {
 	}
 
 	return merry.Wrap(json.Unmarshal(buf, result))
+}
+
+type ipapiCounter struct {
+	Date  string `json:"date"`
+	Count int64  `json:"count"`
+}
+
+func ipapiToday() string {
+	return time.Now().UTC().Format("2006-01-02") //ipapi free daily quota resets and midnight UTC
+}
+
+// checkIPAPIFreeDailyLimit returns ErrIPAPIDailyLimit if today's requests free limit is reached.
+// The check and the increment are not atomic: concurrent fetchers may overshoot by a few requests.
+func checkIPAPIFreeDailyLimit(db DBTx) error {
+	var res struct{ Value ipapiCounter }
+	err := AppConfigVal(db, ipapiCounterKey, &res, false)
+	if err != nil && err != pg.ErrNoRows {
+		return merry.Wrap(err)
+	}
+	if res.Value.Date == ipapiToday() && res.Value.Count >= ipapiFreeDailyLimit {
+		return ErrIPAPIDailyLimit.Here().WithMessagef("%d requests today", res.Value.Count)
+	}
+	return nil
+}
+
+// countIPAPIRequestIfSent increments today's requests counter
+// if the request was successful (returned fetchErr is nil).
+// Timeouts and other errors are not counted.
+func countIPAPIRequestIfSent(db DBTx, fetchErr error) error {
+	// not sure about ErrIncolumitasNoData, let's assume it is counted as normal request
+	if fetchErr != nil && !merry.Is(fetchErr, ErrIncolumitasNoData) {
+		return nil
+	}
+	_, err := db.Exec(`
+		INSERT INTO appconfig (key, value) VALUES (?, jsonb_build_object('date', ?::text, 'count', 1))
+		ON CONFLICT (key) DO UPDATE SET value = CASE
+			WHEN appconfig.value->>'date' = EXCLUDED.value->>'date'
+			THEN jsonb_set(appconfig.value, '{count}', to_jsonb((appconfig.value->>'count')::int + 1))
+			ELSE EXCLUDED.value
+		END`,
+		ipapiCounterKey, ipapiToday())
+	return merry.Wrap(err)
 }
 
 func hideIPAPIKey(err error, key string) error {

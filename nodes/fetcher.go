@@ -266,6 +266,9 @@ func saveLimits(db *pg.DB, gdb, asndb *utils.GeoIPConn, satelliteAddress string,
 		}
 		return nil
 	})
+	if err != nil {
+		return merry.Wrap(err)
+	}
 	log.Info().
 		Int("total", len(limits)).Int("new", newCount).Int("with_location", locCount).Int("with_ip_type", ipTypeCount).
 		TimeDiff("elapsed", time.Now(), stt).
@@ -279,6 +282,11 @@ func saveLimits(db *pg.DB, gdb, asndb *utils.GeoIPConn, satelliteAddress string,
 			break
 		}
 		if _, err := core.UpdateIPCompanyIfNeed(db, ip); err != nil {
+			// expected to happen daily, not an error
+			if merry.Is(err, core.ErrIPAPIDailyLimit) {
+				log.Debug().Err(err).Msg("skipping IP companies update")
+				break
+			}
 			log.Error().Err(err).Str("ip", ip).Msg("failed to update IP company")
 			// retrying through a 429 is what gets the client banned for 24h,
 			// and without a key there is nothing to retry with
@@ -296,13 +304,17 @@ func saveLimits(db *pg.DB, gdb, asndb *utils.GeoIPConn, satelliteAddress string,
 			break
 		}
 		if _, err := core.UpdateASInfoIfNeed(db, asn); err != nil {
+			if merry.Is(err, core.ErrIPAPIDailyLimit) {
+				log.Debug().Err(err).Msg("skipping AS info update")
+				break
+			}
 			log.Error().Err(err).Int64("asn", asn).Msg("failed to update AS info")
 			if merry.Is(err, core.ErrIncolumitasTooManyRequests) || merry.Is(err, core.ErrIncolumitasKeyNotSet) {
 				break
 			}
 		}
 	}
-	return merry.Wrap(err)
+	return nil
 }
 
 // config.dial
