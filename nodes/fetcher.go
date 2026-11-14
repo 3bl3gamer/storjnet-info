@@ -210,7 +210,7 @@ func saveLimits(db *pg.DB, gdb, asndb *utils.GeoIPConn, satelliteAddress string,
 							ORDER BY masklen(network) DESC
 							LIMIT 1`,
 							ipAddr, loc.Accuracy)
-						if err != nil && err != pg.ErrNoRows {
+						if err != nil && !merry.Is(err, pg.ErrNoRows) {
 							return merry.Wrap(err)
 						}
 					}

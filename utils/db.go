@@ -234,7 +234,7 @@ func IsConstrError(err error, table, kind, name string) bool {
 }
 
 func PrintPGErrInfo(err error) {
-	perr := err.(pg.Error)
+	perr := merry.Unwrap(err).(pg.Error)
 	for c := byte('A'); c <= byte('z'); c++ {
 		if perr.Field(c) != "" {
 			println(c, string(c), perr.Field(c))

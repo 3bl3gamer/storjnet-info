@@ -128,7 +128,7 @@ func HandleUserDashboard(wr http.ResponseWriter, r *http.Request, ps httprouter.
 	}
 	var userText string
 	_, err = db.QueryOne(pg.Scan(&userText), `SELECT text FROM user_texts WHERE user_id = ? ORDER BY updated_at DESC LIMIT 1`, user.ID)
-	if err != nil && err != pg.ErrNoRows {
+	if err != nil && !merry.Is(err, pg.ErrNoRows) {
 		return nil, merry.Wrap(err)
 	}
 	return map[string]interface{}{

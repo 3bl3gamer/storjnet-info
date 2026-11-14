@@ -23,7 +23,7 @@ func AppConfigVal(db DBTx, key string, val interface{}, forUpdate bool) error {
 func AppConfigInt64Slice(db DBTx, key string, forUpdate bool) ([]int64, error) {
 	var res struct{ Value []int64 }
 	err := AppConfigVal(db, key, &res, forUpdate)
-	if err == pg.ErrNoRows {
+	if merry.Is(err, pg.ErrNoRows) {
 		return nil, nil
 	}
 	if err != nil {

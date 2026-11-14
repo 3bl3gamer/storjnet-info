@@ -254,7 +254,7 @@ func StartHTTPServer(address string, env utils.Env) error {
 		},
 		HandleHtml500: HandleHtml500,
 		LogError: func(err error, r *http.Request) {
-			// if errors.Is(err, syscall.EPIPE) {
+			// if merry.Is(err, syscall.EPIPE) {
 			// 	log.Warn().Str("method", r.Method).Str("path", r.URL.Path).Msg("broken pipe")
 			// } else {
 			log.Error().Stack().Err(err).Str("method", r.Method).Str("path", r.URL.Path).Msg("")

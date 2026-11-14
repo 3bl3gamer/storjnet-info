@@ -113,7 +113,7 @@ func ipapiToday() string {
 func checkIPAPIFreeDailyLimit(db DBTx) error {
 	var res struct{ Value ipapiCounter }
 	err := AppConfigVal(db, ipapiCounterKey, &res, false)
-	if err != nil && err != pg.ErrNoRows {
+	if err != nil && !merry.Is(err, pg.ErrNoRows) {
 		return merry.Wrap(err)
 	}
 	if res.Value.Date == ipapiToday() && res.Value.Count >= ipapiFreeDailyLimit {

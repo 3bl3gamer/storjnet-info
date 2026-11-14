@@ -125,7 +125,7 @@ func fetchTransactions(db *pg.DB) (sum txFetchSummary, err error) {
 	var curBlockNum int64
 	_, err = db.QueryOne(pg.Scan(&curBlockNum),
 		`SELECT max(block_number) FROM storj_token_transactions`)
-	if err != nil && err != pg.ErrNoRows {
+	if err != nil && !merry.Is(err, pg.ErrNoRows) {
 		return sum, merry.Wrap(err)
 	}
 
