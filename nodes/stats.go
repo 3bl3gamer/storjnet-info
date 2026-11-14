@@ -264,30 +264,46 @@ func saveGroupNodeStats(db *pg.DB, now time.Time, groupName string, satNames []s
 	return merry.Wrap(err)
 }
 
+// saveDailyStats saves which nodes are active today (and which have come and left since yesterday).
+// The arrays of node_daily_stats hold node_nums.num instead of the 32-byte node IDs.
 func saveDailyStats(db *pg.DB, groups []satGroup, errors *[]error) {
+	// activeNodesSQL must return distinct node IDs as "id".
+	// Nodes seen for the first time get their numbers right in this query (new_node_nums).
+	// All parts of a query work with the same snapshot, so "SELECT FROM node_nums" in active_nodes
+	// returns only the numbers that existed before the query, and the just inserted ones
+	// can be obtained only through RETURNING. Hence the UNION ALL of both.
 	dailyStats := func(kind, activeNodesSQL string, params ...interface{}) error {
 		params = append(params, kind, kind, kind)
 		_, err := db.Exec(`
 			WITH dates (today, yesterday) AS (VALUES(
 				(NOW() at time zone 'UTC')::date,
 				(NOW() at time zone 'UTC')::date - INTERVAL '1 day'
-			)), active_nodes AS (
+			)), active_node_ids AS (
 				`+activeNodesSQL+`
+			), new_node_nums AS (
+				INSERT INTO node_nums (node_id)
+				SELECT a.id FROM active_node_ids AS a
+				WHERE NOT EXISTS (SELECT 1 FROM node_nums WHERE node_id = a.id)
+				RETURNING num
+			), active_nodes AS (
+				SELECT num FROM active_node_ids AS a JOIN node_nums ON node_id = a.id
+				UNION ALL
+				SELECT num FROM new_node_nums
 			)
 			INSERT INTO node_daily_stats (date, kind, node_ids, come_node_ids, left_node_ids)
 			VALUES (
 				(SELECT today FROM dates),
 				?,
-				(SELECT COALESCE(array_agg(id ORDER BY id), '{}'::bytea[]) FROM active_nodes),
+				(SELECT COALESCE(array_agg(num ORDER BY num), '{}'::integer[]) FROM active_nodes),
 				(
-					SELECT COALESCE(array_agg(id ORDER BY id), '{}'::bytea[])
+					SELECT COALESCE(array_agg(num ORDER BY num), '{}'::integer[])
 					FROM active_nodes
-					LEFT OUTER JOIN (SELECT unnest(node_ids) AS yest_id FROM node_daily_stats, dates WHERE date = yesterday AND kind = ?) AS t
-					ON (id = yest_id) WHERE yest_id IS NULL
+					LEFT OUTER JOIN (SELECT unnest(node_ids) AS yest_num FROM node_daily_stats, dates WHERE date = yesterday AND kind = ?) AS t
+					ON (num = yest_num) WHERE yest_num IS NULL
 				), (
-					SELECT COALESCE(array_agg(yest_id ORDER BY yest_id), '{}'::bytea[])
-					FROM unnest((SELECT node_ids FROM node_daily_stats, dates WHERE date = yesterday AND kind = ?)) as yest_id
-					WHERE NOT EXISTS (SELECT 1 FROM active_nodes WHERE id = yest_id)
+					SELECT COALESCE(array_agg(yest_num ORDER BY yest_num), '{}'::integer[])
+					FROM unnest((SELECT node_ids FROM node_daily_stats, dates WHERE date = yesterday AND kind = ?)) as yest_num
+					WHERE NOT EXISTS (SELECT 1 FROM active_nodes WHERE num = yest_num)
 				)
 			)
 			ON CONFLICT (date, kind) DO UPDATE SET
