@@ -61,8 +61,22 @@ func (d dbLogger) AfterQuery(ctx context.Context, event *pg.QueryEvent) error {
 	return nil
 }
 
+// MakePGConnection connects to storjnet_db as the storjnet user.
+//
+// PGHOST and PGPORT are understood the way libpq (and so psql) understands them: a PGHOST starting
+// with "/" is the directory of the Unix socket (like /run/postgresql), anything else is a TCP host
+// (go-pg reads PGHOST/PGPORT by itself in that case). Without PGHOST it is TCP to localhost:5432.
 func MakePGConnection() *pg.DB {
-	db := pg.Connect(&pg.Options{User: "storjnet", Password: "storj", Database: "storjnet_db"})
+	opts := &pg.Options{User: "storjnet", Password: "storj", Database: "storjnet_db"}
+	if host := os.Getenv("PGHOST"); strings.HasPrefix(host, "/") {
+		port := os.Getenv("PGPORT")
+		if port == "" {
+			port = "5432"
+		}
+		opts.Network = "unix"
+		opts.Addr = filepath.Join(host, ".s.PGSQL."+port)
+	}
+	db := pg.Connect(opts)
 	// db.AddQueryHook(dbLogger{})
 	return db
 }

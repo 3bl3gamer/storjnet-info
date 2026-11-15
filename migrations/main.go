@@ -11,6 +11,8 @@ import (
 
 	"github.com/go-pg/migrations/v8"
 	"github.com/go-pg/pg/v10"
+
+	"storjnet/utils"
 )
 
 const usageText = `This program runs command on the db. Supported commands are:
@@ -20,7 +22,7 @@ const usageText = `This program runs command on the db. Supported commands are:
   - version - prints current db version.
   - set_version [version] - sets db version without running migrations.
 Usage:
-  go run *.go [args] <command>
+  go run *.go <command>
 `
 
 func usage() {
@@ -83,10 +85,9 @@ func (d dbLogger) AfterQuery(ctx context.Context, event *pg.QueryEvent) error {
 
 func main() {
 	flag.Usage = usage
-	dbname := flag.String("dbname", "storjnet_db", "database name")
 	flag.Parse()
 
-	db := pg.Connect(&pg.Options{User: "storjnet", Password: "storj", Database: *dbname})
+	db := utils.MakePGConnection()
 	db.AddQueryHook(dbLogger{})
 
 	migrations.SetTableName("storjnet.gopg_migrations")
