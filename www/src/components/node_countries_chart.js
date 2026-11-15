@@ -15,6 +15,7 @@ import {
 import { delayedRedraw, useResizeEffect } from 'src/utils/elems'
 import { html } from 'src/utils/htm'
 import { DAY_DURATION, toISODateString, useHashInterval } from 'src/utils/time'
+import { useHashSatGroup } from 'src/utils/sat_groups'
 
 import './node_countries_chart.css'
 import { lang } from 'src/i18n'
@@ -54,6 +55,7 @@ export function NodeCountriesChart() {
 	const canvasExt = useRef(new CanvasExt()).current
 	const legendBoxRef = useRef(/**@type {HTMLDivElement|null}*/ (null))
 	const [startDate, endDate] = useHashInterval()
+	const satGroup = useHashSatGroup()
 
 	const [data, setData] = useState(/**@type {{startStamp:number, countries:CountryItem[]}|null}*/ (null))
 
@@ -104,7 +106,12 @@ export function NodeCountriesChart() {
 	useEffect(() => {
 		const abortController = new AbortController()
 		apiReq('GET', `/api/nodes/countries`, {
-			data: { start_date: toISODateString(startDate), end_date: toISODateString(endDate), lang },
+			data: {
+				start_date: toISODateString(startDate),
+				end_date: toISODateString(endDate),
+				sat_group: satGroup,
+				lang,
+			},
 			signal: abortController.signal,
 		})
 			.then(r => r.arrayBuffer())
@@ -140,7 +147,7 @@ export function NodeCountriesChart() {
 			})
 			.catch(onError)
 		return () => abortController.abort()
-	}, [startDate, endDate])
+	}, [startDate, endDate, satGroup])
 
 	useLayoutEffect(() => {
 		requestRedraw()

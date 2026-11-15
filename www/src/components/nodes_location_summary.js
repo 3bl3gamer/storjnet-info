@@ -5,6 +5,7 @@ import { onError } from 'src/errors'
 import { html } from 'src/utils/htm'
 import { zeroes } from 'src/utils/arrays'
 import { intervalIsDefault, toISODateString, useHashInterval, watchHashInterval } from 'src/utils/time'
+import { useHashSatGroup } from 'src/utils/sat_groups'
 import {
 	LocMap,
 	ProjectionMercator,
@@ -29,8 +30,14 @@ const NodesLocationMap = memo(function NodesLocationMap() {
 	const mapPointsLayer = useRef(new PointsLayer()).current
 	const mapWrapRef = useRef(/**@type {HTMLDivElement|null}*/ (null))
 
+	const satGroup = useHashSatGroup()
+
 	useEffect(() => {
-		apiReq('GET', `/api/nodes/locations`)
+		const abortController = new AbortController()
+		apiReq('GET', `/api/nodes/locations`, {
+			data: { sat_group: satGroup },
+			signal: abortController.signal,
+		})
 			.then(r => r.arrayBuffer())
 			.then(buf => {
 				const coords = new Uint16Array(buf)
@@ -43,7 +50,8 @@ const NodesLocationMap = memo(function NodesLocationMap() {
 				mapPointsLayer.setLocations(locations)
 			})
 			.catch(onError)
-	}, [])
+		return () => abortController.abort()
+	}, [satGroup])
 
 	useEffect(() => {
 		if (!mapWrapRef.current) return
@@ -99,12 +107,13 @@ const NodesSummary = memo(function NodesSummary() {
 		/**@type {'nodes'|'ispNodes'|'subnets'|'ispSubnets'|'nodesPerSub'}*/ ('nodes'),
 	)
 	const [, endDate] = useHashInterval()
+	const satGroup = useHashSatGroup()
 
 	useEffect(() => {
 		const abortController = new AbortController()
 
 		apiReq('GET', `/api/nodes/location_summary`, {
-			data: { end_date: toISODateString(endDate), lang },
+			data: { end_date: toISODateString(endDate), sat_group: satGroup, lang },
 			signal: abortController.signal,
 		})
 			.then(stats => {
@@ -113,7 +122,7 @@ const NodesSummary = memo(function NodesSummary() {
 			.catch(onError)
 
 		return () => abortController.abort()
-	}, [endDate])
+	}, [endDate, satGroup])
 
 	const onExpand = useCallback(() => {
 		setIsExpanded(true)

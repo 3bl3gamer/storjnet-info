@@ -4,6 +4,7 @@ import { L, lang } from 'src/i18n'
 import { useCallback, useEffect, useMemo, useState } from 'preact/hooks'
 import { apiReq } from 'src/api'
 import { toISODateString, useHashInterval } from 'src/utils/time'
+import { useHashSatGroup } from 'src/utils/sat_groups'
 import { onError } from 'src/errors'
 import { zeroes } from 'src/utils/arrays'
 
@@ -24,12 +25,13 @@ const SIZES_STATS_COUNTS = [1, 2, 3, 10, 100]
 const NodesSummary = memo(function NodesSummary() {
 	const [stats, setStats] = useState(/** @type {NodesSubnetsSummaryResponse | null} */ (null))
 	const [, endDate] = useHashInterval()
+	const satGroup = useHashSatGroup()
 
 	useEffect(() => {
 		const abortController = new AbortController()
 
 		apiReq('GET', `/api/nodes/subnet_summary`, {
-			data: { end_date: toISODateString(endDate) },
+			data: { end_date: toISODateString(endDate), sat_group: satGroup },
 			signal: abortController.signal,
 		})
 			.then(stats => {
@@ -38,7 +40,7 @@ const NodesSummary = memo(function NodesSummary() {
 			.catch(onError)
 
 		return () => abortController.abort()
-	}, [endDate])
+	}, [endDate, satGroup])
 
 	const subnetsCount = stats ? stats.subnetsCount : 0
 

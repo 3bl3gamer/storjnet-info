@@ -2,13 +2,24 @@ import { Help } from 'src/components/help'
 import { L, lang } from 'src/i18n'
 import { html } from './htm'
 import { NBHYP } from './elems'
+import { SAT_GROUP_ALL, SAT_GROUP_OFFICIAL } from './sat_groups'
 
 /**
- * @template {{address:string}} T
+ * @template {{address:string, group?:string}} T
  * @param {T[]} nodes
  */
 export function sortNodes(nodes) {
-	return nodes.sort((a, b) => a.address.localeCompare(b.address))
+	function rank(/**@type {T}*/ x) {
+		// official go first ("all" should not be here, just in case)
+		if (x?.group === SAT_GROUP_ALL) return 0
+		if (x?.group === SAT_GROUP_OFFICIAL) return 1
+		return 2
+	}
+	return nodes.sort((a, b) => {
+		const ra = rank(a)
+		const rb = rank(b)
+		return ra != rb ? ra - rb : a.address.localeCompare(b.address)
+	})
 }
 
 /**
@@ -70,9 +81,9 @@ export function SubnetNeighborsDescription() {
 		<p>
 			${lang === 'ru'
 				? `Некоторые ноды (особенно новые) могут не учитываться. ` +
-				  `Если есть сомнения, лучше проверить свою подсеть вручную (например Nmap'ом).`
+					`Если есть сомнения, лучше проверить свою подсеть вручную (например Nmap'ом).`
 				: 'Some nodes (especially new ones) may not be found. ' +
-				  'If in doubt, better check your subnet manually (e.g. with Nmap).'}
+					'If in doubt, better check your subnet manually (e.g. with Nmap).'}
 		</p>
 	`
 }
@@ -83,8 +94,8 @@ export function NodeSanctionDescr({ sanction }) {
 		sanction?.reason === 'REGISTRATION_COUNTRY'
 			? L('IP registration country', 'ru', `Страна регистрации IP${NBHYP}адреса`)
 			: sanction?.reason === 'LOCATION_REGION'
-			? L('IP location', 'ru', `Местоположение IP${NBHYP}адреса`)
-			: (sanction?.reason ?? '').toLowerCase().replace(/_/g, ' ')
+				? L('IP location', 'ru', `Местоположение IP${NBHYP}адреса`)
+				: (sanction?.reason ?? '').toLowerCase().replace(/_/g, ' ')
 	return html`${reason}: <b>${sanction?.detail}</b>`
 }
 

@@ -17,6 +17,7 @@ import { L, lang, pluralize } from 'src/i18n'
 import { bindHandlers, delayedRedraw } from 'src/utils/elems'
 import { html } from 'src/utils/htm'
 import { PureComponent } from 'src/utils/preact_compat'
+import { SAT_GROUP_ALL, SAT_GROUP_OFFICIAL, watchHashSatGroup } from 'src/utils/sat_groups'
 import { DAY_DURATION, intervalIsMonth, toISODateStringInterval, watchHashInterval } from 'src/utils/time'
 
 import './storj_tx_summary.css'
@@ -82,6 +83,14 @@ function processTxData(buf, startDate, endDate) {
 	}
 }
 
+/**
+ * Payouts are known only for the official satellites, the other groups just have no data (for now).
+ * @param {string} satGroup
+ */
+function hasPayouts(satGroup) {
+	return satGroup === SAT_GROUP_ALL || satGroup === SAT_GROUP_OFFICIAL
+}
+
 export class StorjTxSummary extends PureComponent {
 	constructor() {
 		super()
@@ -103,9 +112,21 @@ export class StorjTxSummary extends PureComponent {
 		})
 		this.stopWatchingHashInterval = watch.off
 
+		let groupWatch = watchHashSatGroup(satGroup => {
+			if (hasPayouts(satGroup) === hasPayouts(this.state.satGroup)) {
+				this.setState({ ...this.state, satGroup })
+			} else {
+				this.setState({ ...this.state, satGroup, arrays: null }, () => this.loadData())
+			}
+		})
+		this.stopWatchingHashSatGroup = groupWatch.off
+
+		this.loadsCount = 0
+
 		this.state = {
 			startDate: watch.startDate,
 			endDate: watch.endDate,
+			satGroup: groupWatch.satGroup,
 			arrays: null,
 			isLogScale: true,
 		}
@@ -118,11 +139,16 @@ export class StorjTxSummary extends PureComponent {
 
 	loadData() {
 		let { startDateStr: start, endDateStr: end } = toISODateStringInterval(this.state)
-		apiReq('GET', `/api/storj_token/summary`, {
-			data: { start_date: start, end_date: end },
-		})
-			.then(r => r.arrayBuffer())
+		let loadNum = ++this.loadsCount
+		let bufPromise = hasPayouts(this.state.satGroup)
+			? apiReq('GET', `/api/storj_token/summary`, {
+					data: { start_date: start, end_date: end },
+				}).then(r => r.arrayBuffer())
+			: Promise.resolve(new ArrayBuffer(0))
+		bufPromise
 			.then(buf => {
+				// the interval or the group has been changed while loading (TODO: AbortController)
+				if (loadNum !== this.loadsCount) return
 				let { startDate, endDate } = this.state
 				let data = processTxData(buf, startDate, endDate)
 				this.setState(data)
@@ -200,6 +226,7 @@ export class StorjTxSummary extends PureComponent {
 	componentWillUnmount() {
 		removeEventListener('resize', this.onResize)
 		this.stopWatchingHashInterval()
+		this.stopWatchingHashSatGroup()
 	}
 
 	render(props, { aggregated, isLogScale }) {
@@ -209,7 +236,7 @@ export class StorjTxSummary extends PureComponent {
 			let count = Math.round(aggregated.payoutsCount)
 			let avg = Math.round(aggregated.payoutAvg * 10) / 10
 			let withdr = Math.round(aggregated.withdrawalTotal)
-			let withdrPerc = ((withdr * 100) / total).toFixed(1)
+			let withdrPerc = total === 0 ? null : ((withdr * 100) / total).toFixed(1)
 			let duringThisPeriod = intervalIsMonth()
 				? L('During this month', 'ru', 'В этом месяце')
 				: L('During this period', 'ru', 'За этот период')
@@ -219,20 +246,22 @@ export class StorjTxSummary extends PureComponent {
 						? count === 0
 							? duringThisPeriod + ` платежей нет.`
 							: duringThisPeriod +
-							  ` ${pluralize(count, 'отправлен', 'отправлено', 'отправлено')}` +
-							  ` ${L.n(count, 'платёж', 'платежа', 'платежей')} ` +
-							  `на ${L.n(total, 'STORJ', "STORJ'а", "STORJ'ей")}, ${avg} в среднем.`
+								` ${pluralize(count, 'отправлен', 'отправлено', 'отправлено')}` +
+								` ${L.n(count, 'платёж', 'платежа', 'платежей')} ` +
+								`на ${L.n(total, 'STORJ', "STORJ'а", "STORJ'ей")}, ${avg} в среднем.`
 						: count === 0
-						? duringThisPeriod + ' there are no payments.'
-						: duringThisPeriod +
-						  ` ${L.n(count, 'payment', 'payments')} were sent ` +
-						  `for ${L.n(total, 'STORJ', 'STORJs')}, ${avg} on average.`}
+							? duringThisPeriod + ' there are no payments.'
+							: duringThisPeriod +
+								` ${L.n(count, 'payment', 'payments')} were sent ` +
+								`for ${L.n(total, 'STORJ', 'STORJs')}, ${avg} on average.`}
 					${' '}
 					${lang === 'ru'
-						? `С кошельков получателей выведено ${L.n(withdr, 'койн', 'койна', 'койнов')} ` +
-						  `(${withdrPerc}% от выплат).`
-						: `${L.n(withdr, 'coin', 'coins')} were withdrawn from recipient's wallets ` +
-						  `(${withdrPerc}% of payouts).`}
+						? `С кошельков получателей выведено ${L.n(withdr, 'койн', 'койна', 'койнов')}` +
+							(withdrPerc === null ? '' : ` (${withdrPerc}% от выплат)`) +
+							'.'
+						: `${L.n(withdr, 'coin', 'coins')} were withdrawn from recipient's wallets` +
+							(withdrPerc === null ? '' : ` (${withdrPerc}% of payouts)`) +
+							'.'}
 				</p>
 			`
 		}

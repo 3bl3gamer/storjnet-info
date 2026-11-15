@@ -124,6 +124,9 @@ export function PointsLayer() {
 	let canvas = /**@type {HTMLCanvasElement|null}*/ (null)
 	let gl = /**@type {WebGLRenderingContext|null}*/ (null)
 	let locs = /**@type {[number,number][]}*/ ([])
+	let glPosBuf = /**@type {WebGLBuffer|null}*/ (null)
+	/** Locations have been changed after the buffer was filled */
+	let bufferIsOutdated = false
 	const mvMatrix = mat4.create()
 	const mouse = { x: 0, y: 0, r: 12, shown: false }
 
@@ -160,9 +163,11 @@ export function PointsLayer() {
 			posBuf[i * 2 + 1] = posConv.lat2y(locs[i][1], 1)
 		}
 
-		let glPosBuf = gl.createBuffer()
+		if (glPosBuf) gl.deleteBuffer(glPosBuf)
+		glPosBuf = gl.createBuffer()
 		gl.bindBuffer(gl.ARRAY_BUFFER, glPosBuf)
 		gl.bufferData(gl.ARRAY_BUFFER, posBuf, gl.STATIC_DRAW)
+		bufferIsOutdated = false
 
 		gl.enableVertexAttribArray(shader_aVertexPosition)
 		gl.bindBuffer(gl.ARRAY_BUFFER, glPosBuf)
@@ -205,6 +210,7 @@ export function PointsLayer() {
 			locs[i][0] += r * Math.cos(a) * 2
 			locs[i][1] += r * Math.sin(a)
 		}
+		bufferIsOutdated = true
 		if (map) map.requestRedraw()
 	}
 
@@ -223,13 +229,14 @@ export function PointsLayer() {
 		if (canvas) map_.getWrap().removeChild(canvas)
 		map = null
 		gl = null
+		glPosBuf = null
 		canvas = null
 	}
 
 	/** @param {import('locmap').LocMap} map */
 	this.redraw = map => {
-		if (locs.length === 0) return
 		tryResizeIfNeed(map)
+		if (gl && bufferIsOutdated) mustInitBuffer(gl, map.getProjConv())
 
 		const mapCanvas = map.getCanvas()
 		const mapZoom = map.getZoom()

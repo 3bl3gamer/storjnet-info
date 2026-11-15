@@ -8,6 +8,7 @@ import { StorjTxSummary } from './components/storj_tx_summary'
 import { NodesLocationSummary } from './components/nodes_location_summary'
 import { NodesCountChart } from './components/nodes_count_chart'
 import { RewindControl } from './components/rewind_control'
+import { SatGroupControl } from './components/sat_group_control'
 import { SatsPingsCharts } from './components/pings_chart'
 import { PingMyNode } from './components/ping_my_node'
 import { AuthForm } from './components/auth'
@@ -18,6 +19,7 @@ import { NodesSubnetSummary } from './components/nodes_subnet_summary'
 
 renderIfExists(AuthForm, '.auth-forms')
 renderIfExists(RewindControl, '.rewind-control')
+renderIfExists(SatGroupControl, '.sat-group-control')
 renderIfExists(SatsPingsCharts, '.sat-nodes')
 renderIfExists(StorjTxSummary, '.storj-tx-summary')
 renderIfExists(NodesCountChart, '.nodes-count-chart')

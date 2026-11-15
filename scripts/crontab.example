@@ -6,12 +6,12 @@ ETHERSCAN_API_KEY=<key>
 */30 * * * * /home/storj/storjnet/storjnet fetch-transactions
 
 IPAPI_KEY=<key>
-STORJ_API_KEY=<asia_east_api_key>
-* * * * * /home/storj/storjnet/storjnet fetch-nodes --satellite=121RTSDpyNZVcEU84Ticf2L1ntiuUimbWgfATz21tuvgk3vzoA6@asia-east-1.tardigrade.io:7777
-STORJ_API_KEY=<us_central_api_key>
-* * * * * /home/storj/storjnet/storjnet fetch-nodes --satellite=12EayRS2V1kEsWESU9QMRseFhdxYxKicsiFmxrsLZHeLUtdps3S@us-central-1.tardigrade.io:7777
-STORJ_API_KEY=<europe_west_api_key>
-* * * * * /home/storj/storjnet/storjnet fetch-nodes --satellite=12L9ZFwhzVpuEKMUNUqkaTLGzwY9G24tbiigLiXpmZWKwmcNDDs@europe-west-1.tardigrade.io:7777
+STORJ_API_KEY=<ap1_api_key>
+* * * * * /home/storj/storjnet/storjnet fetch-nodes --satellite=121RTSDpyNZVcEU84Ticf2L1ntiuUimbWgfATz21tuvgk3vzoA6@ap1.storj.io:7777
+STORJ_API_KEY=<us1_api_key>
+* * * * * /home/storj/storjnet/storjnet fetch-nodes --satellite=12EayRS2V1kEsWESU9QMRseFhdxYxKicsiFmxrsLZHeLUtdps3S@us1.storj.io:7777
+STORJ_API_KEY=<eu1_api_key>
+* * * * * /home/storj/storjnet/storjnet fetch-nodes --satellite=12L9ZFwhzVpuEKMUNUqkaTLGzwY9G24tbiigLiXpmZWKwmcNDDs@eu1.storj.io:7777
 # third-party satellite: its nodes get a separate stats group, see core/satellites.go
 STORJ_API_KEY=<storkspace_sj_api_key>
 * * * * * /home/storj/storjnet/storjnet fetch-nodes --satellite=1yjgPDnv1XRSh6emyQA2VZP1nquivTN8usC2BkFYDL2BbGB2nH@sj.storkspace.net:1111

@@ -95,7 +95,7 @@ export function getHashInterval() {
  * @param {Date} endDate
  */
 export function makeUpdatedHashInterval(startDate, endDate) {
-	let hash = location.hash.substr(1)
+	let hash = location.hash.slice(1)
 	let params = new URLSearchParams(hash)
 	params.set('start', formatHashIntervalDate(startDate))
 	params.set('end', formatHashIntervalDate(endDate, true))
@@ -103,26 +103,41 @@ export function makeUpdatedHashInterval(startDate, endDate) {
 }
 
 /**
+ * @param {[Date, Date]} a
+ * @param {[Date, Date]} b
+ */
+function intervalsAreSame(a, b) {
+	return a[0].getTime() === b[0].getTime() && a[1].getTime() === b[1].getTime()
+}
+
+/**
+ * Calls onChange only when the interval has actually changed (the hash also has other params).
  * @param {(startDate:Date, endDate:Date) => void} onChange
  */
 export function watchHashInterval(onChange) {
+	let curInterval = getHashInterval()
 	function listener() {
-		let [startDate, endDate] = getHashInterval()
-		onChange(startDate, endDate)
+		const interval = getHashInterval()
+		if (intervalsAreSame(curInterval, interval)) return
+		curInterval = interval
+		onChange(interval[0], interval[1])
 	}
 	function off() {
 		removeEventListener('hashchange', listener)
 	}
 	addEventListener('hashchange', listener)
 
-	let [startDate, endDate] = getHashInterval()
+	let [startDate, endDate] = curInterval
 	return { startDate, endDate, off }
 }
 
 export function useHashInterval() {
 	const [interval, setInterval] = useState(getHashInterval)
 	useLayoutEffect(() => {
-		const listener = () => setInterval(getHashInterval())
+		const listener = () => {
+			const newInterval = getHashInterval()
+			setInterval(interval => (intervalsAreSame(interval, newInterval) ? interval : newInterval))
+		}
 		addEventListener('hashchange', listener)
 		return () => removeEventListener('hashchange', listener)
 	}, [])

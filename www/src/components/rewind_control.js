@@ -1,6 +1,7 @@
 import { lang } from 'src/i18n'
 import { html } from 'src/utils/htm'
 import { PureComponent } from 'src/utils/preact_compat'
+import { watchHashSatGroup } from 'src/utils/sat_groups'
 import { endOfMonth, makeUpdatedHashInterval, watchHashInterval } from 'src/utils/time'
 
 const monthLangNames = {
@@ -17,10 +18,18 @@ export class RewindControl extends PureComponent {
 		})
 		this.stopWatchingHashInterval = watch.off
 
+		// updating link.href when group changes
+		this.stopWatchingHashSatGroup = watchHashSatGroup(() => this.forceUpdate()).off
+
 		this.state = {
 			startDate: watch.startDate,
 			endDate: watch.endDate,
 		}
+	}
+
+	componentWillUnmount() {
+		this.stopWatchingHashInterval()
+		this.stopWatchingHashSatGroup()
 	}
 
 	makeIntervalHash(monthDelta) {

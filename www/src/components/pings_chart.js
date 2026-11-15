@@ -1,3 +1,4 @@
+import { Fragment } from 'preact'
 import { apiReq } from 'src/api'
 import { L, lang } from 'src/i18n'
 import { onError } from 'src/errors'
@@ -14,16 +15,16 @@ import {
 	PING_ERR,
 	PING_OK,
 } from 'src/utils/charts'
-import { shortNodeID, sortNodes } from 'src/utils/nodes'
+import { shortNodeID, sortNodes, withoutPort } from 'src/utils/nodes'
+import { SAT_GROUP_ALL, watchHashSatGroup } from 'src/utils/sat_groups'
 import { DAY_DURATION, intervalIsDefault, toISODateStringInterval, watchHashInterval } from 'src/utils/time'
 import { memo, PureComponent } from 'src/utils/preact_compat'
 import { bindHandlers, delayedRedraw, getJSONContent, hoverSingle } from 'src/utils/elems'
 import { html } from 'src/utils/htm'
 
 import './pings_chart.css'
-import { Fragment } from 'preact'
 
-/** @typedef {{id:string, address:string}} PingNode */
+/** @typedef {{id:string, address:string, group?:string}} PingNode (`group` is satellites group, only for sat nodes) */
 
 /**
  * Data mode, short of full.
@@ -98,12 +99,6 @@ function processPingsData(buf, startDate, endDate) {
 		reducedPings,
 		reducedPingsN: reductionN,
 	}
-}
-
-/** @param {string} address */
-function cutOffDefaultSatPort(address) {
-	let m = address.match(/^(.*?)(:7777)?$/)
-	return m ? m[1] : address
 }
 
 /**
@@ -333,7 +328,7 @@ class PingsChart extends PureComponent {
 					style="width: ${zoom.boxWidth}px; transform: translateX(${zoom.boxX}px)"
 				></canvas>
 			`
-		let legend = group === 'sat' ? cutOffDefaultSatPort(node.address) : shortNodeID(node.id)
+		let legend = group === 'sat' ? withoutPort(node.address) : shortNodeID(node.id)
 		return html`
 			<div class="chart pings-chart" ref=${this.hoverCtl.setRef}>
 				<canvas class="main-canvas" ref=${this.canvasExt.setRef}></canvas>
@@ -359,6 +354,7 @@ export class PingsChartsList extends PureComponent {
  * @prop {Date} endDate
  * @prop {PingNode[]} currentSatNodes
  * @prop {boolean} isLoaded
+ * @prop {string} satGroup
  * @extends {PureComponent<SPCL_Props, SPCL_State>}
  */
 export class SatsPingsChartsList extends PureComponent {
@@ -371,12 +367,18 @@ export class SatsPingsChartsList extends PureComponent {
 		})
 		this.stopWatchingHashInterval = watch.off
 
+		let groupWatch = watchHashSatGroup(satGroup => {
+			this.setState({ ...this.state, satGroup })
+		})
+		this.stopWatchingHashSatGroup = groupWatch.off
+
 		/** @type {SPCL_State} */
 		this.state = {
 			startDate: watch.startDate,
 			endDate: watch.endDate,
 			currentSatNodes: defaultSatNodes,
 			isLoaded: intervalIsDefault(),
+			satGroup: groupWatch.satGroup,
 		}
 	}
 
@@ -404,13 +406,17 @@ export class SatsPingsChartsList extends PureComponent {
 	}
 	componentWillUnmount() {
 		this.stopWatchingHashInterval()
+		this.stopWatchingHashSatGroup()
 	}
 
 	/**
 	 * @param {SPCL_Props} props
 	 * @param {SPCL_State} state
 	 */
-	render(props, { currentSatNodes, isLoaded, startDate, endDate }) {
+	render(props, { currentSatNodes, isLoaded, startDate, endDate, satGroup }) {
+		const groupSatNodes =
+			satGroup === SAT_GROUP_ALL ? currentSatNodes : currentSatNodes.filter(n => n.group === satGroup)
+
 		const noteDate = new Date('2022-04-14T12:00:00Z')
 		const note =
 			startDate < noteDate && endDate > noteDate
@@ -420,17 +426,16 @@ export class SatsPingsChartsList extends PureComponent {
 				: null
 
 		return html`<${Fragment}>
-			${currentSatNodes.map(
-				(n, i) =>
-					html`
-						<!-- using key to trigger PingsChart remount (and load) on isLoaded change, TODO -->
-						<${PingsChart}
-							key=${i + '|' + isLoaded}
-							group="sat"
-							node=${n}
-							isPending=${!isLoaded}
-						/>
-					`,
+			${groupSatNodes.map(
+				n => html`
+					<!-- using key to trigger PingsChart remount (and load) on isLoaded change, TODO -->
+					<${PingsChart}
+						key=${n.id + '|' + isLoaded}
+						group="sat"
+						node=${n}
+						isPending=${!isLoaded}
+					/>
+				`,
 			)}
 			${note && html`<p class="warn small"><b>${noteDate.toISOString().slice(0, 10)}:</b> ${note}</p>`}
 		</${Fragment}>`

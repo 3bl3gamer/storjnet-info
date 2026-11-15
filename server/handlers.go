@@ -82,6 +82,15 @@ func extractEndDateFromQuery(query url.Values) time.Time {
 	return endTime
 }
 
+// extractSatGroupFromQuery returns the satellites group whose stats are requested, "all" by default.
+// The value is not checked: an unknown group just has no stats.
+func extractSatGroupFromQuery(query url.Values) string {
+	if group := query.Get("sat_group"); group != "" {
+		return group
+	}
+	return core.SatGroupAll
+}
+
 func HandleIndex(wr http.ResponseWriter, r *http.Request, ps httprouter.Params) (httputils.TemplateCtx, error) {
 	db := r.Context().Value(CtxKeyDB).(*pg.DB)
 	user := r.Context().Value(CtxKeyUser).(*core.User)
@@ -90,7 +99,8 @@ func HandleIndex(wr http.ResponseWriter, r *http.Request, ps httprouter.Params) 
 	if err != nil {
 		return nil, merry.Wrap(err)
 	}
-	return map[string]interface{}{"FPath": "index.html", "User": user, "SatNodes": nodes}, nil
+	satGroups := append([]string{core.SatGroupAll}, core.SatGroups()...)
+	return map[string]interface{}{"FPath": "index.html", "User": user, "SatNodes": nodes, "SatGroups": satGroups}, nil
 }
 
 func HandlePingMyNode(wr http.ResponseWriter, r *http.Request, ps httprouter.Params) (httputils.TemplateCtx, error) {
@@ -573,7 +583,7 @@ func HandleAPIUserNodePings(wr http.ResponseWriter, r *http.Request, ps httprout
 
 	if strings.Contains(r.URL.Path, "/sat/") {
 		histsQuery = histsQuery.
-			Where("user_id = (SELECT id FROM users WHERE username = 'satellites')")
+			Where("user_id IN (SELECT id FROM users WHERE username IN (?))", pg.In(core.SatUsernames()))
 	} else {
 		user := r.Context().Value(CtxKeyUser).(*core.User)
 		histsQuery = histsQuery.Where("user_id = ?", user.ID)
@@ -671,13 +681,26 @@ func HandleAPIStorjTokenTxSummary(wr http.ResponseWriter, r *http.Request, ps ht
 func HandleAPINodesLocations(wr http.ResponseWriter, r *http.Request, ps httprouter.Params) (interface{}, error) {
 	db := r.Context().Value(ctxKey("db")).(*pg.DB)
 
+	// same group membership as in stat-nodes: the node was offered by a satellite of the group at least once
+	groupFilter := ""
+	var params []interface{}
+	if satGroup := extractSatGroupFromQuery(r.URL.Query()); satGroup != core.SatGroupAll {
+		namesByGroup, err := core.LoadSatNamesByGroupSlow(db)
+		if err != nil {
+			return nil, merry.Wrap(err)
+		}
+		groupFilter = `AND EXISTS (SELECT 1 FROM nodes_sat_offers WHERE node_id = nodes.id AND satellite_name = ANY(?))`
+		params = append(params, pg.Array(namesByGroup[satGroup]))
+	}
+
 	var nodeLocations []struct{ Lon, Lat float32 }
 	// sorting improves compression ratio: 55kb -> 24kb (85kb uncompressed original)
 	// sorting by (jsonb)::float8 is faster than just by jsonb
 	_, err := db.Query(&nodeLocations, `
 		SELECT (location->'longitude')::float8 AS lon, (location->'latitude')::float8 AS lat
 		FROM nodes WHERE location IS NOT NULL AND updated_at > NOW() - INTERVAL '1 day'
-		ORDER BY (location->'latitude')::float8`)
+		  `+groupFilter+`
+		ORDER BY (location->'latitude')::float8`, params...)
 	if err != nil {
 		return nil, merry.Wrap(err)
 	}
@@ -701,6 +724,7 @@ func HandleAPINodesLocationSummary(wr http.ResponseWriter, r *http.Request, ps h
 	db := r.Context().Value(CtxKeyDB).(*pg.DB)
 
 	endDate := extractEndDateFromQuery(r.URL.Query())
+	satGroup := extractSatGroupFromQuery(r.URL.Query())
 	lang := strings.ToLower(r.URL.Query().Get("lang"))
 
 	type TopItem struct {
@@ -740,7 +764,7 @@ func HandleAPINodesLocationSummary(wr http.ResponseWriter, r *http.Request, ps h
 		FROM node_stats
 		WHERE created_at <= ? AND sat_group = ?
 		ORDER BY id DESC LIMIT 1
-		`, endDate.AddDate(0, 0, 1), core.SatGroupAll)
+		`, endDate.AddDate(0, 0, 1), satGroup)
 	if err != nil {
 		return nil, merry.Wrap(err)
 	}
@@ -762,6 +786,7 @@ func HandleAPINodesSubnetSummary(wr http.ResponseWriter, r *http.Request, ps htt
 	db := r.Context().Value(CtxKeyDB).(*pg.DB)
 
 	endDate := extractEndDateFromQuery(r.URL.Query())
+	satGroup := extractSatGroupFromQuery(r.URL.Query())
 
 	type TopItem struct {
 		Subnet string `json:"subnet"`
@@ -835,7 +860,7 @@ func HandleAPINodesSubnetSummary(wr http.ResponseWriter, r *http.Request, ps htt
 		FROM node_stats
 		WHERE created_at <= ? AND sat_group = ?
 		ORDER BY id DESC LIMIT 1
-		`, endDate.AddDate(0, 0, 1), core.SatGroupAll)
+		`, endDate.AddDate(0, 0, 1), satGroup)
 	if err != nil {
 		return nil, merry.Wrap(err)
 	}
@@ -976,7 +1001,8 @@ func (cs *CountriesStat) Scan(src interface{}) error {
 			curValue = curValue*10 + int64(c-'0')
 			continue
 		}
-		if (c == ',' || c == '}') && stringStart == 0 {
+		// readingValue check is for the empty object ("{}"), it has no items to add
+		if (c == ',' || c == '}') && stringStart == 0 && readingValue {
 			if cs.items == nil {
 				cs.items = make(CountriesStatItemList, 0, 128) //usually there are 90-100 countries
 			}
@@ -992,6 +1018,7 @@ func HandleAPINodesCountries(wr http.ResponseWriter, r *http.Request, ps httprou
 
 	query := r.URL.Query()
 	startDate, endDate := extractStartEndDatesFromQuery(query, false)
+	satGroup := extractSatGroupFromQuery(query)
 	needAllCountries := query.Get("all") == "1"
 	lang := strings.ToLower(r.URL.Query().Get("lang"))
 
@@ -1005,7 +1032,7 @@ func HandleAPINodesCountries(wr http.ResponseWriter, r *http.Request, ps httprou
 			extract(epoch from created_at)::bigint AS stamp
 		FROM node_stats WHERE created_at >= ? AND created_at < ? AND sat_group = ?
 		ORDER BY created_at
-		`, startDate, endDate.AddDate(0, 0, 1), core.SatGroupAll)
+		`, startDate, endDate.AddDate(0, 0, 1), satGroup)
 	if err != nil {
 		return nil, merry.Wrap(err)
 	}
@@ -1031,7 +1058,8 @@ func HandleAPINodesCountries(wr http.ResponseWriter, r *http.Request, ps httprou
 			countries := make(CountriesStatItemList, len(item.Countries.items))
 			copy(countries, item.Countries.items)
 			countries.MoveLeftNLargest(countryFilterN)
-			for _, c := range countries[:countryFilterN] {
+			// a small satellites group may have nodes in less countries
+			for _, c := range countries[:min(countryFilterN, len(countries))] {
 				countryFilter[c.a3Code] = struct{}{}
 			}
 		}
@@ -1101,20 +1129,35 @@ func HandleAPINodesCountries(wr http.ResponseWriter, r *http.Request, ps httprou
 	return nil, nil
 }
 
+// HandleAPINodesCounts responds with little-endian binary data:
+//
+//	uint32 startStamp, uint32 countsLen
+//	countsLen * {uint16 h05, uint16 h8, uint16 h24, uint16 reported, uint16 offered30d} - hourly, from startStamp
+//	uint32 changesLen
+//	changesLen * {uint16 come, uint16 left} - daily, from startStamp
+//
+// It is the second version of the format, and "format=v2" is required. A page opened before the update
+// would read garbage as changesLen, so it gets an error instead.
+// The error must stay JSON: any other body would be parsed as the binary data.
 func HandleAPINodesCounts(wr http.ResponseWriter, r *http.Request, ps httprouter.Params) (interface{}, error) {
 	db := r.Context().Value(CtxKeyDB).(*pg.DB)
 
+	if r.URL.Query().Get("format") != "v2" {
+		return httputils.JsonError{Code: 400, Error: "UNSUPPORTED_FORMAT", Description: "reload the page"}, nil
+	}
 	startDate, endDate := extractStartEndDatesFromQuery(r.URL.Query(), false)
+	satGroup := extractSatGroupFromQuery(r.URL.Query())
 
-	var counts []struct{ H05, H8, H24, Stamp int64 }
+	var counts []struct{ H05, H8, H24, Offered30d, Stamp int64 }
 	_, err := db.Query(&counts, `
 		SELECT
 			(active_count_hours->'0.5')::int AS h05,
 			(active_count_hours->'8')::int AS h8,
 			(active_count_hours->'24')::int AS h24,
+			COALESCE((all_sat_offers_count_hours->'720')::int, 0) AS offered30d,
 			extract(epoch from created_at)::bigint AS stamp
 		FROM node_stats WHERE created_at >= ? AND created_at < ? AND sat_group = ?`,
-		startDate, endDate.AddDate(0, 0, 1), core.SatGroupAll)
+		startDate, endDate.AddDate(0, 0, 1), satGroup)
 	if err != nil {
 		return nil, merry.Wrap(err)
 	}
@@ -1131,19 +1174,26 @@ func HandleAPINodesCounts(wr http.ResponseWriter, r *http.Request, ps httprouter
 		return nil, merry.Wrap(err)
 	}
 
+	dailyKind := "active"
+	if satGroup != core.SatGroupAll {
+		dailyKind += ":" + satGroup
+	}
 	var changes []struct {
 		Date       time.Time
 		Delta      int64
 		Left, Come int64
 	}
+	// The very first row of a kind is skipped ("date > min(date)"): it had no previous day to compare with,
+	// so all its nodes are saved as "come" (e.g. +27k for a group on the day its stats began).
 	_, err = db.Query(&changes, `
 		SELECT date,
 			COALESCE(array_length(left_node_ids, 1), 0) AS left,
 			COALESCE(array_length(come_node_ids, 1), 0) AS come
 		FROM node_daily_stats
-		WHERE kind = 'active'
-		  AND date BETWEEN ?::date AND ?::date`,
-		startDate, endDate)
+		WHERE kind = ?0
+		  AND date BETWEEN ?1::date AND ?2::date
+		  AND date > (SELECT min(date) FROM node_daily_stats WHERE kind = ?0)`,
+		dailyKind, startDate, endDate)
 	if err != nil {
 		return nil, merry.Wrap(err)
 	}
@@ -1175,7 +1225,7 @@ func HandleAPINodesCounts(wr http.ResponseWriter, r *http.Request, ps httprouter
 		changes[i].Delta = delta
 	}
 
-	const COUNTS_ITEM_SIZE = 8
+	const COUNTS_ITEM_SIZE = 10
 	const CHANGES_ITEM_SIZE = 4
 	buf := make([]byte, 4+4+int(countsArrLen)*COUNTS_ITEM_SIZE+4+int(changesArrLen)*CHANGES_ITEM_SIZE)
 	fullBuf := buf
@@ -1187,15 +1237,15 @@ func HandleAPINodesCounts(wr http.ResponseWriter, r *http.Request, ps httprouter
 		binary.LittleEndian.PutUint16(buf[i*COUNTS_ITEM_SIZE+0:], uint16(count.H05))
 		binary.LittleEndian.PutUint16(buf[i*COUNTS_ITEM_SIZE+2:], uint16(count.H8))
 		binary.LittleEndian.PutUint16(buf[i*COUNTS_ITEM_SIZE+4:], uint16(count.H24))
+		binary.LittleEndian.PutUint16(buf[i*COUNTS_ITEM_SIZE+8:], uint16(count.Offered30d))
 	}
 	for _, count := range offCounts {
-		// off_node_stats also has third-party satellites, this is the official count
-		if core.SatelliteGroup(count.SatelliteHost) != core.SatGroupOfficial {
+		if satGroup != core.SatGroupAll && core.SatelliteGroup(count.SatelliteHost) != satGroup {
 			continue
 		}
 		i := (count.Stamp - startStamp) / 3600
 		s := buf[i*COUNTS_ITEM_SIZE+6:]
-		// finding max hour count among all satellites
+		// max hour count among the satellites
 		if uint16(count.Active) > binary.LittleEndian.Uint16(s) {
 			binary.LittleEndian.PutUint16(s, uint16(count.Active))
 		}

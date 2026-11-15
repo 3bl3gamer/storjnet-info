@@ -14,6 +14,12 @@ type BriefNode struct {
 	Address string       `json:"address"`
 }
 
+// SatNode is a satellite pinged for the main page.
+type SatNode struct {
+	BriefNode
+	Group string `json:"group"` //stats group, see SatelliteGroup
+}
+
 type Node struct {
 	BriefNode
 	PingMode      string    `json:"pingMode"`
@@ -94,23 +100,28 @@ func LoadUserNodes(db *pg.DB, user *User) ([]*Node, error) {
 	return nodes, nil
 }
 
-func LoadSatNodes(db *pg.DB, startDate, endDate time.Time) ([]*BriefNode, error) {
-	nodes := make([]*BriefNode, 0)
+func LoadSatNodes(db *pg.DB, startDate, endDate time.Time) ([]*SatNode, error) {
+	nodes := make([]*SatNode, 0)
 	_, err := db.Query(&nodes, `
 		SELECT node_id AS raw_id, address FROM user_nodes
-		WHERE user_id = (SELECT id FROM users WHERE username = 'satellites')
+		WHERE user_id IN (SELECT id FROM users WHERE username IN (?))
 		  AND EXISTS (
 			SELECT 1 FROM user_nodes_history
 			WHERE node_id = user_nodes.node_id
 			  AND user_id = user_nodes.user_id
 			  AND date BETWEEN ? AND ?
 		  )`,
-		startDate.Format("2006-01-02"), endDate.Format("2006-01-02"))
+		pg.In(SatUsernames()), startDate.Format("2006-01-02"), endDate.Format("2006-01-02"))
 	if err != nil {
 		return nil, merry.Wrap(err)
 	}
-	if err := ConvertBriefNodeIDs(nodes); err != nil {
-		return nil, merry.Wrap(err)
+	for _, node := range nodes {
+		id, err := storj.NodeIDFromBytes(node.RawID)
+		if err != nil {
+			return nil, merry.Wrap(err)
+		}
+		node.ID = id
+		node.Group = SatelliteGroup(node.Address)
 	}
 	return nodes, nil
 }

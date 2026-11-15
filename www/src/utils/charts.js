@@ -198,8 +198,8 @@ export function value2yLog(rect, view, value) {
 	return rect.top + rect.height - ((value - view.bottomValue) / view.height) * rect.height
 }
 /** @param {number} value */
-export function signed(value) {
-	return (value >= 0 ? '+' : '') + value
+export function signed(value, zeroSign = '+') {
+	return (value === 0 ? zeroSign : value > 0 ? '+' : '') + value
 }
 
 export const PING_UNDEF = 0
@@ -393,6 +393,7 @@ export function drawDailyComeLeftBars(
 	for (let [dayNum, dayDate, nextDayDate] of iterateDays(view.startStamp, view.endStamp, 1, true)) {
 		const come = comeValues[dayNum]
 		const left = leftValues[dayNum]
+		if (!come && !left) continue
 		const x0 = stamp2x(rect, view, dayDate)
 		const x1 = stamp2x(rect, view, nextDayDate)
 		const margin = 0.05
@@ -417,8 +418,8 @@ export function drawDailyComeLeftBars(
 		if (isHorizMode) {
 			rc.textAlign = 'center'
 			rc.textBaseline = 'bottom'
-			rc.fillText(signed(-left), (x0 + x1) / 2, textY)
-			rc.fillText(signed(come), (x0 + x1) / 2, textY - 12)
+			rc.fillText(signed(-left, '-'), (x0 + x1) / 2, textY)
+			rc.fillText(signed(come, '+'), (x0 + x1) / 2, textY - 12)
 		} else {
 			rc.textAlign = 'left'
 			rc.textBaseline = 'middle'

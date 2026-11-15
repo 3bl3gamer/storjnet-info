@@ -1,0 +1,9 @@
+.sat-group-control button {
+	font: inherit;
+	height: auto;
+	padding: 1px 6px;
+	margin: 0 1px;
+}
+.sat-group-control button.active {
+	background: lightgray;
+}

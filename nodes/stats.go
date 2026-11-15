@@ -27,19 +27,12 @@ type satGroup struct {
 // A node belongs to a group if it was offered by any of the group satellites at least once:
 // satellites do not offer full nodes, so "offered recently" would lose a lot of the alive ones.
 func loadSatGroups(db *pg.DB) ([]satGroup, error) {
-	var satNames []string
-	_, err := db.Query(&satNames, `SELECT DISTINCT satellite_name FROM nodes_sat_offers`)
+	namesByGroup, err := core.LoadSatNamesByGroupSlow(db)
 	if err != nil {
 		return nil, merry.Wrap(err)
 	}
-	namesByGroup := make(map[string][]string)
-	for _, satName := range satNames {
-		groupName := core.SatelliteGroup(satName)
-		namesByGroup[groupName] = append(namesByGroup[groupName], satName)
-	}
 	groups := make([]satGroup, 0, len(namesByGroup))
 	for groupName, names := range namesByGroup {
-		sort.Strings(names)
 		groups = append(groups, satGroup{name: groupName, satNames: names})
 	}
 	sort.Slice(groups, func(i, j int) bool { return groups[i].name < groups[j].name })
@@ -485,6 +478,9 @@ func saveOffStatsFile[T any, PT interface {
 		return
 	}
 	for satName, satData := range data {
+		if core.IsTestSatellite(satName) {
+			continue
+		}
 		if err := saveSatDetails(db, satName, PT(&satData)); err != nil {
 			errChan <- merry.Prepend(err, url)
 		}
