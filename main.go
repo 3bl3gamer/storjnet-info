@@ -165,7 +165,8 @@ func CMDStatNodes(cmd *cobra.Command, args []string) error {
 	nodeStats := statNodesGroup == "all" || statNodesGroup == "nodes"
 	dailyStats := statNodesGroup == "all" || statNodesGroup == "daily"
 	offStats := statNodesGroup == "all" || statNodesGroup == "official"
-	return merry.Wrap(nodes.SaveStats(nodeStats, dailyStats, offStats))
+	locationStats := statNodesGroup == "all" || statNodesGroup == "locations"
+	return merry.Wrap(nodes.SaveStats(nodeStats, dailyStats, offStats, locationStats))
 }
 
 func CMDSnapNodeLocations(cmd *cobra.Command, args []string) error {
@@ -225,7 +226,7 @@ func init() {
 	fetchNodesCmd.MarkFlagRequired("satellite")
 
 	flags = statNodesCmd.Flags()
-	flags.StringVar(&statNodesGroup, "group", "all", "stats group: nodes/daily/official/all")
+	flags.StringVar(&statNodesGroup, "group", "all", "stats group: nodes/daily/official/locations/all")
 
 	flags = printNodeLocationsCmd.Flags()
 	flags.StringVar(&nodeLocsSnapFPath, "file", nodes.LastFPathLabel, "path to .bin file")

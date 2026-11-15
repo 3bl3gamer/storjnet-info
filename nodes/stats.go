@@ -1,6 +1,7 @@
 package nodes
 
 import (
+	"context"
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
@@ -257,8 +258,87 @@ func saveGroupNodeStats(db *pg.DB, now time.Time, groupName string, satNames []s
 	return merry.Wrap(err)
 }
 
-// saveDailyStats saves which nodes are active today (and which have come and left since yesterday).
-// The arrays of node_daily_stats hold node_nums.num instead of the 32-byte node IDs.
+type nodeLocation struct{ Lon, Lat float32 }
+
+// encodeNodeLocations packs the coordinates the way /api/nodes/locations returns them:
+// 4 bytes per node, lon and lat scaled to uint16, little-endian, in the order of locs.
+// The result is never nil (nil would be saved as NULL).
+func encodeNodeLocations(locs []nodeLocation) []byte {
+	buf := make([]byte, len(locs)*4)
+	for i, loc := range locs {
+		lon := uint16((180 + loc.Lon) / 360 * 65536)
+		lat := uint16((90 + loc.Lat) / 180 * 65536)
+		buf[i*4+0] = byte(lon)
+		buf[i*4+1] = byte(lon >> 8)
+		buf[i*4+2] = byte(lat)
+		buf[i*4+3] = byte(lat >> 8)
+	}
+	return buf
+}
+
+// loadNodeLocations returns the encoded coordinates of the nodes that are active now and
+// have ever been offered by any of satNames. Empty satNames means no filtering (all nodes).
+func loadNodeLocations(db *pg.DB, satNames []string) ([]byte, error) {
+	// same group membership as in saveGroupNodeStats
+	filter := ""
+	var params []interface{}
+	if len(satNames) > 0 {
+		filter = `AND EXISTS (SELECT 1 FROM nodes_sat_offers WHERE node_id = nodes.id AND satellite_name = ANY(?))`
+		params = append(params, pg.Array(satNames))
+	}
+	var locs []nodeLocation
+	// Sorting by latitude improves compression ratio: 55kb -> 24kb (85kb uncompressed original).
+	// Sorting by (jsonb)::float8 is faster than just by jsonb.
+	_, err := db.Query(&locs, `
+		SELECT (location->'longitude')::float8 AS lon, (location->'latitude')::float8 AS lat
+		FROM nodes
+		WHERE location IS NOT NULL AND updated_at > NOW() - INTERVAL '1 day'
+		  `+filter+`
+		ORDER BY lat`, params...)
+	if err != nil {
+		return nil, merry.Wrap(err)
+	}
+	return encodeNodeLocations(locs), nil
+}
+
+// saveNodeLocations replaces node_last_locations with the coordinates of the nodes active now:
+// one row per satellites group plus one for all the nodes. /api/nodes/locations just returns these rows
+// (live query over nodes and nodes_sat_offers is too slow).
+func saveNodeLocations(db *pg.DB, groups []satGroup) error {
+	now := time.Now()
+	allCoords, err := loadNodeLocations(db, nil)
+	if err != nil {
+		return merry.Wrap(err)
+	}
+	names := []string{core.SatGroupAll}
+	coords := [][]byte{allCoords}
+	for _, group := range groups {
+		groupCoords, err := loadNodeLocations(db, group.satNames)
+		if err != nil {
+			return merry.Wrap(err)
+		}
+		names = append(names, group.name)
+		coords = append(coords, groupCoords)
+	}
+
+	// Upsert+delete (not delete+insert) so that two overlapping runs do not fail on the primary key.
+	err = db.RunInTransaction(context.Background(), func(tx *pg.Tx) error {
+		for i, name := range names {
+			_, err := tx.Exec(`
+				INSERT INTO node_last_locations (sat_group, created_at, coords) VALUES (?, ?, ?)
+				ON CONFLICT (sat_group) DO UPDATE SET created_at = EXCLUDED.created_at, coords = EXCLUDED.coords`,
+				name, now, coords[i])
+			if err != nil {
+				return merry.Wrap(err)
+			}
+		}
+		// rows of the groups that are gone
+		_, err := tx.Exec(`DELETE FROM node_last_locations WHERE NOT (sat_group = ANY(?))`, pg.Array(names))
+		return merry.Wrap(err)
+	})
+	return merry.Wrap(err)
+}
+
 func saveDailyStats(db *pg.DB, groups []satGroup, errors *[]error) {
 	// activeNodesSQL must return distinct node IDs as "id".
 	// Nodes seen for the first time get their numbers right in this query (new_node_nums).
@@ -527,17 +607,20 @@ func saveOffStats(db *pg.DB, errors *[]error) {
 	}
 }
 
-func SaveStats(nodeStats, dailyStats, offStats bool) error {
+func SaveStats(nodeStats, dailyStats, offStats, locationStats bool) error {
 	db := utils.MakePGConnection()
 
 	var errors []error
-	if nodeStats || dailyStats {
+	if nodeStats || dailyStats || locationStats {
 		groups, err := loadSatGroups(db)
 		if err != nil {
 			return merry.Wrap(err)
 		}
 		if nodeStats {
 			saveNodeStats(db, groups, &errors)
+		}
+		if locationStats {
+			errors = append(errors, saveNodeLocations(db, groups))
 		}
 		if dailyStats {
 			saveDailyStats(db, groups, &errors)

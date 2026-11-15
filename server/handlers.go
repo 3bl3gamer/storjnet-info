@@ -679,44 +679,20 @@ func HandleAPIStorjTokenTxSummary(wr http.ResponseWriter, r *http.Request, ps ht
 }
 
 func HandleAPINodesLocations(wr http.ResponseWriter, r *http.Request, ps httprouter.Params) (interface{}, error) {
-	db := r.Context().Value(ctxKey("db")).(*pg.DB)
+	db := r.Context().Value(CtxKeyDB).(*pg.DB)
+	satGroup := extractSatGroupFromQuery(r.URL.Query())
 
-	// same group membership as in stat-nodes: the node was offered by a satellite of the group at least once
-	groupFilter := ""
-	var params []interface{}
-	if satGroup := extractSatGroupFromQuery(r.URL.Query()); satGroup != core.SatGroupAll {
-		namesByGroup, err := core.LoadSatNamesByGroupSlow(db)
-		if err != nil {
-			return nil, merry.Wrap(err)
-		}
-		groupFilter = `AND EXISTS (SELECT 1 FROM nodes_sat_offers WHERE node_id = nodes.id AND satellite_name = ANY(?))`
-		params = append(params, pg.Array(namesByGroup[satGroup]))
-	}
-
-	var nodeLocations []struct{ Lon, Lat float32 }
-	// sorting improves compression ratio: 55kb -> 24kb (85kb uncompressed original)
-	// sorting by (jsonb)::float8 is faster than just by jsonb
-	_, err := db.Query(&nodeLocations, `
-		SELECT (location->'longitude')::float8 AS lon, (location->'latitude')::float8 AS lat
-		FROM nodes WHERE location IS NOT NULL AND updated_at > NOW() - INTERVAL '1 day'
-		  `+groupFilter+`
-		ORDER BY (location->'latitude')::float8`, params...)
-	if err != nil {
+	// The coordinates are prepared by stat-nodes (see saveNodeLocations in nodes/stats.go):
+	// 4 bytes per node, lon and lat as little-endian uint16, the nodes active for the last day.
+	// An unknown group has no row and gets an empty response.
+	var coords []byte
+	_, err := db.QueryOne(pg.Scan(&coords), `SELECT coords FROM node_last_locations WHERE sat_group = ?`, satGroup)
+	if err != nil && !merry.Is(err, pg.ErrNoRows) {
 		return nil, merry.Wrap(err)
 	}
 
-	buf := make([]byte, len(nodeLocations)*4)
-	for i, loc := range nodeLocations {
-		lon := uint16((180 + loc.Lon) / 360 * 65536)
-		lat := uint16((90 + loc.Lat) / 180 * 65536)
-		buf[i*4+0] = byte(lon % 256)
-		buf[i*4+1] = byte(lon >> 8)
-		buf[i*4+2] = byte(lat % 256)
-		buf[i*4+3] = byte(lat >> 8)
-	}
-
 	wr.Header().Set("Content-Type", "application/octet-stream")
-	_, err = wr.Write(buf)
+	_, err = wr.Write(coords)
 	return nil, merry.Wrap(err)
 }
 
