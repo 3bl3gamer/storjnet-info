@@ -1,10 +1,10 @@
 module storjnet
 
-go 1.25.0
+go 1.26.0
 
 require (
 	github.com/3bl3gamer/go-http-utils v0.0.7
-	github.com/ansel1/merry v1.8.1
+	github.com/ansel1/merry v1.8.3
 	github.com/blang/semver v3.5.1+incompatible
 	github.com/go-pg/migrations/v8 v8.1.0
 	github.com/go-pg/pg/v10 v10.15.1
@@ -14,9 +14,9 @@ require (
 	github.com/oschwald/geoip2-golang v1.13.0
 	github.com/rs/zerolog v1.35.1
 	github.com/spf13/cobra v1.10.2
-	golang.org/x/net v0.55.0
-	golang.org/x/sys v0.46.0
-	storj.io/common v0.0.0-20260903112600-b776c2238d07
+	golang.org/x/net v0.62.0
+	golang.org/x/sys v0.50.0
+	storj.io/common v0.0.0-20261113074338-280cbef23648
 	storj.io/uplink v1.14.5
 )
 
@@ -30,7 +30,7 @@ require (
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/jinzhu/inflection v1.0.0 // indirect
 	github.com/jtolio/noiseconn v0.0.0-20231127013910-f6d9ecbf1de7 // indirect
-	github.com/klauspost/compress v1.17.11 // indirect
+	github.com/klauspost/compress v1.18.7 // indirect
 	github.com/klauspost/cpuid/v2 v2.2.9 // indirect
 	github.com/mattn/go-colorable v0.1.14 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
@@ -46,8 +46,8 @@ require (
 	github.com/vmihailenco/tagparser/v2 v2.0.0 // indirect
 	github.com/zeebo/blake3 v0.2.4 // indirect
 	github.com/zeebo/errs v1.4.0 // indirect
-	golang.org/x/crypto v0.53.0 // indirect
-	golang.org/x/sync v0.21.0 // indirect
+	golang.org/x/crypto v0.58.0 // indirect
+	golang.org/x/sync v0.24.0 // indirect
 	mellium.im/sasl v0.3.2 // indirect
 	storj.io/drpc v1.0.0 // indirect
 	storj.io/infectious v1.0.1 // indirect
