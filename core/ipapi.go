@@ -1,7 +1,9 @@
 package core
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"net/url"
@@ -122,12 +124,12 @@ func checkIPAPIFreeDailyLimit(db DBTx) error {
 	return nil
 }
 
-// countIPAPIRequestIfSent increments today's requests counter
-// if the request was successful (returned fetchErr is nil).
-// Timeouts and other errors are not counted.
+// countIPAPIRequestIfSent increments today's requests counter if the request was successful
+// (returned fetchErr is nil) or timed out (ipapi counts them as usual; except DNS timeouts which are rare).
+// Other errors are not counted.
 func countIPAPIRequestIfSent(db DBTx, fetchErr error) error {
 	// not sure about ErrIncolumitasNoData, let's assume it is counted as normal request
-	if fetchErr != nil && !merry.Is(fetchErr, ErrIncolumitasNoData) {
+	if fetchErr != nil && !merry.Is(fetchErr, ErrIncolumitasNoData, context.DeadlineExceeded) {
 		return nil
 	}
 	_, err := db.Exec(`
@@ -141,12 +143,19 @@ func countIPAPIRequestIfSent(db DBTx, fetchErr error) error {
 	return merry.Wrap(err)
 }
 
+// hideIPAPIKey removes the key from the error text. The *url.Error returned by http.Client.Do
+// is edited in place, so its chain stays intact (countIPAPIRequestIfSent checks it for timeouts).
 func hideIPAPIKey(err error, key string) error {
 	if err == nil {
 		return nil
 	}
+	mask := "<" + ipapiKeyEnvName + ">"
+	var uErr *url.Error
+	if errors.As(err, &uErr) {
+		uErr.URL = strings.ReplaceAll(uErr.URL, key, mask)
+	}
 	if msg := err.Error(); strings.Contains(msg, key) {
-		return merry.New(strings.ReplaceAll(msg, key, "<"+ipapiKeyEnvName+">"))
+		return merry.New(strings.ReplaceAll(msg, key, mask))
 	}
 	return err
 }

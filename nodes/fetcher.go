@@ -33,6 +33,12 @@ const (
 	// satellite only derives the byte allowance of the order limits from it, and those limits
 	// are never used for an actual upload, so the exact value does not matter here.
 	maxEncryptedSegmentSize = int64(67254016)
+
+	// How much time to spend on ASN updates and IP updates (so this time is doubled).
+	// If ipaip.is hangs, a lot of fetcher processes can remain running and eat up all memory.
+	maxIpapiLoopDuration = 10 * time.Second
+	// Pause after each ipapi.is request. For some reason it starts returning timeouts on bursts.
+	ipapiRequestDelay = 2 * time.Second
 )
 
 func FetchAndProcess(satelliteAddress string, socksProxy string) error {
@@ -278,10 +284,10 @@ func saveLimits(db *pg.DB, gdb, asndb *utils.GeoIPConn, satelliteAddress string,
 	for _, ip := range ipsToUpdate {
 		// if IPs updates took too long for some reason, skipping remaining updates,
 		// otherwise a lot of fetcher processes can remain running and eat up all memory
-		if time.Since(ipsUpdStart) > 10*time.Second {
+		if time.Since(ipsUpdStart) > maxIpapiLoopDuration {
 			break
 		}
-		if _, err := core.UpdateIPCompanyIfNeed(db, ip); err != nil {
+		if hasUpdated, err := core.UpdateIPCompanyIfNeed(db, ip); err != nil {
 			// expected to happen daily, not an error
 			if merry.Is(err, core.ErrIPAPIDailyLimit) {
 				log.Debug().Err(err).Msg("skipping IP companies update")
@@ -293,6 +299,9 @@ func saveLimits(db *pg.DB, gdb, asndb *utils.GeoIPConn, satelliteAddress string,
 			if merry.Is(err, core.ErrIncolumitasTooManyRequests) || merry.Is(err, core.ErrIncolumitasKeyNotSet) {
 				break
 			}
+			if hasUpdated {
+				time.Sleep(ipapiRequestDelay)
+			}
 		}
 	}
 
@@ -300,10 +309,10 @@ func saveLimits(db *pg.DB, gdb, asndb *utils.GeoIPConn, satelliteAddress string,
 	for _, asn := range asnsToUpdate {
 		// if ASN updates took too long for some reason, skipping remaining updates,
 		// otherwise a lot of fetcher processes can remain running and eat up all memory
-		if time.Since(asnUpdStart) > 10*time.Second {
+		if time.Since(asnUpdStart) > maxIpapiLoopDuration {
 			break
 		}
-		if _, err := core.UpdateASInfoIfNeed(db, asn); err != nil {
+		if hasUpdated, err := core.UpdateASInfoIfNeed(db, asn); err != nil {
 			if merry.Is(err, core.ErrIPAPIDailyLimit) {
 				log.Debug().Err(err).Msg("skipping AS info update")
 				break
@@ -311,6 +320,9 @@ func saveLimits(db *pg.DB, gdb, asndb *utils.GeoIPConn, satelliteAddress string,
 			log.Error().Err(err).Int64("asn", asn).Msg("failed to update AS info")
 			if merry.Is(err, core.ErrIncolumitasTooManyRequests) || merry.Is(err, core.ErrIncolumitasKeyNotSet) {
 				break
+			}
+			if hasUpdated {
+				time.Sleep(ipapiRequestDelay)
 			}
 		}
 	}
