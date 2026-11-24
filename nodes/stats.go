@@ -425,12 +425,17 @@ type OffWithSatDetails interface {
 	SetSatDetails(id storj.NodeID, host string)
 }
 type OffSatelliteDetails struct {
-	SatelliteID   storj.NodeID `json:"-"`
-	SatelliteHost string       `json:"-"`
+	// nil (NULL) if the source gives only the host. A pointer since go-pg inserts a zero field as DEFAULT
+	// and reads it back with RETURNING, and storj.NodeID can not be scanned from NULL.
+	SatelliteID   *storj.NodeID `json:"-"`
+	SatelliteHost string        `json:"-"`
 }
 
 func (d *OffSatelliteDetails) SetSatDetails(id storj.NodeID, host string) {
-	d.SatelliteID = id
+	d.SatelliteID = nil
+	if !id.IsZero() {
+		d.SatelliteID = &id
+	}
 	d.SatelliteHost = host
 }
 
@@ -548,6 +553,7 @@ var offStatsSources = []struct {
 }
 
 // saveOffStatsFile fetches {"id@host:port": {...stats...}, ...} and saves one row per satellite.
+// Keys may also be plain "host:port" (stats.storkspace.net since 2026-11), satellite_id is NULL then.
 func saveOffStatsFile[T any, PT interface {
 	*T
 	OffWithSatDetails

@@ -76,16 +76,20 @@ func LoadSatNamesByGroupSlow(db *pg.DB) (map[string][]string, error) {
 }
 
 // SatelliteIDAndHost splits "id@host:port" (port is optional).
+// The id is optional too: for a plain "host:port" it is zero (stats.storkspace.net has no satellite IDs).
 func SatelliteIDAndHost(name string) (storj.NodeID, string, error) {
-	hostIndex := strings.Index(name, "@")
-	if hostIndex < 0 {
-		return storj.NodeID{}, "", merry.Errorf("'@' not found in node name: %s", name)
+	var id storj.NodeID
+	if idStr, _, hasID := strings.Cut(name, "@"); hasID {
+		var err error
+		if id, err = storj.NodeIDFromString(idStr); err != nil {
+			return storj.NodeID{}, "", merry.Wrap(err)
+		}
 	}
-	id, err := storj.NodeIDFromString(name[:hostIndex])
-	if err != nil {
-		return storj.NodeID{}, "", merry.Wrap(err)
+	host := satelliteHost(name)
+	if host == "" {
+		return storj.NodeID{}, "", merry.Errorf("no host in satellite name: %q", name)
 	}
-	return id, satelliteHost(name), nil
+	return id, host, nil
 }
 
 func satelliteHost(nameOrHost string) string {

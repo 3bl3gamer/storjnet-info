@@ -67,7 +67,19 @@ func Test_SatelliteIDAndHost(t *testing.T) {
 		t.Errorf("wrong id/host: %s, %s", id, host)
 	}
 
-	if _, _, err := SatelliteIDAndHost("sj.storkspace.net:1111"); err == nil {
-		t.Error("expected an error for a name without id")
+	for _, name := range []string{"sj.storkspace.net:1111", "sj.storkspace.net"} {
+		id, host, err := SatelliteIDAndHost(name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !id.IsZero() || host != "sj.storkspace.net" {
+			t.Errorf("%s: wrong id/host: %s, %s", name, id, host)
+		}
+	}
+
+	for _, name := range []string{"", ":1111", "1yjgPDnv1XRSh6emyQA2VZP1nquivTN8usC2BkFYDL2BbGB2nH@", "bad@sj.storkspace.net:1111"} {
+		if _, _, err := SatelliteIDAndHost(name); err == nil {
+			t.Errorf("%q: expected an error", name)
+		}
 	}
 }
